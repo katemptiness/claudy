@@ -17,22 +17,110 @@ CODING_APPS = {
     "com.jetbrains.pycharm",
 }
 
+# Bundle IDs that should trigger the "music" activity
+MUSIC_APPS = {
+    "com.spotify.client",
+    "com.apple.Music",
+}
+
 # Bundle ID → possible phrases
 APP_PHRASES = {
-    "com.apple.Safari": ["о, опять сидим в Интернете?", "Safari? ну ладно..."],
-    "com.vivaldi.Vivaldi": ["о, опять сидим в Интернете?"],
-    "com.google.Chrome": ["о, опять сидим в Интернете?"],
-    "com.googlecode.iterm2": ["хакерское время!", "терминал? кодим!"],
-    "com.apple.Terminal": ["хакерское время!"],
-    "com.microsoft.VSCode": ["кодим? кодим.", "VS Code!"],
-    "com.sublimetext.4": ["кодим? кодим."],
-    "com.spotify.client": ["о, музыка! 🎵", "что слушаем?"],
-    "com.apple.Music": ["о, музыка! 🎵"],
-    "ru.keepcoder.Telegram": ["кто-то написал?", "Telegram!"],
-    "com.tdesktop.Telegram": ["кто-то написал?"],
-    "com.apple.finder": ["ищем что-то?"],
-    "com.apple.Photos": ["о, фоточки!"],
-    "com.anthropic.claudefordesktop": ["о, это же я! ну, почти...", ":3"],
+    # Browsers
+    "com.apple.Safari": [
+        "о, опять сидим в Интернете?", "Safari? ну ладно...",
+        "что гуглим?", "интернет! бесконечный...",
+    ],
+    "com.vivaldi.Vivaldi": [
+        "о, опять сидим в Интернете?", "что гуглим?",
+        "интернет! бесконечный...", "опять мемы?",
+    ],
+    "com.google.Chrome": [
+        "о, опять сидим в Интернете?", "что гуглим?",
+        "Chrome съел всю память!", "интернет! бесконечный...",
+    ],
+    "org.mozilla.firefox": [
+        "о, опять сидим в Интернете?", "что гуглим?",
+        "Firefox! олдскул", "интернет! бесконечный...",
+    ],
+    "company.thebrowser.Browser": [
+        "о, опять сидим в Интернете?", "Arc! стильно",
+        "что гуглим?", "интернет! бесконечный...",
+    ],
+    # Terminals
+    "com.googlecode.iterm2": [
+        "хакерское время!", "терминал? кодим!",
+        "sudo краб!", "о, командная строка!",
+    ],
+    "com.apple.Terminal": [
+        "хакерское время!", "терминал? кодим!",
+        "sudo краб!", "о, командная строка!",
+    ],
+    "dev.warp.Warp-Stable": [
+        "хакерское время!", "терминал? кодим!",
+        "о, Warp! красиво", "sudo краб!",
+    ],
+    # Code editors
+    "com.microsoft.VSCode": [
+        "кодим? кодим.", "VS Code!",
+        "время писать код!", "баги не ждут!", "а юнит-тесты?",
+    ],
+    "com.sublimetext.4": [
+        "кодим? кодим.", "Sublime!",
+        "время писать код!", "баги не ждут!",
+    ],
+    "com.jetbrains.pycharm": [
+        "кодим? кодим.", "PyCharm!",
+        "время писать код!", "баги не ждут!",
+    ],
+    # Music
+    "com.spotify.client": [
+        "о, музыка! 🎵", "что слушаем?",
+        "♪ ля-ля-ля ♪", "потанцуем?", "хороший вкус!",
+    ],
+    "com.apple.Music": [
+        "о, музыка! 🎵", "что слушаем?",
+        "♪ ля-ля-ля ♪", "потанцуем?", "хороший вкус!",
+    ],
+    # Messengers
+    "ru.keepcoder.Telegram": [
+        "кто-то написал?", "Telegram!",
+        "сплетни? 👀", "кому отвечаем?",
+    ],
+    "com.tdesktop.Telegram": [
+        "кто-то написал?", "Telegram!",
+        "сплетни? 👀", "кому отвечаем?",
+    ],
+    # Finder & system
+    "com.apple.finder": [
+        "ищем что-то?", "где же этот файл...",
+        "столько папок!", "порядок наведём?",
+    ],
+    "com.apple.Photos": [
+        "о, фоточки!", "красивое!",
+        "а это кто? 👀", "📸!",
+    ],
+    # Claude
+    "com.anthropic.claudefordesktop": [
+        "о, это же я! ну, почти...", ":3",
+        "привет, другая я!", "мы похожи!",
+    ],
+    # Text editors
+    "com.microsoft.Word": [
+        "пишем роман?", "вдохновение пришло?",
+        "слова, слова, слова...", "творим!",
+    ],
+    "abnerworks.Typora": [
+        "пишем роман?", "markdown! красиво",
+        "вдохновение пришло?", "творим!",
+    ],
+    "com.apple.iWork.Pages": [
+        "пишем роман?", "вдохновение пришло?",
+        "слова, слова, слова...", "творим!",
+    ],
+    "net.ia.iaWriter": [
+        "пишем роман?", "вдохновение пришло?",
+        "минимализм! нравится", "творим!",
+    ],
 }
 
 
@@ -95,6 +183,8 @@ class SystemEventHandler:
                         delegate.dock_y
                     )
 
-        # Trigger working activity when user opens a coding app
+        # Mirror user activity
         if bundle_id in CODING_APPS:
             self.character.trigger_activity("working")
+        elif bundle_id in MUSIC_APPS:
+            self.character.trigger_activity("music")

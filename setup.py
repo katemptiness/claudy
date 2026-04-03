@@ -21,6 +21,18 @@ OPTIONS = {
         'LSUIElement': True,  # No Dock icon (the crab IS on the Dock)
     },
     'packages': ['sprites'],
+    'excludes': [
+        'numpy', 'docutils', 'setuptools', 'pkg_resources',
+        'unittest', 'email', 'html', 'http', 'xml', 'pydoc',
+        'tkinter', 'PIL', 'matplotlib', 'scipy', 'pandas',
+        'wheel', 'pip', 'distutils', 'test',
+    ],
+    'includes': [
+        'objc', 'AppKit', 'Quartz', 'Foundation',
+        'config', 'character', 'sprite_renderer', 'particles',
+        'animations', 'speech', 'schedule', 'system_events',
+        'settings', 'phrases',
+    ],
 }
 
 setup(

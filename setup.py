@@ -9,7 +9,17 @@ The app will be created in dist/Little Claude.app
 
 from setuptools import setup
 
+import os
+
 APP = ['app.py']
+
+# Find libffi for bundling (needed by ctypes/PyObjC)
+_conda = os.path.expanduser('~/anaconda3/lib')
+FRAMEWORKS = []
+_libffi = os.path.join(_conda, 'libffi.8.dylib')
+if os.path.exists(_libffi):
+    FRAMEWORKS.append(_libffi)
+
 OPTIONS = {
     'argv_emulation': False,
     'plist': {
@@ -23,7 +33,7 @@ OPTIONS = {
     'packages': ['sprites'],
     'excludes': [
         'numpy', 'docutils', 'setuptools', 'pkg_resources',
-        'unittest', 'email', 'html', 'http', 'xml', 'pydoc',
+        'unittest', 'html', 'http', 'pydoc',
         'tkinter', 'PIL', 'matplotlib', 'scipy', 'pandas',
         'wheel', 'pip', 'distutils', 'test',
     ],
@@ -33,6 +43,7 @@ OPTIONS = {
         'animations', 'speech', 'schedule', 'system_events',
         'settings', 'phrases',
     ],
+    'frameworks': FRAMEWORKS,
 }
 
 setup(

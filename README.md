@@ -1,4 +1,4 @@
-# Little Claude
+# Claudy
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS-blue" alt="macOS">
@@ -6,15 +6,15 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
 
-A tiny pixel-art crab companion that lives on your macOS Dock. It reads books, catches fish, does magic, writes code, and generally goes about its little crab life — all on its own.
+A tiny pixel-art crab companion that lives on your macOS Dock. It reads books, catches fish, does magic, writes code, and generally goes about its little crab life — all on its own. Formerly known as Little Claude.
 
 <p align="center">
-  <img src="screens/screen1.png" width="280" alt="Little Claude juggling">
-  <img src="screens/screen2.png" width="280" alt="Little Claude idle">
-  <img src="screens/screen3.png" width="280" alt="Little Claude on the Dock">
+  <img src="screens/screen1.png" width="280" alt="Claudy juggling">
+  <img src="screens/screen2.png" width="280" alt="Claudy idle">
+  <img src="screens/screen3.png" width="280" alt="Claudy on the Dock">
 </p>
 
-**Little Claude is not a tamagotchi.** It has no needs, no health bars, no demands. It's a self-sufficient creature with its own schedule, moods, and activities. You're just an observer — and sometimes a friend.
+**Claudy is not a tamagotchi.** It has no needs, no health bars, no demands. It's a self-sufficient creature with its own schedule, moods, and activities. You're just an observer — and sometimes a friend.
 
 ## What it does
 
@@ -32,8 +32,8 @@ A tiny pixel-art crab companion that lives on your macOS Dock. It reads books, c
 
 ```bash
 # Clone the repo
-git clone https://github.com/katemptiness/little-Claude.git
-cd little-Claude
+git clone https://github.com/katemptiness/claudy.git
+cd claudy
 
 # Install dependencies
 pip install pyobjc pyobjc-framework-Quartz
@@ -47,7 +47,7 @@ python3 app.py
 ```bash
 pip install py2app
 python setup.py py2app
-open "dist/Little Claude.app"
+open "dist/Claudy.app"
 ```
 
 Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the screen.
@@ -60,7 +60,7 @@ Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the sc
 | Click | Happy bounce + sparkles + hearts |
 | Double-click | Opens Claude.app |
 | Drag & drop | Surprised face, falls back to Dock with gravity |
-| Right-click | Context menu (Open Claude, Open Claude Code, Settings, About, Quit) |
+| Right-click | Context menu (Open Claude, Open Claude Code, Settings, About Claudy, Quit) |
 
 ## Architecture
 
@@ -94,7 +94,7 @@ Right-click → Settings to configure:
 | Language | Русский / English | Русский |
 | Speech frequency | Often (10s) / Normal (1 min) / Rarely (10 min) / Very rarely (30 min) / Almost never (1 hr) | Normal |
 
-Settings are saved to `~/.little-claude/settings.json`.
+Settings are saved to `~/.claudy/settings.json`.
 
 ## Credits
 

@@ -1,4 +1,4 @@
-"""Settings persistence and UI for Little Claude."""
+"""Settings persistence and UI for Claudy."""
 
 import json
 import os
@@ -6,7 +6,7 @@ import AppKit
 import objc
 from phrases import set_language
 
-SETTINGS_DIR = os.path.expanduser("~/.little-claude")
+SETTINGS_DIR = os.path.expanduser("~/.claudy")
 SETTINGS_FILE = os.path.join(SETTINGS_DIR, "settings.json")
 
 DEFAULTS = {
@@ -132,7 +132,7 @@ class SettingsWindow(AppKit.NSObject):
             False,
         )
         self.window.setReleasedWhenClosed_(False)
-        self.window.setTitle_("Little Claude — Settings")
+        self.window.setTitle_("Claudy — Settings")
         self.window.center()
 
         content = self.window.contentView()

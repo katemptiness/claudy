@@ -1,4 +1,4 @@
-"""Constants and configuration for Little Claude."""
+"""Constants and configuration for Claudy."""
 
 # Sprite grid
 GRID = 16

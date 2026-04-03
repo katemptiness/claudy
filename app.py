@@ -1,4 +1,4 @@
-"""Little Claude — desktop companion for macOS."""
+"""Claudy — desktop companion for macOS."""
 
 import random
 import time
@@ -145,7 +145,7 @@ class CrabView(AppKit.NSView):
             delegate.character._enter_idle()
 
     def rightMouseDown_(self, event):
-        menu = AppKit.NSMenu.alloc().initWithTitle_("Little Claude")
+        menu = AppKit.NSMenu.alloc().initWithTitle_("Claudy")
 
         open_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
             "Open Claude", "openClaude:", "")
@@ -165,7 +165,7 @@ class CrabView(AppKit.NSView):
         menu.addItem_(settings_item)
 
         about_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
-            "About Little Claude", "showAbout:", "")
+            "About Claudy", "showAbout:", "")
         about_item.setTarget_(AppKit.NSApp.delegate())
         menu.addItem_(about_item)
 
@@ -361,7 +361,7 @@ class AppDelegate(AppKit.NSObject):
 
     def showAbout_(self, sender):
         alert = AppKit.NSAlert.alloc().init()
-        alert.setMessageText_("Little Claude")
+        alert.setMessageText_("Claudy")
         alert.setInformativeText_(
             "A little pixel crab companion for your desktop.\n\n"
             "Made by katemptiness & Claude Opus\n"

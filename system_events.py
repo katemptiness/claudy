@@ -34,12 +34,14 @@ class SystemEventHandler:
         nc = ws.notificationCenter()
 
         nc.addObserver_selector_name_object_(
-            self, "handleSleep:", "NSWorkspaceWillSleepNotification", None)
+            self, "handleSleep:",
+            AppKit.NSWorkspaceWillSleepNotification, None)
         nc.addObserver_selector_name_object_(
-            self, "handleWake:", "NSWorkspaceDidWakeNotification", None)
+            self, "handleWake:",
+            AppKit.NSWorkspaceDidWakeNotification, None)
         nc.addObserver_selector_name_object_(
             self, "handleAppLaunch:",
-            "NSWorkspaceDidLaunchApplicationNotification", None)
+            AppKit.NSWorkspaceDidLaunchApplicationNotification, None)
 
     def handleSleep_(self, notification):
         self.character.state = "sleeping"
@@ -68,7 +70,12 @@ class SystemEventHandler:
         phrases = APP_PHRASES.get(bundle_id)
         if phrases:
             phrase = random.choice(phrases)
-            # Only react if not already reacting
             if not self.character.state.startswith("reaction_"):
                 self.character.current_message = phrase
-                self.character.events.append(("message", phrase))
+                # Show speech bubble directly via app delegate
+                delegate = AppKit.NSApp.delegate()
+                if delegate and hasattr(delegate, 'speech'):
+                    delegate.speech.show(
+                        phrase, self.character.x,
+                        delegate.dock_y
+                    )

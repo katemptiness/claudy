@@ -12,9 +12,9 @@ A tiny pixel-art crab companion that lives on your macOS Dock. It reads books, c
 
 ## What it does
 
-- Wanders along the Dock, performing 14 different activities: reading, fishing, magic, coding, sleeping, playing, painting, stargazing, building sandcastles, meditating, juggling, and listening to music
+- Wanders along the Dock, performing 13 different activities: reading, fishing, magic, coding, sleeping, playing, painting, stargazing, meditating, juggling, and listening to music
 - Follows a night-owl schedule — sleeps from 4am to 11am, most active during the day, calms down in the evening
-- Reacts to clicks (sparkles!), triple-clicks (hearts!), hover (waves hello), and drag-and-drop (surprise + gravity bounce)
+- Reacts to clicks (sparkles + hearts!), hover (waves hello), and drag-and-drop (surprise + gravity bounce)
 - Notices when you launch apps and comments on them
 - Sleeps when your Mac sleeps, yawns when it wakes up
 - Occasionally says things in cute speech bubbles (in Russian)
@@ -41,9 +41,8 @@ Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the sc
 | Action | What happens |
 |--------|-------------|
 | Hover | Waves hello |
-| Click | Happy bounce + sparkles |
+| Click | Happy bounce + sparkles + hearts |
 | Double-click | Opens Claude.app |
-| Triple-click | Heart eyes + floating hearts |
 | Drag & drop | Surprised face, falls back to Dock with gravity |
 | Right-click | Context menu (Open Claude, About, Quit) |
 

@@ -91,12 +91,6 @@ ACTIVITIES = {
               particle="star", particle_interval_ms=1500),
         Phase(["idle"], 500, 1000),
     ],
-    "sandcastle": [
-        Phase(["sand_a"], 500, 1000, message="лепит..."),
-        Phase(["sand_a", "sand_b"], 400, 3000),
-        Phase(["sand_c"], 500, 1500, message="ну, он же краб"),
-        Phase(["idle"], 500, 1000),
-    ],
     "meditating": [
         Phase(["meditate_a"], 500, 6000, message="ом...",
               particle="sparkle", particle_interval_ms=2000),
@@ -141,11 +135,11 @@ class Character:
         # State
         self.state = "idle"  # "idle", "walking", or an activity name
         self.state_timer = 0.0
-        self.next_state_change = random.uniform(3000, 7000)
+        self.next_state_change = random.uniform(8000, 20000)
 
         # Walking
         self.target_x = self.x
-        self.walk_speed = 0.06  # px/ms
+        self.walk_speed = 0.04  # px/ms
         self.facing_right = True
 
         # Sprite frame cycling
@@ -338,7 +332,7 @@ class Character:
     def _enter_idle(self):
         self.state = "idle"
         self.state_timer = 0
-        self.next_state_change = random.uniform(3000, 7000)
+        self.next_state_change = random.uniform(8000, 20000)
         self.current_message = None
 
     def _start_walking(self):
@@ -422,7 +416,10 @@ class Character:
         # Reactions
         if self.state == "reaction_happy":
             return "happy"
-        if self.state == "reaction_love":
+        if self.state == "reaction_happy_love":
+            # Show happy first, then love sprite in second half
+            if self.state_timer < self.reaction_duration / 2:
+                return "happy"
             return "love"
         if self.state == "reaction_wave":
             return "wave"
@@ -455,13 +452,20 @@ class Character:
             for _ in range(4):
                 self.events.append(("particle", "sparkle"))
 
-        elif reaction == "love":
-            self.state = "reaction_love"
+        elif reaction == "happy_love":
+            # Combined: happy bounce + sparkles, then love hearts
+            self.state = "reaction_happy_love"
             self.state_timer = 0
-            self.reaction_duration = 2500
-            self.current_message = "♥♥♥"
+            self.reaction_duration = 3000
+            self.is_bouncing = True
+            self.bounce_phase = 0
+            self.current_message = random.choice(
+                ["привет! :3", "о!", "рада тебя видеть", ":3", "♥"]
+            )
             self.events.append(("message", self.current_message))
-            for _ in range(6):
+            for _ in range(4):
+                self.events.append(("particle", "sparkle"))
+            for _ in range(3):
                 self.events.append(("particle", "heart"))
 
         elif reaction == "wave":
@@ -488,9 +492,9 @@ class Character:
         if self.state_timer > self.reaction_duration:
             self._enter_idle()
 
-        # Love particles during reaction
-        if self.state == "reaction_love":
+        # Hearts during love/happy_love reactions
+        if self.state in ("reaction_love", "reaction_happy_love"):
             self.particle_timer += dt
-            if self.particle_timer > 300:
+            if self.particle_timer > 400:
                 self.particle_timer = 0
                 self.events.append(("particle", "heart"))

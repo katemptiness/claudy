@@ -6,9 +6,10 @@ import objc
 
 import AppKit
 import Quartz
+import signal
 from config import (
     SPRITE_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT,
-    SPRITE_OFFSET_X, SPRITE_OFFSET_Y, TICK_INTERVAL,
+    SPRITE_OFFSET_X, SPRITE_OFFSET_Y, TICK_INTERVAL, DOCK_Y_ADJUST,
 )
 from sprite_renderer import SpriteCache
 from sprites.base import ALL as BASE_SPRITES
@@ -28,7 +29,7 @@ def get_dock_top_y():
     dock_height = visible.origin.y - full.origin.y
     if dock_height < 10:
         dock_height = 70
-    return full.origin.y + dock_height
+    return full.origin.y + dock_height + DOCK_Y_ADJUST
 
 
 # Custom NSView for mouse event handling
@@ -88,15 +89,15 @@ class CrabView(AppKit.NSView):
         if self._click_count == 0:
             return
 
+        if not self._dragging:
+            self._dragging = True
+            delegate = AppKit.NSApp.delegate()
+            delegate.character.interrupt("dragging")
+
         screen_loc = AppKit.NSEvent.mouseLocation()
         new_x = screen_loc.x - (self._drag_offset[0] - self._drag_start_pos[0])
         new_y = screen_loc.y - (self._drag_offset[1] - self._drag_start_pos[1])
         self.window().setFrameOrigin_((new_x, new_y))
-
-        if not self._dragging:
-            self._dragging = True
-            delegate = AppKit.NSApp.delegate()
-            delegate.character.interrupt("surprise")
 
         # Update character position to match window
         delegate = AppKit.NSApp.delegate()
@@ -113,23 +114,21 @@ class CrabView(AppKit.NSView):
             self._click_count = 0
             return
 
-        if self._click_count >= 3:
-            delegate.character.interrupt("love")
-            self._click_count = 0
-        elif self._click_count == 2:
+        if self._click_count == 2:
             # Double-click: open Claude.app
             AppKit.NSWorkspace.sharedWorkspace().launchApplication_("Claude")
             self._click_count = 0
         elif self._click_count == 1:
             # Single click — delay to distinguish from double
             AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-                0.5, self, "singleClickFired:", None, False,
+                0.35, self, "singleClickFired:", None, False,
             )
 
     def singleClickFired_(self, timer):
         if self._click_count == 1:
             delegate = AppKit.NSApp.delegate()
-            delegate.character.interrupt("happy")
+            # Happy bounce + sparkles AND hearts
+            delegate.character.interrupt("happy_love")
         self._click_count = 0
 
     def mouseEntered_(self, event):
@@ -230,8 +229,7 @@ class AppDelegate(AppKit.NSObject):
             Quartz.CGWindowLevelForKey(Quartz.kCGMaximumWindowLevelKey)
         )
         self.window.setCollectionBehavior_(
-            AppKit.NSWindowCollectionBehaviorCanJoinAllSpaces
-            | AppKit.NSWindowCollectionBehaviorFullScreenAuxiliary
+            AppKit.NSWindowCollectionBehaviorFullScreenAuxiliary
             | AppKit.NSWindowCollectionBehaviorStationary
         )
         self.window.setIgnoresMouseEvents_(False)
@@ -457,6 +455,9 @@ class AppDelegate(AppKit.NSObject):
 
 
 def main():
+    # Handle Ctrl+C gracefully
+    signal.signal(signal.SIGINT, lambda *_: AppKit.NSApp.terminate_(None))
+
     app = AppKit.NSApplication.sharedApplication()
     delegate = AppDelegate.alloc().init()
     app.setDelegate_(delegate)

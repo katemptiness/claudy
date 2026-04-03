@@ -12,6 +12,9 @@ WINDOW_HEIGHT = 300
 SPRITE_OFFSET_X = (WINDOW_WIDTH - SPRITE_SIZE) // 2
 SPRITE_OFFSET_Y = 0  # bottom of window
 
+# Vertical offset to align crab feet with dock top
+DOCK_Y_ADJUST = -15
+
 # Palette: index -> (r, g, b, a) as floats 0.0-1.0
 PALETTE = {
     0: (0.0, 0.0, 0.0, 0.0),        # transparent

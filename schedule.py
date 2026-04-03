@@ -1,23 +1,38 @@
-"""Time-of-day schedule — night owl mode."""
+"""Time-of-day schedule — owl and lark modes."""
 
 from datetime import datetime
 
 
-def get_period(hour=None):
+def get_period(hour=None, mode=None):
     """Return the current day period name."""
     if hour is None:
         hour = datetime.now().hour
+    if mode is None:
+        from settings import Settings
+        mode = Settings.shared().schedule
 
-    if 4 <= hour < 11:
-        return "deep_sleep"
-    elif 11 <= hour < 13:
-        return "morning"
-    elif 13 <= hour < 20:
-        return "day"
-    elif 20 <= hour or hour < 1:
-        return "evening"
-    else:  # 1-4
-        return "late_night"
+    if mode == "lark":
+        if 22 <= hour or hour < 6:
+            return "deep_sleep"
+        elif 6 <= hour < 8:
+            return "morning"
+        elif 8 <= hour < 15:
+            return "day"
+        elif 15 <= hour < 20:
+            return "evening"
+        else:  # 20-22
+            return "late_night"
+    else:  # owl (default)
+        if 4 <= hour < 11:
+            return "deep_sleep"
+        elif 11 <= hour < 13:
+            return "morning"
+        elif 13 <= hour < 20:
+            return "day"
+        elif 20 <= hour or hour < 1:
+            return "evening"
+        else:  # 1-4
+            return "late_night"
 
 
 # Activity weights by period.

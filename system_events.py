@@ -2,6 +2,20 @@
 
 import AppKit
 import random
+from phrases import t
+
+# Bundle IDs that should trigger the "working" activity
+CODING_APPS = {
+    "com.googlecode.iterm2",
+    "com.apple.Terminal",
+    "com.microsoft.VSCode",
+    "com.sublimetext.4",
+    "com.sublimetext.3",
+    "dev.warp.Warp-Stable",
+    "com.github.atom",
+    "com.jetbrains.intellij",
+    "com.jetbrains.pycharm",
+}
 
 # Bundle ID → possible phrases
 APP_PHRASES = {
@@ -53,8 +67,9 @@ class SystemEventHandler:
 
     def handleWake_(self, notification):
         self.character._enter_idle()
-        self.character.current_message = "*зевает*"
-        self.character.events.append(("message", "*зевает*"))
+        msg = t("*зевает*")
+        self.character.current_message = msg
+        self.character.events.append(("message", msg))
 
     def handleAppLaunch_(self, notification):
         info = notification.userInfo()
@@ -69,7 +84,7 @@ class SystemEventHandler:
 
         phrases = APP_PHRASES.get(bundle_id)
         if phrases:
-            phrase = random.choice(phrases)
+            phrase = t(random.choice(phrases))
             if not self.character.state.startswith("reaction_"):
                 self.character.current_message = phrase
                 # Show speech bubble directly via app delegate
@@ -79,3 +94,7 @@ class SystemEventHandler:
                         phrase, self.character.x,
                         delegate.dock_y
                     )
+
+        # Trigger working activity when user opens a coding app
+        if bundle_id in CODING_APPS:
+            self.character.trigger_activity("working")

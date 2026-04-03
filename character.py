@@ -3,17 +3,20 @@
 import random
 from config import WINDOW_WIDTH, SPRITE_SIZE
 from schedule import get_weights
+from phrases import t
 
 
 class Phase:
     """A single phase within an activity sequence."""
 
     def __init__(self, frames, interval_ms=500, duration_ms=2000,
+                 duration_max_ms=None,
                  message=None, particle=None, particle_interval_ms=1000,
                  bounce=False, shake=False, special=None):
         self.frames = frames
         self.interval_ms = interval_ms
         self.duration_ms = duration_ms
+        self.duration_max_ms = duration_max_ms  # if set, duration is randomized
         self.message = message
         self.particle = particle
         self.particle_interval_ms = particle_interval_ms
@@ -26,11 +29,12 @@ class Phase:
 ACTIVITIES = {
     "reading": [
         Phase(["read_a"], 500, 800, message="берёт книжку..."),
-        Phase(["read_a", "read_b"], 600, 4000, message="читает...",
-              particle="page", particle_interval_ms=2000),
+        Phase(["read_a", "read_b"], 600, 60000, duration_max_ms=120000,
+              message="читает...", particle="page", particle_interval_ms=3000),
         Phase(["read_react"], 200, 1200, message="о! интересно!",
               particle="exclaim", bounce=True),
-        Phase(["read_a", "read_b"], 600, 3000, message="читает дальше..."),
+        Phase(["read_a", "read_b"], 600, 60000, duration_max_ms=120000,
+              message="читает дальше...", particle="page", particle_interval_ms=3000),
         Phase(["idle"], 500, 1500, message="закрыл книгу"),
     ],
     "sleeping": [
@@ -48,14 +52,15 @@ ACTIVITIES = {
     ],
     "working": [
         Phase(["work_a"], 400, 800, message="открывает ноутбук..."),
-        Phase(["work_a", "work_b"], 180, 3500, message="тук-тук-тук...",
-              particle="code", particle_interval_ms=600),
-        Phase(["work_think"], 500, 1500, message="хмм...",
-              particle="question", particle_interval_ms=1200),
-        Phase(["work_a", "work_b"], 150, 2500, message="ПИШЕТ КОД!!",
-              particle="code", particle_interval_ms=300, shake=True),
-        Phase(["magic_done"], 500, 1500, message="готово! ✨",
-              particle="sparkle", particle_interval_ms=200),
+        Phase(["work_a", "work_b"], 180, 60000, duration_max_ms=100000,
+              message="тук-тук-тук...", particle="code", particle_interval_ms=1500),
+        Phase(["work_think"], 500, 5000, duration_max_ms=15000,
+              message="хмм...", particle="question", particle_interval_ms=2000),
+        Phase(["work_a", "work_b"], 150, 60000, duration_max_ms=100000,
+              message="ПИШЕТ КОД!!", particle="code", particle_interval_ms=800,
+              shake=True),
+        Phase(["magic_done"], 500, 3000, message="готово! ✨",
+              particle="sparkle", particle_interval_ms=400),
         Phase(["idle"], 500, 1000),
     ],
     "fishing": [
@@ -124,6 +129,14 @@ MAGIC_RESULTS = [
 ]
 
 
+IDLE_PHRASES = [
+    "скучно...", "хм...", ":3", "думаю о рыбке...",
+    "тут красиво", "*зевает*", "...", "когда же рыбалка?",
+    "а что если...", "мне нравится тут", "интересно...",
+    "ля-ля-ля", "*смотрит вдаль*", "о чём бы подумать...",
+]
+
+
 class Character:
     """The crab's brain — state machine + animation engine."""
 
@@ -152,7 +165,12 @@ class Character:
         self.phase_index = 0
         self.phase_timer = 0.0
         self.particle_timer = 0.0
+        self.current_phase_duration = 0.0
         self.current_message = None
+
+        # Idle phrases
+        self.idle_phrase_timer = 0.0
+        self.idle_phrase_cooldown = random.uniform(45000, 90000)
 
         # Blink
         self.is_blinking = False
@@ -202,6 +220,17 @@ class Character:
 
     def _update_idle(self, dt):
         self.state_timer += dt
+
+        # Random idle phrases
+        self.idle_phrase_timer += dt
+        if self.idle_phrase_timer >= self.idle_phrase_cooldown:
+            self.idle_phrase_timer = 0
+            self.idle_phrase_cooldown = random.uniform(45000, 90000)
+            if random.random() < 0.3:
+                phrase = t(random.choice(IDLE_PHRASES))
+                self.current_message = phrase
+                self.events.append(("message", phrase))
+
         if self.state_timer > self.next_state_change:
             self._pick_next_activity()
 
@@ -245,7 +274,7 @@ class Character:
 
         # Check if phase is done
         self.phase_timer += dt
-        if self.phase_timer >= phase.duration_ms:
+        if self.phase_timer >= self.current_phase_duration:
             self._advance_phase()
 
     def _advance_phase(self):
@@ -269,11 +298,17 @@ class Character:
         self.frame_timer = 0
         self.frame_index = 0
         self.particle_timer = 0
+        if phase.duration_max_ms:
+            self.current_phase_duration = random.uniform(
+                phase.duration_ms, phase.duration_max_ms)
+        else:
+            self.current_phase_duration = phase.duration_ms
 
         # Set message
         if phase.message:
-            self.current_message = phase.message
-            self.events.append(("message", phase.message))
+            msg = t(phase.message)
+            self.current_message = msg
+            self.events.append(("message", msg))
 
         # Trigger effects
         if phase.bounce:
@@ -286,14 +321,15 @@ class Character:
         # Handle specials
         if phase.special == "cast_magic":
             result = random.choice(MAGIC_RESULTS)
-            self.current_message = result["text"]
-            self.events.append(("message", result["text"]))
+            msg = t(result["text"])
+            self.current_message = msg
+            self.events.append(("message", msg))
             for _ in range(8):
                 self.events.append(("particle", result["particles"]))
 
         elif phase.special == "fish_reveal":
             catch = random.choice(CATCHES)
-            msg = f"{catch['emoji']} {catch['name']}"
+            msg = f"{catch['emoji']} {t(catch['name'])}"
             self.current_message = msg
             self.events.append(("message", msg))
             for _ in range(5):
@@ -355,9 +391,15 @@ class Character:
         self.current_message = None
 
         phase = ACTIVITIES[name][0]
+        if phase.duration_max_ms:
+            self.current_phase_duration = random.uniform(
+                phase.duration_ms, phase.duration_max_ms)
+        else:
+            self.current_phase_duration = phase.duration_ms
         if phase.message:
-            self.current_message = phase.message
-            self.events.append(("message", phase.message))
+            msg = t(phase.message)
+            self.current_message = msg
+            self.events.append(("message", msg))
         if phase.bounce:
             self.is_bouncing = True
             self.bounce_phase = 0
@@ -437,6 +479,15 @@ class Character:
 
         return "idle"
 
+    def trigger_activity(self, name):
+        """Start a specific activity (e.g. triggered by user opening an app)."""
+        if name not in ACTIVITIES:
+            return
+        # Only interrupt idle or walking, don't break ongoing activities
+        if self.state not in ("idle", "walking"):
+            return
+        self._start_activity(name)
+
     def interrupt(self, reaction):
         """Interrupt current activity for a reaction (click, hover, etc.)."""
         if reaction == "happy":
@@ -445,9 +496,9 @@ class Character:
             self.reaction_duration = 2000
             self.is_bouncing = True
             self.bounce_phase = 0
-            self.current_message = random.choice(
+            self.current_message = t(random.choice(
                 ["привет! :3", "о!", "рада тебя видеть", ":3"]
-            )
+            ))
             self.events.append(("message", self.current_message))
             for _ in range(4):
                 self.events.append(("particle", "sparkle"))
@@ -459,9 +510,9 @@ class Character:
             self.reaction_duration = 3000
             self.is_bouncing = True
             self.bounce_phase = 0
-            self.current_message = random.choice(
+            self.current_message = t(random.choice(
                 ["привет! :3", "о!", "рада тебя видеть", ":3", "♥"]
-            )
+            ))
             self.events.append(("message", self.current_message))
             for _ in range(4):
                 self.events.append(("particle", "sparkle"))
@@ -472,7 +523,7 @@ class Character:
             self.state = "reaction_wave"
             self.state_timer = 0
             self.reaction_duration = 1500
-            self.current_message = random.choice(["хм?", "*машет*"])
+            self.current_message = t(random.choice(["хм?", "*машет*"]))
             self.events.append(("message", self.current_message))
 
         elif reaction == "surprise":

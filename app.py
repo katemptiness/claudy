@@ -19,6 +19,8 @@ from particles import ParticleSystem
 from animations import GravityDrop
 from system_events import SystemEventHandler
 from speech import SpeechBubble
+from settings import Settings, SettingsWindow
+from phrases import t
 
 
 def get_dock_top_y():
@@ -150,7 +152,17 @@ class CrabView(AppKit.NSView):
         open_item.setTarget_(AppKit.NSApp.delegate())
         menu.addItem_(open_item)
 
+        code_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "Open Claude Code", "openClaudeCode:", "")
+        code_item.setTarget_(AppKit.NSApp.delegate())
+        menu.addItem_(code_item)
+
         menu.addItem_(AppKit.NSMenuItem.separatorItem())
+
+        settings_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "Settings", "openSettings:", "")
+        settings_item.setTarget_(AppKit.NSApp.delegate())
+        menu.addItem_(settings_item)
 
         about_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
             "About Little Claude", "showAbout:", "")
@@ -185,6 +197,10 @@ class CrabView(AppKit.NSView):
 class AppDelegate(AppKit.NSObject):
 
     def applicationDidFinishLaunching_(self, notification):
+        # Initialize settings
+        self._settings = Settings.shared()
+        self._settings_window = SettingsWindow()
+
         # Merge all sprites and build cache
         all_sprites = {}
         all_sprites.update(BASE_SPRITES)
@@ -293,6 +309,41 @@ class AppDelegate(AppKit.NSObject):
     def openClaude_(self, sender):
         AppKit.NSWorkspace.sharedWorkspace().launchApplication_("Claude")
 
+    def openClaudeCode_(self, sender):
+        """Open Claude Code in the configured terminal."""
+        terminal = self._settings.terminal
+        if terminal == "iTerm2":
+            script = (
+                'tell application "iTerm2"\n'
+                '  create window with default profile command "claude"\n'
+                'end tell'
+            )
+        elif terminal == "Warp":
+            script = (
+                'tell application "Warp"\n'
+                '  activate\n'
+                'end tell\n'
+                'delay 0.5\n'
+                'tell application "System Events"\n'
+                '  tell process "Warp"\n'
+                '    keystroke "t" using command down\n'
+                '  end tell\n'
+                'end tell'
+            )
+        else:  # Terminal.app
+            script = (
+                'tell application "Terminal"\n'
+                '  do script "claude"\n'
+                '  activate\n'
+                'end tell'
+            )
+        ns_script = AppKit.NSAppleScript.alloc().initWithSource_(script)
+        ns_script.executeAndReturnError_(None)
+
+    def openSettings_(self, sender):
+        """Open the settings window."""
+        self._settings_window.show()
+
     def showAbout_(self, sender):
         alert = AppKit.NSAlert.alloc().init()
         alert.setMessageText_("Little Claude")
@@ -330,7 +381,7 @@ class AppDelegate(AppKit.NSObject):
                 self.sprite_layer.setContents_(self.sprite_cache.get("idle"))
                 Quartz.CATransaction.commit()
                 self.current_sprite_name = "idle"
-                self.speech.show("*зевает*", self.character.x, self.dock_y)
+                self.speech.show(t("*зевает*"), self.character.x, self.dock_y)
             elif self.startup_phase == 2 and self.startup_timer > 1500:
                 # Done — enter normal mode
                 self.startup_phase = None

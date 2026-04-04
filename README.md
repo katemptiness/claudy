@@ -60,7 +60,7 @@ Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the sc
 | Click | Happy bounce + sparkles + hearts |
 | Double-click | Opens Claude.app |
 | Drag & drop | Surprised face, falls back to Dock with gravity |
-| Right-click | Context menu (Open Claude, Open Claude Code, Settings, About Claudy, Quit) |
+| Right-click | Context menu (Open Claude, Open Claude Code, Activities, Settings, About Claudy, Quit) |
 
 ## Schedule & Activities
 
@@ -140,6 +140,8 @@ Right-click → Settings to configure:
 | Speech frequency | Often (10s) / Normal (1 min) / Rarely (10 min) / Very rarely (30 min) / Almost never (1 hr) | Normal |
 
 Settings are saved to `~/.claudy/settings.json`.
+
+Right-click → Activities to immediately trigger any activity (useful for previewing animations).
 
 ## Credits
 

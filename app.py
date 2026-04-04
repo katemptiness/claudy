@@ -15,7 +15,7 @@ from config import (
 from sprite_renderer import SpriteCache
 from sprites.base import ALL as BASE_SPRITES
 from sprites.activities import ALL as ACTIVITY_SPRITES
-from character import Character
+from character import Character, ACTIVITIES
 from particles import ParticleSystem
 from animations import GravityDrop
 from system_events import SystemEventHandler
@@ -165,6 +165,21 @@ class CrabView(AppKit.NSView):
             "Open Claude Code", "openClaudeCode:", "")
         code_item.setTarget_(AppKit.NSApp.delegate())
         menu.addItem_(code_item)
+
+        menu.addItem_(AppKit.NSMenuItem.separatorItem())
+
+        # Activities submenu (for previewing animations)
+        activities_menu = AppKit.NSMenu.alloc().initWithTitle_("Activities")
+        for name in sorted(ACTIVITIES.keys()):
+            item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+                name.capitalize(), "playActivity:", "")
+            item.setTarget_(AppKit.NSApp.delegate())
+            item.setRepresentedObject_(name)
+            activities_menu.addItem_(item)
+        activities_item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+            "Activities", None, "")
+        activities_item.setSubmenu_(activities_menu)
+        menu.addItem_(activities_item)
 
         menu.addItem_(AppKit.NSMenuItem.separatorItem())
 
@@ -391,6 +406,14 @@ class AppDelegate(AppKit.NSObject):
         import subprocess
         subprocess.Popen(['osascript', '-e', script])
 
+    def playActivity_(self, sender):
+        """Force-start an activity from the context menu."""
+        name = sender.representedObject()
+        self.character.friend_visible = False
+        self._hide_friend()
+        self.character._enter_idle()
+        self.character._start_activity(name)
+
     def openSettings_(self, sender):
         """Open the settings window."""
         self._settings_window.show()
@@ -461,8 +484,8 @@ class AppDelegate(AppKit.NSObject):
                 self.particles.add(event_data, px, py)
             elif event_type == "message":
                 if self.character.state.startswith("reaction_") \
-                        or self.character.state == "summoning":
-                    # Reactions and summoning show speech immediately
+                        or self.character.state in ("summoning", "fishing"):
+                    # Reactions, summoning, fishing show speech immediately
                     self.speech.show(
                         event_data, result["x"], self.dock_y
                     )

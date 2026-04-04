@@ -76,7 +76,7 @@ ACTIVITIES = {
     ],
     "playing": [
         Phase(["play_a", "play_b"], 200, 4000, message="прыгает!",
-              particle="note", particle_interval_ms=500, bounce=True),
+              particle="note", particle_interval_ms=500, special="play_jump"),
         Phase(["idle"], 500, 1000),
     ],
     "music": [
@@ -85,9 +85,10 @@ ACTIVITIES = {
         Phase(["idle"], 500, 1000),
     ],
     "painting": [
-        Phase(["paint_a"], 500, 800, message="ставит мольберт..."),
-        Phase(["paint_a", "paint_b"], 400, 3000, message="рисует..."),
-        Phase(["paint_c"], 500, 1500, message="хмм... неплохо!"),
+        Phase(["paint_a"], 500, 1500, message="ставит мольберт..."),
+        Phase(["paint_a", "paint_b"], 400, 20000, duration_max_ms=30000,
+              message="рисует..."),
+        Phase(["paint_c"], 500, 2500, message="хмм... неплохо!"),
         Phase(["idle"], 500, 1000),
     ],
     "telescope": [
@@ -216,6 +217,11 @@ class Character:
 
         # Reaction state
         self.reaction_duration = 0
+
+        # Play jump (side-to-side arcs)
+        self.is_playing_jump = False
+        self.play_jump_timer = 0.0
+        self.play_jump_direction = 1
 
         # Friend summoning
         self.friend_visible = False
@@ -378,11 +384,19 @@ class Character:
             self.events.append(("message", msg))
             for _ in range(5):
                 self.events.append(("particle", catch["particles"]))
-            # Set reaction sprite
+            # Set reaction sprite (always preserve fish_reveal special for next run)
             if catch["reaction"] == "confused":
-                # Override phase frames to show confused face
                 activity[self.phase_index] = Phase(
-                    ["fish_confused"], 500, 2500)
+                    ["fish_confused"], 500, 2500, special="fish_reveal")
+            else:
+                activity[self.phase_index] = Phase(
+                    ["fish_happy"], 500, 2500, special="fish_reveal")
+
+        elif phase.special == "play_jump":
+            self.is_playing_jump = True
+            self.play_jump_timer = 0
+            self.play_jump_direction = 1 if random.random() > 0.5 else -1
+            self.facing_right = self.play_jump_direction > 0
 
         elif phase.special == "summon_friend":
             self.friend_visible = True
@@ -452,6 +466,7 @@ class Character:
         self.state_timer = 0
         self.next_state_change = random.uniform(8000, 20000)
         self.current_message = None
+        self.is_playing_jump = False
 
     def _start_walking(self):
         self.state = "walking"
@@ -488,6 +503,11 @@ class Character:
         if phase.shake:
             self.is_shaking = True
             self.shake_timer = 0
+        if phase.special == "play_jump":
+            self.is_playing_jump = True
+            self.play_jump_timer = 0
+            self.play_jump_direction = 1 if random.random() > 0.5 else -1
+            self.facing_right = self.play_jump_direction > 0
 
     def _update_blink(self, dt):
         # Only blink during idle or walking
@@ -510,8 +530,26 @@ class Character:
     def _update_effects(self, dt):
         import math
 
+        # Play jump (parabolic arcs side to side)
+        if self.is_playing_jump:
+            self.play_jump_timer += dt
+            jump_duration = 600
+            t = min(self.play_jump_timer / jump_duration, 1.0)
+            self.y_offset = 4 * 12 * t * (1 - t)
+            self.x += self.play_jump_direction * 0.05 * dt
+            if t >= 1.0:
+                self.play_jump_timer = 0
+                self.play_jump_direction *= -1
+                self.facing_right = self.play_jump_direction > 0
+            margin = WINDOW_WIDTH
+            if self.x < margin:
+                self.x = margin
+                self.play_jump_direction = 1
+            elif self.x > self.screen_width - margin:
+                self.x = self.screen_width - margin
+                self.play_jump_direction = -1
         # Bounce
-        if self.is_bouncing:
+        elif self.is_bouncing:
             self.bounce_phase += dt * 0.012
             self.y_offset = abs(math.sin(self.bounce_phase)) * 10
             if self.bounce_phase > math.pi * 3:

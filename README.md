@@ -1,12 +1,12 @@
 # Claudy
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS-blue" alt="macOS">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue" alt="macOS | Linux">
   <img src="https://img.shields.io/badge/python-3.10+-yellow" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
 
-A tiny pixel-art crab companion that lives on your macOS Dock. It reads books, catches fish, does magic, writes code, and generally goes about its little crab life — all on its own. Formerly known as Little Claude.
+A tiny pixel-art crab companion that lives on your Dock. It reads books, catches fish, does magic, writes code, and generally goes about its little crab life — all on its own. Formerly known as Little Claude.
 
 <p align="center">
   <img src="screens/screen1.png" width="280" alt="Claudy juggling">
@@ -20,10 +20,10 @@ A tiny pixel-art crab companion that lives on your macOS Dock. It reads books, c
 
 - Wanders along the Dock, performing 12 different activities: reading, fishing, magic, coding, sleeping, playing, painting, stargazing, meditating, juggling, listening to music, and summoning a friend
 - Follows a configurable schedule — night owl (default) or early bird mode
-- Reacts to clicks (sparkles → hearts!), hover (waves hello), and drag-and-drop (surprise + gravity bounce)
+- Reacts to clicks (sparkles → hearts!), hover (waves hello), and drag-and-drop (macOS: surprise + gravity bounce)
 - Mirrors your activity — open a terminal or code editor and the crab starts coding; open Spotify and it listens to music
 - Notices when you launch apps and comments on them (remembers how many times you opened the same app today)
-- Sleeps when your Mac sleeps, greets you when it wakes up
+- Sleeps when your machine sleeps, greets you when it wakes up
 - Gives you gifts — catches a fish? Finds a star? Might leave it on the Dock for you
 - Gradually notices you — click enough and Claudy starts using your name, showing hearts, and saying personal things
 - Remembers how many days you've been together and occasionally mentions it
@@ -32,19 +32,16 @@ A tiny pixel-art crab companion that lives on your macOS Dock. It reads books, c
 
 ## Installation
 
+### macOS
+
 ```bash
-# Clone the repo
 git clone https://github.com/katemptiness/claudy.git
 cd claudy
-
-# Install dependencies
 pip install pyobjc pyobjc-framework-Quartz
-
-# Run
 python3 app.py
 ```
 
-### Standalone app
+#### Standalone app (macOS)
 
 ```bash
 pip install py2app
@@ -54,6 +51,19 @@ open "dist/Claudy.app"
 
 Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the screen.
 
+### Linux (Ubuntu 24.04+)
+
+```bash
+git clone https://github.com/katemptiness/claudy.git
+cd claudy
+
+# GTK3, PyGObject, and Cairo are typically pre-installed on Ubuntu.
+# If not: sudo apt install python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0
+python3 app.py    # or /usr/bin/python3 if using system Python
+```
+
+Requires Python 3.10+, GTK3, and a bottom panel/dock. Tested on Ubuntu 24.04 LTS (GNOME/Wayland + X11).
+
 ## Interactions
 
 | Action | What happens |
@@ -61,8 +71,8 @@ Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the sc
 | Hover | Waves hello |
 | Click | Happy bounce + sparkles (before attachment) or hearts (after) |
 | Click (with gift) | Collects the gift — Claudy reacts happily |
-| Double-click | Opens Claude.app |
-| Drag & drop | Surprised face, falls back to Dock with gravity |
+| Double-click | Opens Claude.app (macOS) / claude.ai (Linux) |
+| Drag & drop | Surprised face, falls back to Dock with gravity (macOS only) |
 | Right-click | Context menu (Open Claude, Open Claude Code, Settings, About Claudy, Quit) |
 
 ## Relationships
@@ -147,24 +157,39 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 
 ## Architecture
 
-Built with Python + PyObjC, pure AppKit — no game frameworks, no SpriteKit, no Metal.
+Built with Python — shared core logic with platform-specific backends. No game frameworks.
 
 ```
-app.py               # Entry point, NSWindow, update loop, input handling, gifts
-character.py          # State machine, phased animation engine
-sprite_renderer.py    # CGContext pixel rendering pipeline
+app.py                        # Cross-platform entry point (detects OS)
+
+# Shared core (platform-independent)
+character.py                  # State machine, phased animation engine
 sprites/
-  base.py             # Idle, blink, walk sprites
-  activities.py       # 39 activity & reaction sprites
-animations.py         # Bounce, shake, gravity drop
-particles.py          # 14 particle types (sparkles, hearts, notes, zzz...)
-speech.py             # Floating speech bubbles (with persistent mode for gifts)
-schedule.py           # Owl/lark time-of-day behavior weights
-system_events.py      # macOS event reactions (app launches, sleep/wake)
-settings.py           # Settings persistence + localized UI
-phrases.py            # Bilingual phrase system (RU/EN) + relationship phrases
-memory.py             # Relationship memory (clicks, days, gifts, app launches)
-config.py             # Palette, constants
+  base.py                     # Idle, blink, walk sprites
+  activities.py               # 39 activity & reaction sprites
+animations.py                 # Bounce, shake, gravity drop
+particles.py                  # 14 particle types (sparkles, hearts, notes, zzz...)
+schedule.py                   # Owl/lark time-of-day behavior weights
+settings.py                   # Settings persistence (JSON)
+phrases.py                    # Bilingual phrase system (RU/EN) + relationship phrases
+memory.py                     # Relationship memory (clicks, days, gifts, app launches)
+config.py                     # Palette, constants
+
+# macOS backend (PyObjC / AppKit / Quartz)
+backends/macos/
+  app.py                      # NSWindow, CALayer, update loop, input, gifts
+  renderer.py                 # CGContext pixel rendering
+  speech.py                   # NSWindow speech bubbles
+  events.py                   # NSWorkspace notifications (app launches, sleep/wake)
+  settings_ui.py              # AppKit settings window
+
+# Linux backend (GTK3 / PyGObject / Cairo)
+backends/linux/
+  app.py                      # GTK3 windows, Cairo rendering, GLib main loop
+  renderer.py                 # Cairo pixel rendering
+  speech.py                   # GTK3 speech bubbles
+  events.py                   # D-Bus logind + process-based app detection
+  settings_ui.py              # GTK3 settings dialog
 ```
 
 ## Settings
@@ -173,7 +198,7 @@ Right-click → Settings to configure:
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| Claude Code terminal | Terminal, iTerm2, Warp | Terminal |
+| Claude Code terminal | Terminal / iTerm2 / Warp (macOS), gnome-terminal / kitty / alacritty (Linux) | Terminal (macOS) / gnome-terminal (Linux) |
 | Schedule mode | Night Owl / Early Bird | Night Owl |
 | Language | Русский / English | English |
 | Your name | Text field | — |

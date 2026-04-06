@@ -1,4 +1,4 @@
-"""System event subscriptions — app launches, sleep/wake, etc."""
+"""System event subscriptions — app launches, sleep/wake (macOS)."""
 
 import AppKit
 import random

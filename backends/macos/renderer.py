@@ -1,4 +1,4 @@
-"""Render 16x16 pixel grids to CGImage via CGContext."""
+"""Render 16x16 pixel grids to CGImage via CGContext (macOS)."""
 
 import Quartz
 from config import GRID, PIXEL_SCALE, SPRITE_SIZE, PALETTE, FRIEND_PALETTE

@@ -1,4 +1,4 @@
-"""Speech bubble system — floating text above the crab."""
+"""Speech bubble system — floating text above the crab (macOS)."""
 
 import time
 import AppKit

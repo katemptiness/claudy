@@ -119,7 +119,58 @@ ACTIVITIES = {
         Phase(["happy"], 500, 2500, special="friend_bye"),
         Phase(["idle"], 500, 2000, special="friend_gone"),
     ],
+    "campfire": [
+        Phase(["campfire_a", "campfire_b"], 600, 8000,
+              message="разжёг костёр!", particle="flame",
+              particle_interval_ms=1000),
+        Phase(["campfire_a", "campfire_b"], 600, 20000, duration_max_ms=40000,
+              message="тепло...", particle="flame", particle_interval_ms=2500),
+        Phase(["campfire_a", "campfire_b"], 600, 5000,
+              message="люблю смотреть на огонь...", particle="flame",
+              particle_interval_ms=2500),
+        Phase(["campfire_roast"], 500, 5000, message="жарит зефирку!"),
+        Phase(["campfire_done"], 500, 3000, message="вкусно! :3",
+              particle="heart", particle_interval_ms=800, bounce=True),
+        Phase(["idle"], 500, 1000),
+    ],
+    "sandcastle": [
+        Phase(["sand_a"], 500, 2000, message="строит замок..."),
+        Phase(["sand_a", "sand_b"], 500, 4000, duration_max_ms=6000,
+              message="лепит..."),
+        Phase(["sand_c"], 500, 2500, special="sand_result"),
+        Phase(["idle"], 500, 1000),
+    ],
+    "shell_collecting": [
+        Phase(["walk_a", "walk_b"], 250, 4000, duration_max_ms=6000,
+              special="shell_search"),
+        Phase(["shell_look"], 500, 2000),
+        Phase(["shell_find"], 300, 1500, message="о! нашёл!",
+              particle="exclaim", bounce=True),
+        Phase(["shell_pick"], 500, 1500, message="подбирает..."),
+        Phase(["shell_admire"], 500, 3000, message="какая красивая ракушка!",
+              particle="sparkle", particle_interval_ms=600),
+        Phase(["idle"], 500, 1000),
+    ],
+    "candle": [
+        Phase(["lantern_light"], 500, 2000, message="зажигает свечку..."),
+        Phase(["lantern_a", "lantern_b"], 800, 15000, duration_max_ms=30000,
+              message="огонёк мерцает...", particle="sparkle",
+              particle_interval_ms=5000),
+        Phase(["lantern_a", "lantern_b"], 800, 15000, duration_max_ms=40000,
+              message="так спокойно...", particle="sparkle",
+              particle_interval_ms=5000),
+        Phase(["lantern_a", "lantern_b"], 800, 5000,
+              message="можно так сидеть вечно..."),
+        Phase(["idle"], 500, 1000),
+    ],
 }
+
+SHELL_SEARCH_PHRASES = [
+    "ищет ракушки...",
+    "где-то тут была...",
+    "красивая должна быть рядом...",
+    "тут столько ракушек!",
+]
 
 # Random outcomes
 CATCHES = [
@@ -276,6 +327,10 @@ class Character:
         self.is_playing_jump = False
         self.play_jump_timer = 0.0
         self.play_jump_direction = 1
+
+        # Shell search (slow wandering)
+        self.is_shell_searching = False
+        self.shell_search_direction = 1
 
         # Gift pause — stops activity transitions while waiting for user
         self.gift_waiting = False
@@ -464,9 +519,10 @@ class Character:
         self.phase_timer = 0
         self.frame_timer = 0
         self.frame_index = 0
-        # Clear friend animation flags — specials will re-set if needed
+        # Clear animation flags — specials will re-set if needed
         self.friend_walking = False
         self.friend_playing = False
+        self.is_shell_searching = False
         self.particle_timer = 0
         if phase.duration_max_ms:
             self.current_phase_duration = random.uniform(
@@ -538,6 +594,30 @@ class Character:
                 self.events.append(("gift_star", name or ""))
                 for _ in range(5):
                     self.events.append(("particle", "star"))
+
+        elif phase.special == "sand_result":
+            if random.random() < 0.7:  # 70% success
+                msg = t("какой красивый!")
+                self.current_message = msg
+                self.events.append(("message", msg))
+                for _ in range(5):
+                    self.events.append(("particle", "sparkle"))
+            else:  # 30% collapse
+                msg = t("ой, рассыпался...")
+                self.current_message = msg
+                self.events.append(("message", msg))
+                self.is_shaking = True
+                self.shake_timer = 0
+                for _ in range(4):
+                    self.events.append(("particle", "poof"))
+
+        elif phase.special == "shell_search":
+            self.is_shell_searching = True
+            self.shell_search_direction = 1 if random.random() > 0.5 else -1
+            self.facing_right = self.shell_search_direction > 0
+            msg = t(random.choice(SHELL_SEARCH_PHRASES))
+            self.current_message = msg
+            self.events.append(("message", msg))
 
         elif phase.special == "play_jump":
             self.is_playing_jump = True
@@ -739,6 +819,13 @@ class Character:
             self.play_jump_timer = 0
             self.play_jump_direction = 1 if random.random() > 0.5 else -1
             self.facing_right = self.play_jump_direction > 0
+        elif phase.special == "shell_search":
+            self.is_shell_searching = True
+            self.shell_search_direction = 1 if random.random() > 0.5 else -1
+            self.facing_right = self.shell_search_direction > 0
+            msg = t(random.choice(SHELL_SEARCH_PHRASES))
+            self.current_message = msg
+            self.events.append(("message", msg))
 
     def _update_blink(self, dt):
         # Only blink during idle or walking
@@ -761,8 +848,21 @@ class Character:
     def _update_effects(self, dt):
         import math
 
+        # Shell search (slow wandering side to side)
+        if self.is_shell_searching:
+            self.x += self.shell_search_direction * 0.03 * dt
+            margin = WINDOW_WIDTH
+            if self.x < margin:
+                self.x = margin
+                self.shell_search_direction = 1
+                self.facing_right = True
+            elif self.x > self.screen_width - margin:
+                self.x = self.screen_width - margin
+                self.shell_search_direction = -1
+                self.facing_right = False
+
         # Play jump (parabolic arcs side to side)
-        if self.is_playing_jump:
+        elif self.is_playing_jump:
             self.play_jump_timer += dt
             jump_duration = 600
             t = min(self.play_jump_timer / jump_duration, 1.0)

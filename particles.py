@@ -64,6 +64,14 @@ def _make(ptype, bx, by):
                  (random.random() - 0.5) * 0.3, -0.8, 900),
         "page": ("📖", 12, (0.961, 0.941, 0.910),
                  (random.random() - 0.5) * 0.3, -0.4, 1500),
+        "flame": (random.choice(["🔥", "✦", "•"]),
+                  random.randint(8, 12),
+                  random.choice([
+                      (1.0, 0.6, 0.0),    # orange
+                      (1.0, 0.843, 0.0),   # gold
+                      (1.0, 0.4, 0.0),     # deep orange
+                  ]),
+                  (random.random() - 0.5) * 0.3, -0.6, 1400),
     }
 
     if ptype not in defs:

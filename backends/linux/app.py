@@ -453,6 +453,12 @@ class CrabApp:
         self.friend_visible = False
         self.character._enter_idle()
         self.character._start_activity(name)
+        # Process events immediately — they'd be cleared on next update()
+        for etype, edata in self.character.events:
+            if etype == "message":
+                self.speech.show(
+                    edata, self._abs_x(self.character.x), self._win_y())
+        self.character.events = []
 
     def _test_gift(self, item):
         emojis = ["🐟", "🐡", "💎", "⭐", "🌸", "🦋"]
@@ -592,13 +598,12 @@ class CrabApp:
                 py = SPRITE_OFFSET_Y + SPRITE_SIZE
                 self.particles.add(event_data, px, py)
             elif event_type == "message":
-                if self.character.state.startswith("reaction_") \
-                        or self.character.state in ("summoning", "fishing",
-                                                    "telescope"):
-                    self.speech.show(
+                if self.character.state in ("idle", "walking"):
+                    self.speech.maybe_show(
                         event_data, self._abs_x(result["x"]), crab_screen_y)
                 else:
-                    self.speech.maybe_show(
+                    # Activities and reactions show immediately
+                    self.speech.show(
                         event_data, self._abs_x(result["x"]), crab_screen_y)
             elif event_type == "friend_appear":
                 self.friend_visible = True

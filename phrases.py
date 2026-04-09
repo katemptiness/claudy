@@ -50,6 +50,34 @@ _EN = {
     # Activity: juggling
     "жонглирует!": "juggling!",
 
+    # Activity: campfire
+    "разжёг костёр!": "lit a campfire!",
+    "тепло...": "warm...",
+    "люблю смотреть на огонь...": "love watching the fire...",
+    "жарит зефирку!": "roasting marshmallow!",
+    "вкусно! :3": "yummy! :3",
+
+    # Activity: sandcastle
+    "строит замок...": "building a castle...",
+    "лепит...": "shaping...",
+    "какой красивый!": "how beautiful!",
+    "ой, рассыпался...": "oh, it collapsed...",
+
+    # Activity: shell collecting
+    "ищет ракушки...": "looking for shells...",
+    "где-то тут была...": "it was somewhere here...",
+    "красивая должна быть рядом...": "a pretty one must be nearby...",
+    "тут столько ракушек!": "so many shells here!",
+    "о! нашёл!": "oh! found one!",
+    "подбирает...": "picking it up...",
+    "какая красивая ракушка!": "what a beautiful shell!",
+
+    # Activity: candle
+    "зажигает свечку...": "lighting the candle...",
+    "огонёк мерцает...": "the flame flickers...",
+    "так спокойно...": "so peaceful...",
+    "можно так сидеть вечно...": "could sit like this forever...",
+
     # Fishing catches
     "рыбка!": "a fish!",
     "фугу!!": "pufferfish!!",

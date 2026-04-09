@@ -18,7 +18,7 @@ A tiny pixel-art crab companion that lives on your Dock. It reads books, catches
 
 ## What it does
 
-- Wanders along the Dock, performing 12 different activities: reading, fishing, magic, coding, sleeping, playing, painting, stargazing, meditating, juggling, listening to music, and summoning a friend
+- Wanders along the Dock, performing 16 different activities: reading, fishing, magic, coding, sleeping, playing, painting, stargazing, meditating, juggling, listening to music, summoning a friend, campfire, sandcastle building, shell collecting, and candle
 - Follows a configurable schedule — night owl (default) or early bird mode
 - Reacts to clicks (sparkles → hearts!), hover (waves hello), and drag-and-drop (macOS: surprise + gravity bounce)
 - Mirrors your activity — open a terminal or code editor and the crab starts coding; open Spotify and it listens to music
@@ -134,9 +134,9 @@ Claudy follows a daily routine based on the selected schedule mode. The day is s
 |--------|----------|
 | **Deep sleep** | Sleeps continuously (zzz...) |
 | **Morning** | Wakes up slowly — idle, walking, meditating, reading, occasional nap |
-| **Day** | Most active — all 12 activities available: reading, coding, fishing, magic, painting, juggling, music, telescope, meditating, playing, summoning a friend. Walks around the Dock frequently |
-| **Evening** | Calmer — reading, fishing, stargazing, music, meditating, summoning. Short naps possible |
-| **Late night** | Winding down — reading, telescope, meditating, music. Naps more often |
+| **Day** | Most active — all 16 activities available: reading, coding, fishing, magic, painting, juggling, music, telescope, meditating, playing, summoning a friend, sandcastle, shell collecting. Walks around the Dock frequently |
+| **Evening** | Calmer and cozier — reading, fishing, stargazing, music, meditating, summoning, campfire, sandcastle, shell collecting, candle. Short naps possible |
+| **Late night** | Winding down — reading, telescope, meditating, music, campfire, candle. Naps more often |
 
 Every 8–20 seconds in idle, Claudy rolls the dice and picks a new activity based on the current period's weights. During deep sleep, it just keeps snoozing.
 
@@ -158,6 +158,10 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 | Meditating | Sits quietly for a long time | Sparkles |
 | Juggling | Juggles with claws | — |
 | Summoning | Casts a spell, summons a blue friend crab, hangs out, says goodbye | Poof, hearts |
+| Campfire | Sits by a fire, watches the flames, roasts a marshmallow | Flames, hearts |
+| Sandcastle | Builds a sandcastle — admires it or watches it collapse | Sparkles or poof |
+| Shell collecting | Wanders around searching, finds and admires a shell | Exclaims, sparkles |
+| Candle | Lights a candle, sits quietly in the glow | Sparkles |
 
 ## Architecture
 
@@ -170,9 +174,9 @@ app.py                        # Cross-platform entry point (detects OS)
 character.py                  # State machine, phased animation engine
 sprites/
   base.py                     # Idle, blink, walk sprites
-  activities.py               # 39 activity & reaction sprites
+  activities.py               # 50 activity & reaction sprites
 animations.py                 # Bounce, shake, gravity drop
-particles.py                  # 14 particle types (sparkles, hearts, notes, zzz...)
+particles.py                  # 15 particle types (sparkles, hearts, notes, flames, zzz...)
 schedule.py                   # Owl/lark time-of-day behavior weights
 settings.py                   # Settings persistence (JSON)
 phrases.py                    # Bilingual phrase system (RU/EN) + relationship phrases

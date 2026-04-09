@@ -437,6 +437,11 @@ class AppDelegate(AppKit.NSObject):
         self._hide_friend()
         self.character._enter_idle()
         self.character._start_activity(name)
+        # Process events immediately — they'd be cleared on next update()
+        for etype, edata in self.character.events:
+            if etype == "message":
+                self.speech.show(edata, self.character.x, self.dock_y)
+        self.character.events = []
 
     def testGift_(self, sender):
         """Drop a test gift on the dock."""
@@ -527,15 +532,13 @@ class AppDelegate(AppKit.NSObject):
                 py = SPRITE_OFFSET_Y + SPRITE_SIZE
                 self.particles.add(event_data, px, py)
             elif event_type == "message":
-                if self.character.state.startswith("reaction_") \
-                        or self.character.state in ("summoning", "fishing",
-                                                    "telescope"):
-                    # Reactions, summoning, fishing, telescope show immediately
-                    self.speech.show(
+                if self.character.state in ("idle", "walking"):
+                    self.speech.maybe_show(
                         event_data, result["x"], self.dock_y
                     )
                 else:
-                    self.speech.maybe_show(
+                    # Activities and reactions show immediately
+                    self.speech.show(
                         event_data, result["x"], self.dock_y
                     )
             elif event_type == "friend_appear":

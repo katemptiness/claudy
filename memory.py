@@ -35,12 +35,10 @@ class Memory:
         }
         self._load()
         self._check_new_day()
-        # Reset daily clicks on app restart — attachment must be earned each session
+        # Reset per-session state — each launch is a fresh start
         self._data["today"]["clicks"] = 0
-        # Clear uncollected gifts from previous session
-        for gift in self._data["gifts"]:
-            if not gift.get("collected", False):
-                gift["collected"] = True
+        self._data["today"]["app_launches"] = {}
+        self._data["gifts"] = []
         self.save()
 
     def _load(self):

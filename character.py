@@ -554,6 +554,7 @@ class Character:
             self.shake_timer = 0
 
         # Handle specials
+        from memory import Memory
         if phase.special == "cast_magic":
             result = random.choice(MAGIC_RESULTS)
             msg = t(result["text"])
@@ -561,8 +562,9 @@ class Character:
             self.events.append(("message", msg))
             for _ in range(8):
                 self.events.append(("particle", result["particles"]))
-            # Gift chance (~20%) for non-poof results
-            if result["particles"] != "poof" and random.random() < 0.2:
+            # Gift chance (~20%) for non-poof results (attachment required)
+            if (result["particles"] != "poof" and random.random() < 0.2
+                    and Memory.shared().is_attached()):
                 emoji_map = {"flower": "🌸", "butterfly": "🦋", "rainbow": "🌈",
                              "star": "⭐"}
                 gift_emoji = emoji_map.get(result["particles"], "✨")
@@ -576,8 +578,9 @@ class Character:
             self.events.append(("message", msg))
             for _ in range(5):
                 self.events.append(("particle", catch["particles"]))
-            # Gift chance (~30%) for good catches
-            if catch["reaction"] in ("happy", "love") and random.random() < 0.3:
+            # Gift chance (~30%) for good catches (attachment required)
+            if (catch["reaction"] in ("happy", "love") and random.random() < 0.3
+                    and Memory.shared().is_attached()):
                 self.events.append(("gift", {
                     "type": "fish", "emoji": catch["emoji"]}))
             # Set reaction sprite (always preserve fish_reveal special for next run)
@@ -589,8 +592,8 @@ class Character:
                     ["fish_happy"], 500, 2500, special="fish_reveal")
 
         elif phase.special == "star_gaze":
-            # ~10% chance to name a star after the user
-            if random.random() < 0.1:
+            # ~10% chance to name a star after the user (attachment required)
+            if random.random() < 0.1 and Memory.shared().is_attached():
                 from settings import Settings
                 from phrases import STAR_NAMING_PHRASES, STAR_NAMING_PHRASES_NAMELESS
                 name = Settings.shared().user_name
@@ -629,8 +632,8 @@ class Character:
             self.events.append(("message", msg))
 
         elif phase.special == "shell_gift_chance":
-            # ~10% chance to gift the shell to the user
-            if random.random() < 0.1:
+            # ~10% chance to gift the shell to the user (attachment required)
+            if random.random() < 0.1 and Memory.shared().is_attached():
                 self.events.append(("gift", {
                     "type": "shell", "emoji": "🐚"}))
 

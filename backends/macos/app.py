@@ -289,8 +289,11 @@ class AppDelegate(AppKit.NSObject):
             if name in all_sprites:
                 self.sprite_cache.add_friend(name, all_sprites[name])
 
-        # Screen geometry
-        self.dock_y = get_dock_top_y()
+        # Screen geometry. dock_base_y is the Dock-top baseline; dock_y adds
+        # the user's vertical_offset on top and is refreshed every tick so the
+        # height setting applies live (and previews while dragging the slider).
+        self.dock_base_y = get_dock_top_y()
+        self.dock_y = self.dock_base_y + self._settings.vertical_offset
         screen = AppKit.NSScreen.mainScreen()
         self.screen_width = screen.frame().size.width
 
@@ -530,6 +533,9 @@ class AppDelegate(AppKit.NSObject):
         self.last_tick = now
         if dt > 50:
             dt = 50
+
+        # Apply the live height setting on top of the Dock baseline.
+        self.dock_y = self.dock_base_y + self._settings.vertical_offset
 
         # Startup animation
         if self.startup_phase is not None:

@@ -186,7 +186,7 @@ class CrabApp:
         self.particle_window.add(self.particle_area)
 
         # Particle window: same bottom edge as main, but taller
-        part_y = int(self._crab_base_y - PARTICLE_WINDOW_HEIGHT)
+        part_y = self._win_y() + (WINDOW_HEIGHT - PARTICLE_WINDOW_HEIGHT)
         self.particle_window.move(win_x, part_y)
 
         # Make particle window click-through: connect BEFORE show
@@ -227,9 +227,15 @@ class CrabApp:
         return self._monitor_x + char_x
 
     def _win_y(self, y_offset=0):
-        """Get the crab window's Y in screen coords, accounting for bounce."""
+        """Get the crab window's Y in screen coords, accounting for bounce.
+
+        Reads vertical_offset live so the height setting (and its slider
+        preview) applies immediately. Y grows downward here, so raising
+        Claudy means subtracting the offset.
+        """
         # Place window so its bottom edge overlaps the dock by ~15px
-        return int(self._crab_base_y - WINDOW_HEIGHT + 15 - y_offset)
+        return int(self._crab_base_y - WINDOW_HEIGHT + 15 - y_offset
+                   - self._settings.vertical_offset)
 
     def _show_event_speech(self, phrase):
         """Show speech from system events (app launches, sleep/wake)."""

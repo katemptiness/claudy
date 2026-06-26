@@ -7,6 +7,7 @@ from settings import (
     _SCHEDULE_OPTIONS, _SPEECH_OPTIONS,
     _GIFT_DURATION_OPTIONS, _GIFT_LIMIT_OPTIONS,
     _GIFT_COOLDOWN_OPTIONS,
+    VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX,
     _loc, _l,
 )
 
@@ -28,7 +29,11 @@ class SettingsWindow(AppKit.NSObject):
         self.gift_dur_popup = None
         self.gift_lim_popup = None
         self.gift_cd_popup = None
+        self.height_slider = None
+        self.height_value_label = None
         self.dev_check = None
+        self._orig_vertical_offset = None
+        self._saved = False
         return self
 
     def show(self):
@@ -37,7 +42,11 @@ class SettingsWindow(AppKit.NSObject):
             return
 
         lang = self.settings.language
-        w, h = 320, 650
+        # Remember the height so we can revert if the user closes without saving
+        # (the slider previews live by mutating the shared settings).
+        self._orig_vertical_offset = self.settings.vertical_offset
+        self._saved = False
+        w, h = 320, 720
         self.window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             ((200, 200), (w, h)),
             AppKit.NSWindowStyleMaskTitled
@@ -47,6 +56,7 @@ class SettingsWindow(AppKit.NSObject):
         )
         self.window.setReleasedWhenClosed_(False)
         self.window.setTitle_(_l("title", lang))
+        self.window.setDelegate_(self)
         self.window.center()
 
         content = self.window.contentView()
@@ -73,6 +83,26 @@ class SettingsWindow(AppKit.NSObject):
             if self.settings.schedule in sched_keys else 0
         self.schedule_popup.selectItemAtIndex_(idx)
         y -= 40
+
+        # Height above the Dock (slider previews live as you drag)
+        self._add_label(content, _l("height", lang), 20, y)
+        self.height_value_label = self._add_value_label(
+            content, self._format_height(self.settings.vertical_offset),
+            190, y, 100)
+        y -= 26
+        self.height_slider = AppKit.NSSlider.alloc().initWithFrame_(
+            ((20, y), (270, 22)))
+        self.height_slider.setMinValue_(VERTICAL_OFFSET_MIN)
+        self.height_slider.setMaxValue_(VERTICAL_OFFSET_MAX)
+        self.height_slider.setDoubleValue_(self.settings.vertical_offset)
+        self.height_slider.setContinuous_(True)
+        self.height_slider.setTarget_(self)
+        self.height_slider.setAction_("heightChanged:")
+        content.addSubview_(self.height_slider)
+        y -= 18
+        self._add_hint(content, _l("height_below", lang), 20, y, 80, left=True)
+        self._add_hint(content, _l("height_above", lang), 210, y, 80, left=False)
+        y -= 34
 
         # Language (always bilingual so user can find it)
         self._add_label(content, _l("language", lang), 20, y)
@@ -196,11 +226,33 @@ class SettingsWindow(AppKit.NSObject):
         self.settings.gift_cooldown = gcd_keys[
             self.gift_cd_popup.indexOfSelectedItem()]
 
+        self.settings.vertical_offset = self.height_slider.doubleValue()
+
         self.settings.dev_mode = (
             self.dev_check.state() == AppKit.NSControlStateValueOn)
 
+        self._saved = True
         self.settings.save()
         self.window.close()
+
+    def heightChanged_(self, sender):
+        # Preview live by mutating the shared settings; the running crab reads
+        # vertical_offset every tick, so it rises/lowers as the slider moves.
+        self.settings.vertical_offset = sender.doubleValue()
+        self.height_value_label.setStringValue_(
+            self._format_height(self.settings.vertical_offset))
+
+    def windowWillClose_(self, notification):
+        # Revert the live preview if the user closed without saving.
+        if not self._saved and self._orig_vertical_offset is not None:
+            self.settings.vertical_offset = self._orig_vertical_offset
+
+    def _format_height(self, value):
+        lang = self.settings.language
+        v = int(round(value))
+        if v == 0:
+            return _l("height_dock", lang)
+        return "%+d %s" % (v, _l("height_unit", lang))
 
     def _add_label(self, parent, text, x, y):
         label = AppKit.NSTextField.alloc().initWithFrame_(((x, y), (270, 20)))
@@ -210,6 +262,33 @@ class SettingsWindow(AppKit.NSObject):
         label.setBordered_(False)
         label.setDrawsBackground_(False)
         label.setFont_(AppKit.NSFont.systemFontOfSize_(13))
+        parent.addSubview_(label)
+        return label
+
+    def _add_value_label(self, parent, text, x, y, width):
+        label = AppKit.NSTextField.alloc().initWithFrame_(((x, y), (width, 20)))
+        label.setStringValue_(text)
+        label.setEditable_(False)
+        label.setSelectable_(False)
+        label.setBordered_(False)
+        label.setDrawsBackground_(False)
+        label.setAlignment_(AppKit.NSTextAlignmentRight)
+        label.setFont_(AppKit.NSFont.systemFontOfSize_(13))
+        label.setTextColor_(AppKit.NSColor.secondaryLabelColor())
+        parent.addSubview_(label)
+        return label
+
+    def _add_hint(self, parent, text, x, y, width, left=True):
+        label = AppKit.NSTextField.alloc().initWithFrame_(((x, y), (width, 16)))
+        label.setStringValue_(text)
+        label.setEditable_(False)
+        label.setSelectable_(False)
+        label.setBordered_(False)
+        label.setDrawsBackground_(False)
+        label.setAlignment_(
+            AppKit.NSTextAlignmentLeft if left else AppKit.NSTextAlignmentRight)
+        label.setFont_(AppKit.NSFont.systemFontOfSize_(10))
+        label.setTextColor_(AppKit.NSColor.tertiaryLabelColor())
         parent.addSubview_(label)
         return label
 

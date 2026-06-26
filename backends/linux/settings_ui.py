@@ -9,6 +9,7 @@ from settings import (
     _SCHEDULE_OPTIONS, _SPEECH_OPTIONS,
     _GIFT_DURATION_OPTIONS, _GIFT_LIMIT_OPTIONS,
     _GIFT_COOLDOWN_OPTIONS,
+    VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX,
     _loc, _l,
 )
 
@@ -24,6 +25,8 @@ class SettingsWindow:
     def __init__(self):
         self.window = None
         self.settings = Settings.shared()
+        self._orig_vertical_offset = None
+        self._saved = False
 
     def show(self):
         if self.window and self.window.get_visible():
@@ -31,6 +34,10 @@ class SettingsWindow:
             return
 
         lang = self.settings.language
+        # Remember the height so we can revert if the user closes without
+        # saving (the scale previews live by mutating the shared settings).
+        self._orig_vertical_offset = self.settings.vertical_offset
+        self._saved = False
         self.window = Gtk.Window(title=_l("title", lang))
         self.window.set_default_size(320, 520)
         self.window.set_resizable(False)
@@ -74,6 +81,25 @@ class SettingsWindow:
             if self.settings.schedule in sched_keys else 0
         self.schedule_combo.set_active(idx)
         grid.attach(self.schedule_combo, 0, row, 2, 1)
+        row += 1
+
+        # Height above the dock (scale previews live as you drag)
+        grid.attach(Gtk.Label(label=_l("height", lang), xalign=0), 0, row, 1, 1)
+        row += 1
+        self.height_scale = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL,
+            VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX, 1)
+        self.height_scale.set_value(self.settings.vertical_offset)
+        self.height_scale.set_draw_value(True)
+        self.height_scale.set_value_pos(Gtk.PositionType.RIGHT)
+        self.height_scale.add_mark(
+            VERTICAL_OFFSET_MIN, Gtk.PositionType.BOTTOM, _l("height_below", lang))
+        self.height_scale.add_mark(0, Gtk.PositionType.BOTTOM, _l("height_dock", lang))
+        self.height_scale.add_mark(
+            VERTICAL_OFFSET_MAX, Gtk.PositionType.BOTTOM, _l("height_above", lang))
+        self.height_scale.connect("format-value", self._format_height)
+        self.height_scale.connect("value-changed", self._on_height_changed)
+        grid.attach(self.height_scale, 0, row, 2, 1)
         row += 1
 
         # Language
@@ -205,9 +231,27 @@ class SettingsWindow:
 
         self.settings.dev_mode = self.dev_check.get_active()
 
+        self.settings.vertical_offset = self.height_scale.get_value()
+
+        self._saved = True
         self.settings.save()
         self.window.close()
 
+    def _on_height_changed(self, scale):
+        # Preview live by mutating the shared settings; the running crab reads
+        # vertical_offset every tick, so it rises/lowers as the scale moves.
+        self.settings.vertical_offset = scale.get_value()
+
+    def _format_height(self, scale, value):
+        lang = self.settings.language
+        v = int(round(value))
+        if v == 0:
+            return _l("height_dock", lang)
+        return "%+d %s" % (v, _l("height_unit", lang))
+
     def _on_close(self, window, event):
+        # Revert the live preview if the user closed without saving.
+        if not self._saved and self._orig_vertical_offset is not None:
+            self.settings.vertical_offset = self._orig_vertical_offset
         self.window = None
         return False

@@ -17,10 +17,17 @@ DEFAULTS = {
     "gift_duration": "5m",
     "gift_limit": 3,
     "gift_cooldown": "10m",
+    "vertical_offset": 0,
 }
 
 TERMINAL_OPTIONS = ["Terminal", "iTerm2", "Warp"]
 LANGUAGE_OPTIONS = [("ru", "Русский"), ("en", "English")]
+
+# Where Claudy sits relative to the Dock, in pixels. 0 is the Dock baseline
+# (the default); positive raises the crab above the Dock, negative sinks it
+# below. The slider lets each user dial in their preferred height.
+VERTICAL_OFFSET_MIN = -50
+VERTICAL_OFFSET_MAX = 50
 
 # Cooldown ranges in ms for each speech interval
 SPEECH_COOLDOWNS = {
@@ -88,6 +95,11 @@ _LABELS = {
     "gift_dur": ("Gift duration:", "Время подарка:"),
     "gift_lim": ("Gifts per day:", "Подарков в день:"),
     "gift_cd": ("Gift cooldown:", "Кулдаун подарков:"),
+    "height": ("Claudy's height:", "Высота Claudy:"),
+    "height_below": ("Lower", "Ниже"),
+    "height_dock": ("Dock", "Док"),
+    "height_above": ("Higher", "Выше"),
+    "height_unit": ("px", "пикс"),
     "dev": ("Developer mode", "Режим разработчика"),
     "save": ("Save", "Сохранить"),
     "title": ("Claudy — Settings", "Claudy — Настройки"),
@@ -210,5 +222,23 @@ class Settings:
     @gift_cooldown.setter
     def gift_cooldown(self, value):
         self._data["gift_cooldown"] = value
+
+    @property
+    def vertical_offset(self):
+        raw = self._data.get("vertical_offset", DEFAULTS["vertical_offset"])
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = DEFAULTS["vertical_offset"]
+        return max(VERTICAL_OFFSET_MIN, min(VERTICAL_OFFSET_MAX, value))
+
+    @vertical_offset.setter
+    def vertical_offset(self, value):
+        try:
+            value = int(round(float(value)))
+        except (TypeError, ValueError):
+            value = DEFAULTS["vertical_offset"]
+        self._data["vertical_offset"] = max(
+            VERTICAL_OFFSET_MIN, min(VERTICAL_OFFSET_MAX, value))
 
 

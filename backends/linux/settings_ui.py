@@ -10,6 +10,7 @@ from settings import (
     _GIFT_DURATION_OPTIONS, _GIFT_LIMIT_OPTIONS,
     _GIFT_COOLDOWN_OPTIONS,
     VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX,
+    DOCK_ICONS_MIN, DOCK_ICONS_MAX,
     _loc, _l,
 )
 
@@ -100,6 +101,22 @@ class SettingsWindow:
         self.height_scale.connect("format-value", self._format_height)
         self.height_scale.connect("value-changed", self._on_height_changed)
         grid.attach(self.height_scale, 0, row, 2, 1)
+        row += 1
+
+        # Dock icons (estimates the Dock width so Claudy paces only across it)
+        grid.attach(Gtk.Label(label=_l("dock_icons", lang), xalign=0), 0, row, 1, 1)
+        row += 1
+        self.dock_icons_scale = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL, DOCK_ICONS_MIN, DOCK_ICONS_MAX, 1)
+        self.dock_icons_scale.set_value(self.settings.dock_icons)
+        self.dock_icons_scale.set_draw_value(True)
+        self.dock_icons_scale.set_value_pos(Gtk.PositionType.RIGHT)
+        self.dock_icons_scale.connect("format-value", self._format_dock_icons)
+        grid.attach(self.dock_icons_scale, 0, row, 2, 1)
+        row += 1
+        hint = Gtk.Label(label=_l("dock_icons_hint", lang), xalign=0)
+        hint.get_style_context().add_class("dim-label")
+        grid.attach(hint, 0, row, 2, 1)
         row += 1
 
         # Language
@@ -232,6 +249,7 @@ class SettingsWindow:
         self.settings.dev_mode = self.dev_check.get_active()
 
         self.settings.vertical_offset = self.height_scale.get_value()
+        self.settings.dock_icons = self.dock_icons_scale.get_value()
 
         self._saved = True
         self.settings.save()
@@ -248,6 +266,9 @@ class SettingsWindow:
         if v == 0:
             return _l("height_dock", lang)
         return "%+d %s" % (v, _l("height_unit", lang))
+
+    def _format_dock_icons(self, scale, value):
+        return str(int(round(value)))
 
     def _on_close(self, window, event):
         # Revert the live preview if the user closed without saving.

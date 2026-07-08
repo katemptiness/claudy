@@ -16,7 +16,7 @@ import cairo
 from config import (
     SPRITE_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT,
     SPRITE_OFFSET_X, SPRITE_OFFSET_Y, TICK_INTERVAL,
-    PARTICLE_WINDOW_HEIGHT,
+    PARTICLE_WINDOW_HEIGHT, DOCK_DEFAULT_TILE_SIZE, DOCK_TILE_GAP,
 )
 
 from backends.linux.renderer import SpriteCache
@@ -114,6 +114,10 @@ class CrabApp:
         # We add _monitor_x when converting to screen coords.
         self.character = Character(self._monitor_w)
         self.character.x = self._monitor_w / 2
+        # No Dock-tilesize query on Linux; use the default icon pitch.
+        self.dock_tile_pitch = DOCK_DEFAULT_TILE_SIZE + DOCK_TILE_GAP
+        self.character.update_walk_bounds(
+            self._settings.dock_icons, self.dock_tile_pitch)
 
         # Particle system
         self.particles = ParticleSystem()
@@ -624,6 +628,10 @@ class CrabApp:
         self.last_tick = now
         if dt > 50:
             dt = 50
+
+        # Keep walking confined to the Dock (live as the icon count changes).
+        self.character.update_walk_bounds(
+            self._settings.dock_icons, self.dock_tile_pitch)
 
         # Startup animation
         if self.startup_phase is not None:

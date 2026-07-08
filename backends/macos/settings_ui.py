@@ -8,6 +8,7 @@ from settings import (
     _GIFT_DURATION_OPTIONS, _GIFT_LIMIT_OPTIONS,
     _GIFT_COOLDOWN_OPTIONS,
     VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX,
+    DOCK_ICONS_MIN, DOCK_ICONS_MAX,
     _loc, _l,
 )
 
@@ -31,6 +32,8 @@ class SettingsWindow(AppKit.NSObject):
         self.gift_cd_popup = None
         self.height_slider = None
         self.height_value_label = None
+        self.dock_icons_slider = None
+        self.dock_icons_value_label = None
         self.dev_check = None
         self._orig_vertical_offset = None
         self._saved = False
@@ -46,7 +49,7 @@ class SettingsWindow(AppKit.NSObject):
         # (the slider previews live by mutating the shared settings).
         self._orig_vertical_offset = self.settings.vertical_offset
         self._saved = False
-        w, h = 320, 720
+        w, h = 320, 800
         self.window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             ((200, 200), (w, h)),
             AppKit.NSWindowStyleMaskTitled
@@ -102,6 +105,25 @@ class SettingsWindow(AppKit.NSObject):
         y -= 18
         self._add_hint(content, _l("height_below", lang), 20, y, 80, left=True)
         self._add_hint(content, _l("height_above", lang), 210, y, 80, left=False)
+        y -= 34
+
+        # Dock icons (estimates the Dock width so Claudy paces only across it)
+        self._add_label(content, _l("dock_icons", lang), 20, y)
+        self.dock_icons_value_label = self._add_value_label(
+            content, self._format_dock_icons(self.settings.dock_icons),
+            190, y, 100)
+        y -= 26
+        self.dock_icons_slider = AppKit.NSSlider.alloc().initWithFrame_(
+            ((20, y), (270, 22)))
+        self.dock_icons_slider.setMinValue_(DOCK_ICONS_MIN)
+        self.dock_icons_slider.setMaxValue_(DOCK_ICONS_MAX)
+        self.dock_icons_slider.setDoubleValue_(self.settings.dock_icons)
+        self.dock_icons_slider.setContinuous_(True)
+        self.dock_icons_slider.setTarget_(self)
+        self.dock_icons_slider.setAction_("dockIconsChanged:")
+        content.addSubview_(self.dock_icons_slider)
+        y -= 18
+        self._add_hint(content, _l("dock_icons_hint", lang), 20, y, 270, left=True)
         y -= 34
 
         # Language (always bilingual so user can find it)
@@ -227,6 +249,7 @@ class SettingsWindow(AppKit.NSObject):
             self.gift_cd_popup.indexOfSelectedItem()]
 
         self.settings.vertical_offset = self.height_slider.doubleValue()
+        self.settings.dock_icons = self.dock_icons_slider.doubleValue()
 
         self.settings.dev_mode = (
             self.dev_check.state() == AppKit.NSControlStateValueOn)
@@ -253,6 +276,15 @@ class SettingsWindow(AppKit.NSObject):
         if v == 0:
             return _l("height_dock", lang)
         return "%+d %s" % (v, _l("height_unit", lang))
+
+    def dockIconsChanged_(self, sender):
+        # Just update the readout; the count is applied on Save (no live preview
+        # needed since it has no instant visual effect on the crab).
+        self.dock_icons_value_label.setStringValue_(
+            self._format_dock_icons(sender.doubleValue()))
+
+    def _format_dock_icons(self, value):
+        return str(int(round(value)))
 
     def _add_label(self, parent, text, x, y):
         label = AppKit.NSTextField.alloc().initWithFrame_(((x, y), (270, 20)))

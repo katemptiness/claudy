@@ -18,6 +18,7 @@ DEFAULTS = {
     "gift_limit": 3,
     "gift_cooldown": "10m",
     "vertical_offset": 0,
+    "dock_icons": 13,
 }
 
 TERMINAL_OPTIONS = ["Terminal", "iTerm2", "Warp"]
@@ -28,6 +29,11 @@ LANGUAGE_OPTIONS = [("ru", "Русский"), ("en", "English")]
 # below. The slider lets each user dial in their preferred height.
 VERTICAL_OFFSET_MIN = -50
 VERTICAL_OFFSET_MAX = 50
+
+# How many icons are in the Dock — used to estimate its width so Claudy paces
+# only across the Dock. The user updates this when they add/remove Dock items.
+DOCK_ICONS_MIN = 1
+DOCK_ICONS_MAX = 50
 
 # Cooldown ranges in ms for each speech interval
 SPEECH_COOLDOWNS = {
@@ -100,6 +106,9 @@ _LABELS = {
     "height_dock": ("Dock", "Док"),
     "height_above": ("Higher", "Выше"),
     "height_unit": ("px", "пикс"),
+    "dock_icons": ("Dock icons:", "Иконок в доке:"),
+    "dock_icons_hint": ("count apps, folders & Trash",
+                        "приложения, папки и корзина"),
     "dev": ("Developer mode", "Режим разработчика"),
     "save": ("Save", "Сохранить"),
     "title": ("Claudy — Settings", "Claudy — Настройки"),
@@ -240,5 +249,23 @@ class Settings:
             value = DEFAULTS["vertical_offset"]
         self._data["vertical_offset"] = max(
             VERTICAL_OFFSET_MIN, min(VERTICAL_OFFSET_MAX, value))
+
+    @property
+    def dock_icons(self):
+        raw = self._data.get("dock_icons", DEFAULTS["dock_icons"])
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = DEFAULTS["dock_icons"]
+        return max(DOCK_ICONS_MIN, min(DOCK_ICONS_MAX, value))
+
+    @dock_icons.setter
+    def dock_icons(self, value):
+        try:
+            value = int(round(float(value)))
+        except (TypeError, ValueError):
+            value = DEFAULTS["dock_icons"]
+        self._data["dock_icons"] = max(
+            DOCK_ICONS_MIN, min(DOCK_ICONS_MAX, value))
 
 

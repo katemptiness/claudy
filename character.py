@@ -3,7 +3,7 @@
 import random
 import time as _time
 from datetime import date
-from config import WINDOW_WIDTH, SPRITE_SIZE
+from config import WINDOW_WIDTH, DOCK_EDGE_PADDING, DOCK_WALK_MARGIN
 from schedule import get_weights
 from phrases import t, format_phrase
 
@@ -297,6 +297,12 @@ class Character:
         self.target_x = self.x
         self.walk_speed = 0.04  # px/ms
         self.facing_right = True
+
+        # Horizontal walking bounds (crab-center coords). Default to the full
+        # screen minus a window-width margin; the backend narrows these to the
+        # Dock via update_walk_bounds() so Claudy only paces across the Dock.
+        self.walk_min_x = WINDOW_WIDTH
+        self.walk_max_x = screen_width - WINDOW_WIDTH
 
         # Sprite frame cycling
         self.frame_index = 0
@@ -694,13 +700,12 @@ class Character:
             self.friend_walk_timer = 0.0
             self.friend_walk_frame = 0
             self.friend_sprite = "walk_a"
-            margin = WINDOW_WIDTH
             walk_dist = random.uniform(80, 200)
             direction = 1 if random.random() > 0.5 else -1
             self.facing_right = direction > 0
             self._friend_walk_target = self.x + direction * walk_dist
-            self._friend_walk_target = max(margin, min(
-                self.screen_width - margin, self._friend_walk_target))
+            self._friend_walk_target = max(self.walk_min_x, min(
+                self.walk_max_x, self._friend_walk_target))
             msg = t(random.choice(FRIEND_WALK_PHRASES))
             self.current_message = msg
             self.events.append(("message", msg))
@@ -815,11 +820,30 @@ class Character:
         self.friend_walking = False
         self.friend_playing = False
 
+    def update_walk_bounds(self, dock_icons, tile_pitch):
+        """Confine autonomous walking to the Dock, centered on screen.
+
+        Estimates the Dock width from the icon count, then sets the left/right
+        walking edges symmetrically around the screen center. Clamped within
+        the full-screen safe range, so a very large count just restores
+        roaming the whole screen.
+        """
+        full_lo = WINDOW_WIDTH
+        full_hi = self.screen_width - WINDOW_WIDTH
+        dock_width = max(0, dock_icons) * tile_pitch + 2 * DOCK_EDGE_PADDING
+        center = self.screen_width / 2
+        half = dock_width / 2
+        lo = max(full_lo, center - half + DOCK_WALK_MARGIN)
+        hi = min(full_hi, center + half - DOCK_WALK_MARGIN)
+        if lo >= hi:
+            lo = hi = center
+        self.walk_min_x = lo
+        self.walk_max_x = hi
+
     def _start_walking(self):
         self.state = "walking"
         self.state_timer = 0
-        margin = WINDOW_WIDTH
-        self.target_x = random.uniform(margin, self.screen_width - margin)
+        self.target_x = random.uniform(self.walk_min_x, self.walk_max_x)
         self.walk_frame_index = 0
         self.walk_frame_timer = 0
         dx = self.target_x - self.x
@@ -938,13 +962,12 @@ class Character:
         # Shell search (slow wandering side to side)
         if self.is_shell_searching:
             self.x += self.shell_search_direction * 0.03 * dt
-            margin = WINDOW_WIDTH
-            if self.x < margin:
-                self.x = margin
+            if self.x < self.walk_min_x:
+                self.x = self.walk_min_x
                 self.shell_search_direction = 1
                 self.facing_right = True
-            elif self.x > self.screen_width - margin:
-                self.x = self.screen_width - margin
+            elif self.x > self.walk_max_x:
+                self.x = self.walk_max_x
                 self.shell_search_direction = -1
                 self.facing_right = False
 
@@ -959,12 +982,11 @@ class Character:
                 self.play_jump_timer = 0
                 self.play_jump_direction *= -1
                 self.facing_right = self.play_jump_direction > 0
-            margin = WINDOW_WIDTH
-            if self.x < margin:
-                self.x = margin
+            if self.x < self.walk_min_x:
+                self.x = self.walk_min_x
                 self.play_jump_direction = 1
-            elif self.x > self.screen_width - margin:
-                self.x = self.screen_width - margin
+            elif self.x > self.walk_max_x:
+                self.x = self.walk_max_x
                 self.play_jump_direction = -1
         # Bounce
         elif self.is_bouncing:

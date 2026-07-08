@@ -11,7 +11,7 @@ import signal
 from config import (
     SPRITE_SIZE, WINDOW_WIDTH, WINDOW_HEIGHT,
     SPRITE_OFFSET_X, SPRITE_OFFSET_Y, TICK_INTERVAL, DOCK_Y_ADJUST,
-    PARTICLE_WINDOW_HEIGHT,
+    PARTICLE_WINDOW_HEIGHT, DOCK_DEFAULT_TILE_SIZE, DOCK_TILE_GAP,
 )
 from backends.macos.renderer import SpriteCache
 from sprites.base import ALL as BASE_SPRITES
@@ -38,6 +38,24 @@ def get_dock_top_y():
     if dock_height < 10:
         dock_height = 70
     return full.origin.y + dock_height + DOCK_Y_ADJUST
+
+
+def get_dock_tile_pitch():
+    """Estimate the on-screen width per Dock icon (permission-free).
+
+    Reads the Dock's 'tilesize' (the icon size) so the per-icon pitch scales
+    with the user's Dock size. Falls back to the macOS default when unset.
+    """
+    import subprocess
+    size = DOCK_DEFAULT_TILE_SIZE
+    try:
+        out = subprocess.run(
+            ["defaults", "read", "com.apple.dock", "tilesize"],
+            capture_output=True, text=True, timeout=2)
+        size = float(out.stdout.strip())
+    except (ValueError, OSError, subprocess.SubprocessError):
+        pass
+    return size + DOCK_TILE_GAP
 
 
 # Custom NSView for mouse event handling
@@ -294,12 +312,15 @@ class AppDelegate(AppKit.NSObject):
         # height setting applies live (and previews while dragging the slider).
         self.dock_base_y = get_dock_top_y()
         self.dock_y = self.dock_base_y + self._settings.vertical_offset
+        self.dock_tile_pitch = get_dock_tile_pitch()
         screen = AppKit.NSScreen.mainScreen()
         self.screen_width = screen.frame().size.width
 
         # Character brain
         self.character = Character(self.screen_width)
         self.character.x = self.screen_width / 2
+        self.character.update_walk_bounds(
+            self._settings.dock_icons, self.dock_tile_pitch)
 
         # Particle system
         self.particles = ParticleSystem()
@@ -536,6 +557,9 @@ class AppDelegate(AppKit.NSObject):
 
         # Apply the live height setting on top of the Dock baseline.
         self.dock_y = self.dock_base_y + self._settings.vertical_offset
+        # Keep walking confined to the Dock (live as the icon count changes).
+        self.character.update_walk_bounds(
+            self._settings.dock_icons, self.dock_tile_pitch)
 
         # Startup animation
         if self.startup_phase is not None:

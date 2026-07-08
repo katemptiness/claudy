@@ -16,6 +16,16 @@ SPRITE_OFFSET_Y = 0  # bottom of window
 # Vertical offset to align crab feet with dock top
 DOCK_Y_ADJUST = -15
 
+# Dock walking confinement. Claudy estimates the Dock's width from its icon
+# count (a user setting) so it only paces across the Dock instead of the whole
+# screen. The Dock sits centered on screen, so the left/right walking edges
+# fall symmetrically around the screen center. These are deliberate estimates —
+# being a little narrow is fine (and preferred), since the user tunes the count.
+DOCK_DEFAULT_TILE_SIZE = 48   # macOS default icon size when 'tilesize' is unset
+DOCK_TILE_GAP = 10            # px of spacing added per icon to get the pitch
+DOCK_EDGE_PADDING = 20        # px of Dock chrome at each end (rounded corners)
+DOCK_WALK_MARGIN = 22         # keep the crab's center this far inside the edge
+
 # Palette: index -> (r, g, b, a) as floats 0.0-1.0
 PALETTE = {
     0: (0.0, 0.0, 0.0, 0.0),        # transparent

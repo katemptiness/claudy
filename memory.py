@@ -181,6 +181,19 @@ class Memory:
                 return gift
         return None
 
+    def discard_pending_gift(self):
+        """Remove the pending gift without collecting it (expired unclaimed).
+
+        Discarded gifts never appear in the collection and don't count
+        toward the daily limit, so Claudy will try offering again later.
+        """
+        for i, gift in enumerate(self._data["gifts"]):
+            if not gift.get("collected", False):
+                del self._data["gifts"][i]
+                self.save()
+                return gift
+        return None
+
     def count_session_gifts(self, gift_type):
         """Count gifts of a given type in the current session (collected + pending)."""
         return sum(1 for g in self._data["gifts"] if g.get("type") == gift_type)

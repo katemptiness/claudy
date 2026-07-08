@@ -595,7 +595,7 @@ class CrabApp:
 
     def _gift_expired(self):
         self._hide_gift()
-        Memory.shared().collect_gift()
+        Memory.shared().discard_pending_gift()
         self.speech.clear_persistent()
         self.character.gift_waiting = False
         phrase = format_phrase(random.choice(GIFT_EXPIRED_PHRASES))

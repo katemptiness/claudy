@@ -72,7 +72,7 @@ Requires Python 3.10+, GTK3, and a bottom panel/dock. Tested on Ubuntu 24.04 LTS
 | Hover | Waves hello |
 | Click | Happy bounce + sparkles (before attachment) or hearts (after) |
 | Click (with gift) | Collects the gift — Claudy reacts happily |
-| Double-click | Opens Claude.app (macOS) / claude.ai (Linux) |
+| Double-click | Opens the Claude desktop app (falls back to claude.ai if it isn't installed) |
 | Drag & drop | Surprised face, falls back to Dock with gravity (macOS only) |
 | Right-click | Context menu (Open Claude, Open Claude Code, Give a gift, Gifts, Settings, About Claudy, Quit) |
 

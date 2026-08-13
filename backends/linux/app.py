@@ -2,6 +2,7 @@
 
 import os
 import random
+import shutil
 import signal
 import subprocess
 import time
@@ -32,6 +33,46 @@ from backends.linux.gifts_ui import GiftsWindow
 from phrases import (t, get_language, format_phrase, GIFT_COLLECT_PHRASES,
                      GIFT_ANNOUNCE_PHRASES, GIFT_EXPIRED_PHRASES)
 from memory import Memory
+
+
+CLAUDE_DESKTOP_ID = "com.anthropic.Claude"
+CLAUDE_WEB_URL = "https://claude.ai"
+
+
+def _find_claude_desktop_entry():
+    """Locate the Claude app's .desktop entry across the XDG data dirs."""
+    data_home = os.environ.get("XDG_DATA_HOME") or \
+        os.path.expanduser("~/.local/share")
+    data_dirs = [data_home] + os.environ.get(
+        "XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":")
+    for d in data_dirs:
+        if not d:
+            continue
+        path = os.path.join(d, "applications", CLAUDE_DESKTOP_ID + ".desktop")
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def open_claude():
+    """Open the Claude desktop app, falling back to the web version.
+
+    Mirrors macOS, where both a double-click and the context menu launch
+    Claude.app. On Linux the app ships as com.anthropic.Claude; if it isn't
+    installed we still open claude.ai in the browser.
+    """
+    entry = _find_claude_desktop_entry()
+    try:
+        if entry and shutil.which("gtk-launch"):
+            subprocess.Popen(["gtk-launch", CLAUDE_DESKTOP_ID])
+        elif shutil.which("claude-desktop"):
+            subprocess.Popen(["claude-desktop"])
+        elif entry and shutil.which("gio"):
+            subprocess.Popen(["gio", "launch", entry])
+        else:
+            subprocess.Popen(["xdg-open", CLAUDE_WEB_URL])
+    except Exception:
+        pass
 
 
 def get_dock_geometry():
@@ -367,14 +408,11 @@ class CrabApp:
 
         # GTK delivers _2BUTTON_PRESS for double-clicks automatically
         if event.type == Gdk.EventType._2BUTTON_PRESS:
-            # Double-click: open Claude in browser
+            # Double-click: open the Claude app
             if self._click_timer:
                 GLib.source_remove(self._click_timer)
                 self._click_timer = None
-            try:
-                subprocess.Popen(['xdg-open', 'https://claude.ai'])
-            except Exception:
-                pass
+            open_claude()
             return True
 
         # Single press — wait to see if a double-click follows
@@ -482,10 +520,7 @@ class CrabApp:
         menu.popup_at_pointer(event)
 
     def _open_claude(self, item):
-        try:
-            subprocess.Popen(['xdg-open', 'https://claude.ai'])
-        except Exception:
-            pass
+        open_claude()
 
     def _open_claude_code(self, item):
         terminal = self._settings.terminal

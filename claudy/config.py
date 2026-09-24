@@ -38,24 +38,41 @@ DOCK_TILE_GAP = 10            # px of spacing added per icon to get the pitch
 DOCK_EDGE_PADDING = 20        # px of Dock chrome at each end (rounded corners)
 DOCK_WALK_MARGIN = 22         # keep the crab's center this far inside the edge
 
-# Palette: index -> (r, g, b, a) as floats 0.0-1.0
+
+def _rgba(hex_color, alpha=1.0):
+    """'#RRGGBB' -> (r, g, b, a) floats in 0..1."""
+    h = hex_color.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)) + (alpha,)
+
+
+# Palette: sprite value -> RGBA (symbols in content/sprites/grid.py)
 PALETTE = {
-    0: (0.0, 0.0, 0.0, 0.0),        # transparent
-    1: (0.843, 0.467, 0.341, 1.0),   # body #D77757
-    2: (0.176, 0.176, 0.176, 1.0),   # eyes #2D2D2D
-    3: (0.941, 0.753, 0.627, 1.0),   # blush #F0C0A0
-    4: (0.482, 0.357, 0.227, 1.0),   # brown prop #7B5B3A
-    5: (0.961, 0.941, 0.910, 1.0),   # cream prop #F5F0E8
-    6: (0.376, 0.647, 0.980, 1.0),   # blue prop #60A5FA
-    7: (0.659, 0.333, 0.969, 1.0),   # purple #A855F7
-    8: (0.541, 0.541, 0.604, 1.0),   # gray #8A8A9A
-    9: (1.0, 0.843, 0.0, 1.0),       # gold #FFD700
+    0: (0.0, 0.0, 0.0, 0.0),  # transparent
+    1: _rgba("#D77757"),      # body
+    2: _rgba("#2D2D2D"),      # eyes
+    3: _rgba("#F2A08A"),      # blush
+    4: _rgba("#7B5B3A"),      # brown prop
+    5: _rgba("#F5F0E8"),      # cream prop
+    6: _rgba("#60A5FA"),      # blue prop
+    7: _rgba("#A855F7"),      # purple
+    8: _rgba("#8A8A9A"),      # gray
+    9: _rgba("#FFD700"),      # gold
 }
 
-# Friend palette — blue/teal crab
+# Tones the shading pass (render/art.py) adds to the body and eyes
+SHADES = {
+    "highlight": _rgba("#E8987A"),
+    "shadow": _rgba("#B35A3E"),
+    "glint": _rgba("#FFFFFF"),
+}
+
+# The summoned friend is a blue crab
 FRIEND_PALETTE = dict(PALETTE)
-FRIEND_PALETTE[1] = (0.341, 0.627, 0.843, 1.0)   # body: blue #57A0D7
-FRIEND_PALETTE[3] = (0.627, 0.784, 0.941, 1.0)    # blush: light blue #A0C8F0
+FRIEND_PALETTE[1] = _rgba("#57A0D7")  # body
+FRIEND_PALETTE[3] = _rgba("#A0C8F0")  # blush
+FRIEND_SHADES = dict(SHADES)
+FRIEND_SHADES["highlight"] = _rgba("#82BCE6")
+FRIEND_SHADES["shadow"] = _rgba("#3D7DB3")
 
 # Timing
 FPS = 60

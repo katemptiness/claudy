@@ -2,7 +2,9 @@
 
 import unittest
 
-from claudy.config import OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SPRITE_SIZE
+from claudy.config import (
+    FRIEND_SHADES, OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SHADES, SPRITE_SIZE,
+)
 from claudy.core.controller import Controller
 from claudy.render import art
 from claudy.render.canvas import Canvas, ImageCache
@@ -39,6 +41,22 @@ class ArtTests(unittest.TestCase):
         self.assertEqual((image.width, image.height), (SPRITE_SIZE, SPRITE_SIZE))
         self.assertIsNone(image.rows[0][0])
         self.assertEqual(image.rows[6][5], PALETTE[1])  # body
+
+    def test_shading_lights_the_crab_from_above(self):
+        rows = art.build(art.sprite_key("idle")).rows
+        self.assertEqual(rows[5][6], SHADES["highlight"])   # top edge
+        self.assertEqual(rows[11][6], SHADES["shadow"])     # bottom row
+        self.assertEqual(rows[13][4], SHADES["shadow"])     # a leg
+        self.assertEqual(rows[7][5], SHADES["glint"])       # eye, top-left
+        self.assertEqual(rows[8][6], PALETTE[2])            # rest of the eye
+
+    def test_squinting_eyes_get_no_glint(self):
+        tones = art.shading(art.SPRITES["blink"])
+        self.assertNotIn("glint", tones.values())
+
+    def test_friend_uses_its_own_shades(self):
+        rows = art.build(art.sprite_key("idle", friend=True)).rows
+        self.assertEqual(rows[5][6], FRIEND_SHADES["highlight"])
 
     def test_flip_mirrors_rows(self):
         plain = art.build(art.sprite_key("wave"))

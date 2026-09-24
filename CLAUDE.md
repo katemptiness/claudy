@@ -72,12 +72,12 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 - `ui_text.py` — bilingual labels for menus, settings and gifts windows
 - `app_reactions.py` — app categories → phrases/activities; macOS bundle IDs and Linux process names
 - `gift_stories.py` — backstories for collected gifts
-- `sprites/` — sprites as text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors
+- `sprites/` — sprites as text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors; `items.py` holds the gifts Claudy leaves and the toy he sleeps with, plus `GIFT_ART`, which maps a stored gift emoji to its picture
 
 ### Rendering (`claudy/render/`, platform-independent)
 - `scene.py` — `Scene`: paints all three windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles), speech bubble (`bubble_layout()` wraps and sizes it)
 - `canvas.py` — the `Canvas` interface backends implement (`image`, `rect`, `text`, `measure`; top-left origin) and `ImageCache`
-- `art.py` — pixel art as `PixelImage`s, identified by hashable keys (`sprite_key(name, friend, flip)`, `particle_key(name, tint)`). Applies the shading pass (highlight/shadow/eye glint).
+- `art.py` — pixel art as `PixelImage`s, identified by hashable keys (`sprite_key(name, friend, flip)`, `particle_key(name, tint)`, `item_key(name)`). Applies the shading pass (highlight/shadow/eye glint).
 
 ### Backends (`claudy/backends/`)
 Each backend creates the windows, forwards input, runs the frame loop and implements a Canvas.
@@ -101,7 +101,8 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - Sprites have no outline.
 - There is no squash/stretch and no breathing. It was tried and the user disliked it: cutting a body row made the head look clipped.
 - Juggling balls are drawn by the scene behind Claudy, not as part of the sprite.
-- Particles are pixel art. The gift on the Dock is still an emoji, on purpose.
+- Particles are pixel art, and so are the gifts and the toy (`content/sprites/items.py`). Emoji stay where they are text: in speech bubbles, in the menus and in the gifts window.
+- Gifts and the toy are drawn on Claudy's own pixel grid (`ITEM_SCALE == PIXEL_SCALE`), not the finer particle grid. They are objects in his world, not effects; at particle size they read as icons borrowed from another game.
 - The macOS windows use `FullScreenAuxiliary | Stationary` and deliberately not `CanJoinAllSpaces`. Claudy was checked on macOS 26.7: it stays visible across Spaces and over full-screen apps as it is.
 
 ## Reference Files (`docs/`)

@@ -122,7 +122,7 @@ Right-click → **Give a gift** to present something to Claudy. Five gift types 
 | 📖 Book | Claudy mentions the book during idle moments ("one more chapter...", "*turning pages*") | Until next day |
 | 🎵 Song | Music notes float around Claudy | Instant |
 | 🍡 Marshmallow | Claudy saves it — next campfire, roasts *your* marshmallow with special phrases | Until next campfire (consumed) |
-| 🧸 Toy | Claudy sleeps with it — a teddy bear emoji appears next to sleeping Claudy | Until app relaunch |
+| 🧸 Toy | Claudy sleeps with it — a pixel teddy bear appears next to sleeping Claudy | Until app relaunch |
 
 Each gift counts as 2 clicks toward attachment. Cooldown between gifts is configurable in Settings (default: 10 min). Book and toy can only be given once (the menu item is grayed out until the effect resets).
 

@@ -121,6 +121,38 @@ class ParticleKindTests(unittest.TestCase):
                     self.assertIn(image, PARTICLE_ART)
 
 
+class ItemArtTests(unittest.TestCase):
+
+    def test_items_share_claudys_pixel_grid(self):
+        """A gift is an object in Claudy's world, so it uses his pixels."""
+        from claudy.config import PIXEL_SCALE
+        from claudy.content.sprites.items import ITEM_SCALE
+        self.assertEqual(ITEM_SCALE, PIXEL_SCALE)
+
+    def test_item_grids_are_rectangular_and_use_known_colors(self):
+        from claudy.content.sprites.items import ITEM_ART, ITEM_COLORS
+        for name, text in ITEM_ART.items():
+            with self.subTest(item=name):
+                lines = [line.strip() for line in text.strip().splitlines()]
+                self.assertEqual(len({len(line) for line in lines}), 1,
+                                 "rows differ in width")
+                symbols = {ch for line in lines for ch in line} - {"."}
+                self.assertLessEqual(symbols, set(ITEM_COLORS))
+
+    def test_every_gift_claudy_offers_has_a_picture(self):
+        from claudy.content.sprites.items import GIFT_ART, ITEM_ART
+        from claudy.core.controller import TEST_GIFT_EMOJIS
+        offered = {c["emoji"] for c in activities.CATCHES if c["good"]}
+        offered |= {m["gift_emoji"] for m in activities.MAGIC_RESULTS
+                    if m["gift_emoji"]}
+        offered |= set(TEST_GIFT_EMOJIS)
+        offered |= {"\U0001F41A", "\u2B50"}   # the shell found, the star named
+        for emoji in offered:
+            with self.subTest(gift=emoji):
+                self.assertIn(emoji, GIFT_ART)
+                self.assertIn(GIFT_ART[emoji], ITEM_ART)
+
+
 class ScheduleTests(unittest.TestCase):
 
     def test_every_hour_maps_to_a_weighted_period(self):

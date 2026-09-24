@@ -12,6 +12,7 @@ from claudy.config import (
     FRIEND_PALETTE, FRIEND_SHADES, PALETTE, PIXEL_SCALE, SHADES, hex_rgba,
 )
 from claudy.content.sprites import SPRITES
+from claudy.content.sprites.items import ITEM_ART, ITEM_COLORS, ITEM_SCALE
 from claudy.content.sprites.particles import (
     PARTICLE_ART, PARTICLE_COLORS, PARTICLE_SCALE,
 )
@@ -41,6 +42,11 @@ def particle_key(name, tint=None):
     return ("particle", name, tint)
 
 
+def item_key(name):
+    """Key for a gift or keepsake picture (see content/sprites/items.py)."""
+    return ("item", name)
+
+
 @lru_cache(maxsize=None)
 def build(key):
     kind = key[0]
@@ -48,6 +54,8 @@ def build(key):
         return _build_sprite(*key[1:])
     if kind == "particle":
         return _build_particle(*key[1:])
+    if kind == "item":
+        return _build_item(*key[1:])
     raise KeyError(key)
 
 
@@ -55,15 +63,25 @@ def _mix(color, other, amount):
     return tuple(a + (b - a) * amount for a, b in zip(color, other))
 
 
+def _grid_image(text, colors, scale):
+    """Turn a text grid and the colors of its symbols into a PixelImage."""
+    lines = [line.strip() for line in text.strip().splitlines()]
+    rows = tuple(tuple(colors[ch] if ch != "." else None for ch in line)
+                 for line in lines)
+    return PixelImage(rows, scale)
+
+
 def _build_particle(name, tint):
     colors = {sym: hex_rgba(hex_color) for sym, hex_color in PARTICLE_COLORS.items()}
     if tint:
         colors["y"] = hex_rgba(tint)
         colors["Y"] = _mix(colors["y"], (1, 1, 1, 1), 0.6)
-    lines = [line.strip() for line in PARTICLE_ART[name].strip().splitlines()]
-    rows = tuple(tuple(colors[ch] if ch != "." else None for ch in line)
-                 for line in lines)
-    return PixelImage(rows, PARTICLE_SCALE)
+    return _grid_image(PARTICLE_ART[name], colors, PARTICLE_SCALE)
+
+
+def _build_item(name):
+    colors = {sym: hex_rgba(hex_color) for sym, hex_color in ITEM_COLORS.items()}
+    return _grid_image(ITEM_ART[name], colors, ITEM_SCALE)
 
 
 def _build_sprite(name, friend, flip):

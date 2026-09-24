@@ -12,6 +12,7 @@ from claudy.config import (
     FRIEND_OFFSET_X, OVERLAY_HEIGHT, PIXEL_SCALE, SPRITE_SIZE, SPRITE_X,
     SPRITE_Y, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
+from claudy.content.sprites.items import GIFT_ART, TOY
 from claudy.content.sprites.particles import JUGGLE_BALL_COLORS
 from claudy.render import art
 from claudy.render.canvas import Canvas
@@ -25,6 +26,11 @@ SHADOW_Y = OVERLAY_HEIGHT - WINDOW_HEIGHT + SPRITE_Y + 14 * PIXEL_SCALE + 1
 SHADOW_UNITS = 10       # width of the dark middle, in art pixels
 SHADOW_ALPHA = 0.22
 SHADOW_FADE_HEIGHT = 80  # px above ground where the shadow is smallest
+
+# The gift stands on the ground a fixed step clear of Claudy, pulled back
+# only when a wide picture would otherwise run off the edge of the window
+GIFT_X = SPRITE_X + SPRITE_SIZE + 5
+GIFT_BASE_Y = SHADOW_Y
 
 # Speech bubble
 BUBBLE_UNIT = 3          # its art pixel, a little finer than Claudy's
@@ -119,7 +125,12 @@ class Scene:
         x = (WINDOW_WIDTH - art.build(key).width) / 2
         canvas.image(key, round(x + view["shake_dx"]), SPRITE_Y)
         if view["show_toy"]:
-            canvas.text("🧸", SPRITE_X + SPRITE_SIZE - 10, WINDOW_HEIGHT - 25, 16, INK)
+            # Tucked against Claudy's side, overlapping a little, so it reads
+            # as something he sleeps with and not as a separate object
+            toy = art.item_key(TOY)
+            image = art.build(toy)
+            canvas.image(toy, SPRITE_X + SPRITE_SIZE - image.width // 3,
+                         WINDOW_HEIGHT - image.height)
 
     # ---- Ground overlay ----
 
@@ -131,8 +142,7 @@ class Scene:
         self._shadow(canvas, WINDOW_WIDTH / 2, height)
 
         if self.ctl.gift_emoji:
-            canvas.text(self.ctl.gift_emoji, SPRITE_X + SPRITE_SIZE + 5,
-                        OVERLAY_HEIGHT - 32, 20, INK)
+            self._gift(canvas, self.ctl.gift_emoji)
 
         for p in self.ctl.particles.get_active():
             key = art.particle_key(p.frame, p.tint)
@@ -140,6 +150,18 @@ class Scene:
             canvas.image(key, round(p.draw_x - image.width / 2),
                          round(OVERLAY_HEIGHT - p.y - image.height / 2),
                          p.opacity)
+
+    @staticmethod
+    def _gift(canvas, emoji):
+        """The gift waiting on the Dock, standing beside Claudy."""
+        name = GIFT_ART.get(emoji)
+        if name is None:     # a gift collected before it had a picture
+            canvas.text(emoji, GIFT_X, GIFT_BASE_Y - 22, 20, INK)
+            return
+        key = art.item_key(name)
+        image = art.build(key)
+        canvas.image(key, min(GIFT_X, WINDOW_WIDTH - 2 - image.width),
+                     GIFT_BASE_Y - image.height)
 
     @staticmethod
     def _shadow(canvas, center_x, height):

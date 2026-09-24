@@ -4,11 +4,13 @@ import unittest
 
 from claudy.config import (
     FRIEND_SHADES, OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SHADES, SPRITE_SIZE,
+    WINDOW_WIDTH,
 )
+from claudy.content.sprites.items import GIFT_ART
 from claudy.core.controller import Controller
 from claudy.render import art
 from claudy.render.canvas import Canvas, ImageCache
-from claudy.render.scene import BUBBLE_MAX_TEXT_WIDTH, Scene
+from claudy.render.scene import BUBBLE_MAX_TEXT_WIDTH, GIFT_BASE_Y, Scene
 from tests import support
 
 
@@ -156,11 +158,43 @@ class CrabAndGroundTests(SceneTestCase):
         self.ctl.particles.add("heart", 100, 80)
         canvas = RecordingCanvas()
         self.scene.paint_ground(canvas)
-        (_, emoji, _, _), = canvas.of("text")
-        self.assertEqual(emoji, self.ctl.gift_emoji)
-        (_, key, x, y), = canvas.of("image")
-        self.assertEqual(key, art.particle_key("heart"))
-        self.assertLess(y, OVERLAY_HEIGHT - 80)
+        self.assertEqual(canvas.of("text"), [])
+        gift, particle = canvas.of("image")
+        self.assertEqual(gift[1], art.item_key(GIFT_ART[self.ctl.gift_emoji]))
+        self.assertEqual(particle[1], art.particle_key("heart"))
+        self.assertLess(particle[3], OVERLAY_HEIGHT - 80)
+
+    def test_every_gift_picture_stands_on_the_ground_and_fits(self):
+        """Wide pictures used to run off the window when hung off Claudy."""
+        for emoji, name in GIFT_ART.items():
+            with self.subTest(gift=name):
+                self.ctl.gift_emoji = emoji
+                canvas = RecordingCanvas()
+                self.scene.paint_ground(canvas)
+                (_, key, x, y), = canvas.of("image")
+                image = art.build(key)
+                self.assertEqual(y + image.height, GIFT_BASE_Y)
+                self.assertGreater(x, SPRITE_SIZE)
+                self.assertLessEqual(x + image.width, WINDOW_WIDTH)
+
+    def test_a_gift_without_a_picture_still_shows_its_emoji(self):
+        """Collections saved before the pictures existed keep working."""
+        self.ctl.gift_emoji = "\U0001F36D"     # a gift no longer handed out
+        canvas = RecordingCanvas()
+        self.scene.paint_ground(canvas)
+        (_, text, _, _), = canvas.of("text")
+        self.assertEqual(text, self.ctl.gift_emoji)
+        self.assertEqual(canvas.of("image"), [])
+
+    def test_the_toy_is_a_picture_beside_sleeping_claudy(self):
+        self.ctl.character.has_toy = True
+        self.ctl.character.state = "sleeping"
+        self.ctl.view = self.ctl.character.view()
+        canvas = RecordingCanvas()
+        self.scene.paint_crab(canvas)
+        self.assertEqual(canvas.of("text"), [])
+        keys = [c[1] for c in canvas.of("image")]
+        self.assertIn(art.item_key("teddy"), keys)
 
 
 class RedrawTests(SceneTestCase):

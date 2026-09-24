@@ -12,9 +12,11 @@ from claudy.config import (
     FRIEND_OFFSET_X, OVERLAY_HEIGHT, PIXEL_SCALE, SPRITE_SIZE, SPRITE_X,
     SPRITE_Y, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
+from claudy.content.sprites.particles import JUGGLE_BALL_COLORS
 from claudy.render import art
 
 INK = (0.0, 0.0, 0.0, 1.0)
+CLAW_TOP = SPRITE_Y + 9 * PIXEL_SCALE  # where juggled balls rest
 
 # Shadows sit on the ground just under the feet (the sprite's last two
 # rows are empty), as one row of art pixels
@@ -65,8 +67,15 @@ class Scene:
         if view["friend_visible"]:
             canvas.image(art.sprite_key(view["friend_sprite"], friend=True),
                          SPRITE_X + FRIEND_OFFSET_X, SPRITE_Y)
-        key = art.sprite_key(view["sprite"], flip=not view["facing_right"],
-                             pose=view["pose"])
+        # Juggled balls fly behind Claudy, never across its face
+        center = WINDOW_WIDTH / 2 + view["shake_dx"]
+        side = 1 if view["facing_right"] else -1
+        for dx, height, index in view["juggle"]:
+            ball = art.particle_key("ball", JUGGLE_BALL_COLORS[index])
+            size = art.build(ball).width
+            canvas.image(ball, round(center + side * dx - size / 2),
+                         round(CLAW_TOP - height - size))
+        key = art.sprite_key(view["sprite"], flip=not view["facing_right"])
         # Sprites wider than 16 (props) keep Claudy in their middle
         x = (WINDOW_WIDTH - art.build(key).width) / 2
         canvas.image(key, round(x + view["shake_dx"]), SPRITE_Y)

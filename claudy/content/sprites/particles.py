@@ -32,6 +32,9 @@ PARTICLE_COLORS = {
 RAINBOW = ["#FF5A5A", "#FF9F40", "#FFE14D", "#5BD46B", "#4DA3FF",
            "#7A6CFF", "#C07CFF"]
 
+# Juggling balls are "ball" images in these colors
+JUGGLE_BALL_COLORS = ("#FF5A5A", "#4DA3FF", "#FFD23F")
+
 PARTICLE_ART = {
     "heart": """
         .rr.rr.
@@ -202,5 +205,12 @@ PARTICLE_ART = {
     """,
     "spark": """
         y
+    """,
+    "ball": """
+        .yyy.
+        yYyyy
+        yyyyy
+        yyyyy
+        .yyy.
     """,
 }

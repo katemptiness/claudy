@@ -29,7 +29,7 @@ from claudy.core.activities import (
     RECENT_ACTIVITY_BLOCK, SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE,
     STAR_NAMING_CHANCE, WAKING,
 )
-from claudy.core.animations import Bounce, Fall, Hop, Shake
+from claudy.core.animations import Bounce, Fall, Hop, Juggle, Shake
 from claudy.core.memory import Memory
 from claudy.core.settings import Settings
 
@@ -39,9 +39,6 @@ WALK_BRAKE_PX = 24         # starts slowing down this close to the target
 WANDER_SPEED = 0.03        # px/ms while looking for shells
 HOP_SPEED = 0.05           # px/ms sideways while playing
 WALK_FRAME_MS = 200
-BREATH_MS = 2600           # one slow breath while resting...
-BREATH_OUT_MS = 700        # ...the last part of which sits a pixel lower
-BREATHING_STATES = ("idle", "meditating")
 BLINK_MS = 150
 IDLE_MS = (8000, 20000)    # how long to idle before picking something new
 BLINK_GAP_MS = (2000, 6000)
@@ -56,8 +53,6 @@ class Character:
         self.x = screen_width / 2  # crab center x in screen coords
         self.y_offset = 0.0        # height above the resting line
         self.facing_right = True
-        self.pose = "normal"       # "squash" / "stretch" (see render.art)
-        self.breath_timer = random.uniform(0, BREATH_MS)
 
         # "idle", "walking", "dragging", "reaction_<name>", "waking",
         # or an activity name
@@ -104,6 +99,7 @@ class Character:
         self.shake_dx = 0.0
         self.hop = None      # Hop, while playing
         self.hop_direction = 1
+        self.juggle = None   # Juggle, while juggling
         self.wander_direction = 0  # nonzero while searching for shells
         self.fall = None     # Fall, after being dropped
 
@@ -155,9 +151,9 @@ class Character:
             "y_offset": self.y_offset,
             "shake_dx": self.shake_dx,
             "facing_right": self.facing_right,
-            "pose": self.pose,
             "friend_visible": self.friend_visible,
             "friend_sprite": self.friend_sprite,
+            "juggle": tuple(self.juggle.balls()) if self.juggle else (),
             "show_toy": self.has_toy and self.state == "sleeping",
         }
 
@@ -464,6 +460,7 @@ class Character:
         self.phases = []
         self.reaction = None
         self.hop = None
+        self.juggle = None
         self.wander_direction = 0
         self.bounce = None
 
@@ -523,6 +520,7 @@ class Character:
         self.friend_walk_target = None
         self.wander_direction = 0
         self.hop = None
+        self.juggle = None
 
         if phase.message:
             self._say(t(phase.message))
@@ -570,12 +568,12 @@ class Character:
     def _update_motion(self, dt):
         if self.wander_direction:
             self._wander(dt)
+        if self.juggle:
+            self.juggle.update(dt)
 
-        self.pose = "normal"
         if self.hop:
             height, landed = self.hop.update(dt)
             self.y_offset = height
-            self.pose = self.hop.pose
             if landed:
                 self._turn_hop(-self.hop_direction)
                 self._burst("dust", 2)
@@ -588,23 +586,16 @@ class Character:
                 self._turn_hop(-1)
         elif self.fall:
             self.y_offset, done = self.fall.update(dt)
-            self.pose = self.fall.pose
             if self.fall.landed:
                 self._burst("dust", 3 if self.fall.bounces == 1 else 1)
             if done:
                 self.fall = None
         elif self.bounce:
             self.y_offset, done = self.bounce.update(dt)
-            self.pose = self.bounce.pose
             if done:
                 self.bounce = None
-                self.pose = "normal"
         else:
             self.y_offset = 0.0
-            if self.state in BREATHING_STATES:
-                self.breath_timer = (self.breath_timer + dt) % BREATH_MS
-                if self.breath_timer > BREATH_MS - BREATH_OUT_MS:
-                    self.pose = "squash"
 
         if self.shake:
             self.shake_dx, done = self.shake.update(dt)
@@ -727,6 +718,9 @@ class Character:
     def _special_shell_gift_chance(self):
         if random.random() < SHELL_GIFT_CHANCE and Memory.shared().is_attached():
             self._events.append(("gift", {"type": "shell", "emoji": "🐚"}))
+
+    def _special_juggle(self):
+        self.juggle = Juggle()
 
     def _special_play_jump(self):
         self.hop = Hop()

@@ -43,6 +43,26 @@ class SpriteTests(unittest.TestCase):
                     for value in row:
                         self.assertIn(value, PALETTE)
 
+    def test_claudy_is_all_in_one_piece(self):
+        # Every body pixel touches the rest of the body (diagonals count),
+        # so no leg or claw floats loose
+        for name, grid in SPRITES.items():
+            body = {(r, c) for r, row in enumerate(grid)
+                    for c, v in enumerate(row) if v == 1}
+            start = body.pop()
+            todo, seen = [start], {start}
+            while todo:
+                r, c = todo.pop()
+                for dr in (-1, 0, 1):
+                    for dc in (-1, 0, 1):
+                        cell = (r + dr, c + dc)
+                        if cell in body:
+                            body.discard(cell)
+                            seen.add(cell)
+                            todo.append(cell)
+            with self.subTest(sprite=name):
+                self.assertEqual(body, set())
+
     def test_every_referenced_frame_exists(self):
         for activity, phase in _all_phases():
             for frame in phase.frames:

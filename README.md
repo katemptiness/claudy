@@ -173,7 +173,7 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 | Painting | Sets up an easel, paints, admires the result | — |
 | Telescope | Pulls out a telescope, gazes at the stars | Stars |
 | Meditating | Sits quietly for a long time | Sparkles |
-| Juggling | Juggles with claws | — |
+| Juggling | Tosses three balls from claw to claw over its head | — |
 | Summoning | Casts a spell, summons a blue friend crab, hangs out, says goodbye | Poof, hearts |
 | Campfire | Sits by a fire, watches the flames, roasts a marshmallow | Flames, hearts |
 | Sandcastle | Builds a sandcastle — admires it or watches it collapse | Sparkles or poof |

@@ -9,6 +9,8 @@ import random
 from dataclasses import dataclass
 from typing import Optional
 
+from claudy.core.animations import Juggle
+
 
 @dataclass(frozen=True)
 class Phase:
@@ -111,8 +113,9 @@ ACTIVITIES = {
         Phase(["idle"], 500, 1000),
     ),
     "juggling": (
-        Phase(["juggle_a", "juggle_b", "juggle_c"], 200, 4000,
-              message="жонглирует!"),
+        # Claudy flicks a claw up on every throw (see animations.Juggle)
+        Phase(["juggle_toss", "juggle_catch"], Juggle.BEAT_MS // 2, 4000,
+              message="жонглирует!", special="juggle"),
         Phase(["idle"], 500, 1000),
     ),
     "summoning": (

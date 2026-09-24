@@ -4,6 +4,7 @@ import unittest
 
 from claudy.content.sprites import SPRITES
 from claudy.core import activities
+from claudy.core.animations import Juggle
 from claudy.core.character import Character
 from tests import support
 
@@ -170,26 +171,26 @@ class IdleAndWalkingTests(CharacterTestCase):
 
 class MotionTests(CharacterTestCase):
 
-    def _poses(self, ms, step=16):
-        return [self.char.update(step)["pose"] for _ in range(int(ms / step))]
+    def test_juggling_throws_on_the_beat_and_over_the_head(self):
+        self.char.force_activity("juggling")
+        beat = Juggle.BEAT_MS
+        heights = []
+        for n in range(1, 3 * beat // 10):  # a full round of every ball
+            view = self.char.update(10)
+            if n * 10 % beat == 30:          # just after a throw
+                self.assertEqual(view["sprite"], "juggle_toss")
+            if n * 10 % beat == beat - 30:   # just before the next one
+                self.assertEqual(view["sprite"], "juggle_catch")
+            self.assertEqual(len(view["juggle"]), 3)
+            heights += [(height, dx) for dx, height, _ in view["juggle"]]
+        top, dx = max(heights)
+        self.assertAlmostEqual(top, Juggle.PEAK, delta=1)
+        self.assertLess(abs(dx), 4)          # right over Claudy's head
 
-    def test_idle_breathes(self):
-        poses = self._poses(3000)
-        self.assertIn("squash", poses)
-        self.assertGreater(poses.count("normal"), poses.count("squash"))
-
-    def test_bounce_squashes_and_stretches(self):
-        self.char.greet(attached=False)
-        poses = self._poses(700)
-        self.assertIn("squash", poses)
-        self.assertIn("stretch", poses)
-
-    def test_landing_after_a_drop_squashes(self):
-        self.char.start_drag()
-        self.char.drop(150)
-        poses = self._poses(1500)
-        first_squash = poses.index("squash")
-        self.assertIn("stretch", poses[:first_squash])
+    def test_balls_are_put_away_after_juggling(self):
+        self.char.force_activity("juggling")
+        support.run(self.char, 4500)
+        self.assertEqual(self.char.view()["juggle"], ())
 
     def test_walking_eases_in(self):
         self.char.update_walk_bounds(40, 58)

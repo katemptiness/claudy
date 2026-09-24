@@ -8,6 +8,8 @@ Claudy is an autonomous desktop companion — a pixel-art crab character that li
 
 **Supported platforms:** macOS (PyObjC/AppKit) and Linux (GTK3/Cairo).
 
+> **On a Mac?** The macOS backend has not run on a real Mac since the v3 overhaul. Read `docs/macos-first-run.md` before debugging it.
+
 ## Running
 
 **macOS:**
@@ -82,6 +84,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 
 ## Reference Files (`docs/`)
 
+- `macos-first-run.md` — handoff notes and a checklist for the first macOS run after v3
 - `prototypes/clawd-tamagotchi.jsx` — React prototype with base sprites, particle system, game loop
 - `prototypes/clawd-activities.jsx` — React demo of 4 activities with phased animations
 - `little-claude-spec.md` — full project specification (in Russian)

@@ -168,6 +168,44 @@ class IdleAndWalkingTests(CharacterTestCase):
         self.assertIn("message", _event_types(events))
 
 
+class MotionTests(CharacterTestCase):
+
+    def _poses(self, ms, step=16):
+        return [self.char.update(step)["pose"] for _ in range(int(ms / step))]
+
+    def test_idle_breathes(self):
+        poses = self._poses(3000)
+        self.assertIn("squash", poses)
+        self.assertGreater(poses.count("normal"), poses.count("squash"))
+
+    def test_bounce_squashes_and_stretches(self):
+        self.char.greet(attached=False)
+        poses = self._poses(700)
+        self.assertIn("squash", poses)
+        self.assertIn("stretch", poses)
+
+    def test_landing_after_a_drop_squashes(self):
+        self.char.start_drag()
+        self.char.drop(150)
+        poses = self._poses(1500)
+        first_squash = poses.index("squash")
+        self.assertIn("stretch", poses[:first_squash])
+
+    def test_walking_eases_in(self):
+        self.char.update_walk_bounds(40, 58)
+        self.char._start_walking()
+        self.char.target_x = self.char.x + 300
+        x0 = self.char.x
+        self.char.update(50)
+        early = self.char.x - x0
+        for _ in range(20):
+            self.char.update(50)
+        x1 = self.char.x
+        self.char.update(50)
+        cruising = self.char.x - x1
+        self.assertLess(early, cruising)
+
+
 class WalkBoundsTests(CharacterTestCase):
 
     def test_bounds_are_centered_on_screen(self):

@@ -27,9 +27,13 @@ class PixelImage:
         return len(self.rows) * self.scale
 
 
-def sprite_key(name, friend=False, flip=False):
-    """Key for a character sprite, optionally recolored or mirrored."""
-    return ("sprite", name if name in SPRITES else "idle", friend, flip)
+POSES = ("normal", "squash", "stretch")
+
+
+def sprite_key(name, friend=False, flip=False, pose="normal"):
+    """Key for a character sprite, optionally recolored, mirrored, or
+    squashed/stretched (see posed())."""
+    return ("sprite", name if name in SPRITES else "idle", friend, flip, pose)
 
 
 def build(key):
@@ -39,8 +43,8 @@ def build(key):
     raise KeyError(key)
 
 
-def _build_sprite(name, friend, flip):
-    grid = SPRITES[name]
+def _build_sprite(name, friend, flip, pose):
+    grid = posed(SPRITES[name], pose)
     palette = FRIEND_PALETTE if friend else PALETTE
     shades = FRIEND_SHADES if friend else SHADES
     tones = shading(grid)
@@ -56,6 +60,41 @@ def _build_sprite(name, friend, flip):
 
 
 BODY, EYE = 1, 2
+
+
+def _wide_body_rows(grid):
+    """Rows where the body is more than single pixels (not legs or a
+    raised claw)."""
+    rows = []
+    for r, row in enumerate(grid):
+        cols = [c for c, v in enumerate(row) if v == BODY]
+        if any(c + 1 in cols for c in cols):
+            rows.append(r)
+    return rows
+
+
+def posed(grid, pose):
+    """Squash or stretch a sprite by one pixel row, pixel-perfectly.
+
+    The row just under the top of the body is removed ("squash": everything
+    above drops by a pixel, feet stay put) or doubled ("stretch": everything
+    above rises by a pixel). Grids come back unchanged when there's no room.
+    """
+    wide = _wide_body_rows(grid)
+    if pose == "normal" or len(wide) < 3:
+        return grid
+    cut = wide[0] + 1
+    rows = [list(row) for row in grid]
+    empty = [0] * len(rows[0])
+    if pose == "squash":
+        del rows[cut]
+        rows.insert(0, empty)
+    elif pose == "stretch":
+        if any(rows[0]):
+            return grid
+        rows.insert(cut, list(rows[cut]))
+        del rows[0]
+    return rows
 
 
 def shading(grid):

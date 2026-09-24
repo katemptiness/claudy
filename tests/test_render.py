@@ -50,6 +50,22 @@ class ArtTests(unittest.TestCase):
         self.assertEqual(rows[7][5], SHADES["glint"])       # eye, top-left
         self.assertEqual(rows[8][6], PALETTE[2])            # rest of the eye
 
+    def test_squash_and_stretch_keep_feet_on_the_ground(self):
+        grid = art.SPRITES["idle"]
+        squash = art.posed(grid, "squash")
+        stretch = art.posed(grid, "stretch")
+        for posed, top in ((squash, 6), (stretch, 4)):
+            self.assertEqual(len(posed), len(grid))
+            self.assertEqual(posed[12:], grid[12:])        # legs unchanged
+            first_body = next(r for r, row in enumerate(posed) if any(row))
+            self.assertEqual(first_body, top)
+
+    def test_pose_is_part_of_the_image(self):
+        normal = art.build(art.sprite_key("idle"))
+        squash = art.build(art.sprite_key("idle", pose="squash"))
+        self.assertNotEqual(normal.rows, squash.rows)
+        self.assertEqual(squash.rows[6][6], SHADES["highlight"])  # new top
+
     def test_squinting_eyes_get_no_glint(self):
         tones = art.shading(art.SPRITES["blink"])
         self.assertNotIn("glint", tones.values())
@@ -104,7 +120,8 @@ class CrabAndGroundTests(SceneTestCase):
         self.ctl.view = self.ctl.character.view()
         self.scene.paint_crab(canvas)
         (_, key, _, _), = canvas.of("image")
-        self.assertEqual(key, art.sprite_key("idle", flip=True))
+        # (ignoring the pose, which follows Claudy's breathing)
+        self.assertEqual(key[:4], art.sprite_key("idle", flip=True)[:4])
 
     def test_friend_drawn_behind_claudy(self):
         self.ctl.character.friend_visible = True

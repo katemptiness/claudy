@@ -33,10 +33,15 @@ from claudy.core.animations import Bounce, Fall, Hop, Shake
 from claudy.core.memory import Memory
 from claudy.core.settings import Settings
 
-WALK_SPEED = 0.04          # px/ms
+WALK_SPEED = 0.04          # px/ms at full stride
+WALK_ACCEL_MS = 350        # time to reach full stride
+WALK_BRAKE_PX = 24         # starts slowing down this close to the target
 WANDER_SPEED = 0.03        # px/ms while looking for shells
 HOP_SPEED = 0.05           # px/ms sideways while playing
 WALK_FRAME_MS = 200
+BREATH_MS = 2600           # one slow breath while resting...
+BREATH_OUT_MS = 700        # ...the last part of which sits a pixel lower
+BREATHING_STATES = ("idle", "meditating")
 BLINK_MS = 150
 IDLE_MS = (8000, 20000)    # how long to idle before picking something new
 BLINK_GAP_MS = (2000, 6000)
@@ -51,6 +56,8 @@ class Character:
         self.x = screen_width / 2  # crab center x in screen coords
         self.y_offset = 0.0        # height above the resting line
         self.facing_right = True
+        self.pose = "normal"       # "squash" / "stretch" (see render.art)
+        self.breath_timer = random.uniform(0, BREATH_MS)
 
         # "idle", "walking", "dragging", "reaction_<name>", "waking",
         # or an activity name
@@ -66,6 +73,7 @@ class Character:
 
         # Walking
         self.target_x = self.x
+        self.walk_time = 0.0
         self.walk_frame_index = 0
         self.walk_frame_timer = 0.0
 
@@ -147,6 +155,7 @@ class Character:
             "y_offset": self.y_offset,
             "shake_dx": self.shake_dx,
             "facing_right": self.facing_right,
+            "pose": self.pose,
             "friend_visible": self.friend_visible,
             "friend_sprite": self.friend_sprite,
             "show_toy": self.has_toy and self.state == "sleeping",
@@ -393,9 +402,14 @@ class Character:
 
         direction = 1 if dx > 0 else -1
         self.facing_right = direction > 0
-        self.x += direction * min(abs(dx), WALK_SPEED * dt)
+        # Ease into a stride and out of it near the target
+        self.walk_time += dt
+        stride = min(1.0, self.walk_time / WALK_ACCEL_MS, abs(dx) / WALK_BRAKE_PX)
+        stride = max(0.25, stride)
+        self.x += direction * min(abs(dx), WALK_SPEED * stride * dt)
 
-        self.walk_frame_timer += dt
+        # Feet move as fast as Claudy does
+        self.walk_frame_timer += dt * stride
         if self.walk_frame_timer >= WALK_FRAME_MS:
             self.walk_frame_timer -= WALK_FRAME_MS
             self.walk_frame_index = 1 - self.walk_frame_index
@@ -437,6 +451,7 @@ class Character:
         self.state = "walking"
         self.state_timer = 0.0
         self.target_x = random.uniform(self.walk_min_x, self.walk_max_x)
+        self.walk_time = 0.0
         self.walk_frame_index = 0
         self.walk_frame_timer = 0.0
         self.facing_right = self.target_x > self.x
@@ -556,9 +571,11 @@ class Character:
         if self.wander_direction:
             self._wander(dt)
 
+        self.pose = "normal"
         if self.hop:
             height, landed = self.hop.update(dt)
             self.y_offset = height
+            self.pose = self.hop.pose
             if landed:
                 self._turn_hop(-self.hop_direction)
             self.x += self.hop_direction * HOP_SPEED * dt
@@ -570,14 +587,21 @@ class Character:
                 self._turn_hop(-1)
         elif self.fall:
             self.y_offset, done = self.fall.update(dt)
+            self.pose = self.fall.pose
             if done:
                 self.fall = None
         elif self.bounce:
             self.y_offset, done = self.bounce.update(dt)
+            self.pose = self.bounce.pose
             if done:
                 self.bounce = None
+                self.pose = "normal"
         else:
             self.y_offset = 0.0
+            if self.state in BREATHING_STATES:
+                self.breath_timer = (self.breath_timer + dt) % BREATH_MS
+                if self.breath_timer > BREATH_MS - BREATH_OUT_MS:
+                    self.pose = "squash"
 
         if self.shake:
             self.shake_dx, done = self.shake.update(dt)

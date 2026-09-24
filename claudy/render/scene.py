@@ -65,8 +65,9 @@ class Scene:
         if view["friend_visible"]:
             canvas.image(art.sprite_key(view["friend_sprite"], friend=True),
                          SPRITE_X + FRIEND_OFFSET_X, SPRITE_Y)
-        canvas.image(art.sprite_key(view["sprite"], flip=not view["facing_right"]),
-                     SPRITE_X + round(view["shake_dx"]), SPRITE_Y)
+        key = art.sprite_key(view["sprite"], flip=not view["facing_right"],
+                             pose=view["pose"])
+        canvas.image(key, SPRITE_X + round(view["shake_dx"]), SPRITE_Y)
         if view["show_toy"]:
             canvas.text("🧸", SPRITE_X + SPRITE_SIZE - 10, WINDOW_HEIGHT - 25, 16, INK)
 

@@ -208,7 +208,7 @@ claudy/
     ui_text.py                # Bilingual menu / window labels
     app_reactions.py          # What Claudy says when you open an app
     gift_stories.py           # 160 bilingual gift backstories (40 per type)
-    sprites/                  # 54 pixel-art sprites as 16x16 text grids
+    sprites/                  # 54 pixel-art sprites as text grids + particle art
 
   render/                     # Platform-independent drawing
     scene.py                  # What each window shows (crab, ground, bubble)

@@ -29,7 +29,8 @@ class Kind:
     sway_ms: float = 1200       # ...over this period
     spread: float = 30          # spawn area width
     at_feet: bool = False       # spawn at Claudy's feet instead of head
-    offset_x: float = 0         # spawn this far in front of Claudy
+    offset_x: float = 0         # spawn this far in front of Claudy...
+    offset_y: float = 0         # ...and this much higher
     flap_ms: float = 0          # cycle through the images at this pace
     tints: tuple = ()           # recolor variants to pick from
 
@@ -62,11 +63,12 @@ KINDS = {
                  gravity=40, spread=44, at_feet=True),
     "code": Kind(("code_tag", "code_braces", "code_bits"), (900, 900),
                  vx=(-10, 10), vy=(40, 55)),
-    "page": Kind(("page",), (1500, 1500), vx=(-10, 10), vy=(20, 30),
-                 sway=6, sway_ms=1000),
+    "page": Kind(("page",), (1500, 1500), vx=(0, 15), vy=(20, 30),
+                 sway=6, sway_ms=1000, spread=10, at_feet=True,
+                 offset_x=45, offset_y=35),
     "flame": Kind(("flame", "ember", "spark"), (1100, 1500), vx=(-8, 8),
                   vy=(28, 45), sway=3, sway_ms=500, spread=10, at_feet=True,
-                  offset_x=28),
+                  offset_x=47, offset_y=30),
 }
 
 
@@ -138,7 +140,8 @@ class ParticleSystem:
         if not k or len(self._particles) >= MAX_PARTICLES:
             return
         x += k.offset_x if facing_right else -k.offset_x
-        self._particles.append(Particle(kind, x, feet_y if k.at_feet else head_y))
+        y = (feet_y if k.at_feet else head_y) + k.offset_y
+        self._particles.append(Particle(kind, x, y))
 
     def update(self, dt):
         for p in self._particles:

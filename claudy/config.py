@@ -57,6 +57,14 @@ PALETTE = {
     7: hex_rgba("#A855F7"),      # purple
     8: hex_rgba("#8A8A9A"),      # gray
     9: hex_rgba("#FFD700"),      # gold
+    10: hex_rgba("#E8C67C"),     # sand
+    11: hex_rgba("#C49A55"),     # sand shade
+    12: hex_rgba("#FF8A1F"),     # flame orange
+    13: hex_rgba("#E4533D"),     # red
+    14: hex_rgba("#5DBB63"),     # green
+    15: hex_rgba("#F6A5B8"),     # shell pink
+    16: hex_rgba("#4A4A5C"),     # dark metal
+    17: hex_rgba("#C9CCD8"),     # light metal
 }
 
 # Tones the shading pass (render/art.py) adds to the body and eyes

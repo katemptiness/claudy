@@ -67,7 +67,9 @@ class Scene:
                          SPRITE_X + FRIEND_OFFSET_X, SPRITE_Y)
         key = art.sprite_key(view["sprite"], flip=not view["facing_right"],
                              pose=view["pose"])
-        canvas.image(key, SPRITE_X + round(view["shake_dx"]), SPRITE_Y)
+        # Sprites wider than 16 (props) keep Claudy in their middle
+        x = (WINDOW_WIDTH - art.build(key).width) / 2
+        canvas.image(key, round(x + view["shake_dx"]), SPRITE_Y)
         if view["show_toy"]:
             canvas.text("🧸", SPRITE_X + SPRITE_SIZE - 10, WINDOW_HEIGHT - 25, 16, INK)
 

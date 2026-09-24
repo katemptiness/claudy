@@ -28,12 +28,18 @@ def _all_phases():
 
 class SpriteTests(unittest.TestCase):
 
-    def test_grids_are_square_and_use_palette(self):
+    def test_grids_have_valid_shape_and_colors(self):
         for name, grid in SPRITES.items():
             with self.subTest(sprite=name):
                 self.assertEqual(len(grid), GRID)
+                width = len(grid[0])
+                # Wider sprites grow evenly on both sides of Claudy and
+                # must fit the 200 px crab window
+                self.assertGreaterEqual(width, GRID)
+                self.assertEqual(width % 2, 0)
+                self.assertLessEqual(width, 40)
                 for row in grid:
-                    self.assertEqual(len(row), GRID)
+                    self.assertEqual(len(row), width)
                     for value in row:
                         self.assertIn(value, PALETTE)
 

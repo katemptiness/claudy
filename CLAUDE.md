@@ -58,7 +58,7 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 - `ui_text.py` — bilingual labels for menus, settings and gifts windows
 - `app_reactions.py` — app categories → phrases/activities; macOS bundle IDs and Linux process names
 - `gift_stories.py` — backstories for collected gifts
-- `sprites/` — sprites as 16x16 text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors
+- `sprites/` — sprites as text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors
 
 ### Rendering (`claudy/render/`, platform-independent)
 - `scene.py` — `Scene`: paints all three windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles), speech bubble (`bubble_layout()` wraps and sizes it)
@@ -74,7 +74,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 
 ## Key Concepts
 
-- **Sprite symbols**: `.` transparent, `#` body (#D77757), `e` eyes (#2D2D2D), `b` blush (#F0C0A0), `w` brown prop, `c` cream prop, `u` blue prop, `p` purple, `g` gray, `y` gold — mapped to palette indices 0–9 in `config.PALETTE`
+- **Sprite symbols**: `.` transparent, `#` body (#D77757), `e` eyes (#2D2D2D), `b` blush, `w` brown, `c` cream, `u` blue, `p` purple, `g` gray, `y` gold, `s`/`S` sand, `o` flame orange, `r` red, `n` green, `k` shell pink, `d`/`l` dark/light metal — mapped to palette indices 0–17 in `config.PALETTE` (see `content/sprites/grid.py`). Sprites are 16 rows tall and 16 columns wide, or wider in steps of two when a prop needs room; Claudy stays centered. Only `#` pixels get the body shading, so props should use other colors.
 - **Phased activities**: each activity is a tuple of `Phase` objects with frames, interval, duration, optional message/particle/effects/special. The Character copies the phases when an activity starts; per-run changes (catch reaction, marshmallow, friend visit) modify only that copy. `Phase.special = "x"` runs `Character._special_x()` on entry.
 - **State machine**: idle/walking + 16 activities + reactions + `waking` (launch / system wake) + `dragging`. Weighted random transitions via `schedule.get_weights()`, avoiding the last two activities.
 - **Windows**: the small crab window (takes clicks, moves up when Claudy hops), a taller click-through ground overlay (200x300) that stays on the Dock, and the speech bubble. A single tall interactive window blocked clicks on macOS, hence the split.

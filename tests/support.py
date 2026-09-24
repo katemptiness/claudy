@@ -3,8 +3,8 @@
 import random
 from unittest import mock
 
-import memory
-import settings
+from claudy.core import memory, settings
+from claudy.core.controller import Platform
 
 SCREEN_WIDTH = 1440
 
@@ -28,8 +28,8 @@ def run(character, ms, step=50):
     events = []
     elapsed = 0
     while elapsed < ms:
-        result = character.update(step)
-        events.extend(result["events"])
+        character.update(step)
+        events.extend(character.take_events())
         elapsed += step
     return events
 
@@ -39,10 +39,10 @@ def run_until_idle(character, limit_ms=15 * 60 * 1000, step=50, on_tick=None):
     events = []
     elapsed = 0
     while elapsed < limit_ms:
-        result = character.update(step)
-        events.extend(result["events"])
+        view = character.update(step)
+        events.extend(character.take_events())
         if on_tick:
-            on_tick(result)
+            on_tick(view)
         elapsed += step
         if character.state == "idle":
             return elapsed, events
@@ -52,8 +52,45 @@ def run_until_idle(character, limit_ms=15 * 60 * 1000, step=50, on_tick=None):
 
 def fixed_period(period):
     """Patch the schedule so every lookup reports `period`."""
-    return mock.patch("schedule.get_period", return_value=period)
+    return mock.patch("claudy.core.schedule.get_period", return_value=period)
+
+
+def fixed_weights(weights):
+    return mock.patch("claudy.core.schedule.get_weights", return_value=weights)
 
 
 def seeded(seed=1234):
     random.seed(seed)
+
+
+class FakePlatform(Platform):
+    """Records what the controller asks the backend to do."""
+
+    def __init__(self):
+        self.speech = []      # texts shown, in order
+        self.hidden = 0
+        self.opened = []
+
+    def show_speech(self, text):
+        self.speech.append(text)
+
+    def hide_speech(self):
+        self.hidden += 1
+
+    def open_claude(self):
+        self.opened.append("claude")
+
+    def open_claude_code(self):
+        self.opened.append("claude_code")
+
+    def open_settings(self):
+        self.opened.append("settings")
+
+    def open_gifts(self):
+        self.opened.append("gifts")
+
+    def show_about(self):
+        self.opened.append("about")
+
+    def quit(self):
+        self.opened.append("quit")

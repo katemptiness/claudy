@@ -4,8 +4,7 @@ import json
 import os
 import unittest
 
-import memory
-import settings
+from claudy.core import memory, settings
 from tests import support
 
 
@@ -20,7 +19,7 @@ class SettingsTests(unittest.TestCase):
     def test_defaults(self):
         s = settings.Settings.shared()
         self.assertEqual(s.schedule, "owl")
-        self.assertEqual(s.dock_icons, settings.DEFAULTS["dock_icons"])
+        self.assertEqual(s.dock_icons, 13)
         self.assertEqual(s.vertical_offset, 0)
 
     def test_numeric_settings_are_clamped(self):

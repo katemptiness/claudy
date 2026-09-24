@@ -3,8 +3,8 @@
 Run from the project root:
     /usr/bin/python3 -m unittest discover -s tests -t .
 
-Importing this package redirects all persistence (settings, memory, error
-log) into a throwaway directory so tests never touch the real ~/.claudy.
+Importing this package points CLAUDY_HOME at a throwaway directory before
+any Claudy module loads, so tests never touch the real ~/.claudy.
 """
 
 import atexit
@@ -19,11 +19,4 @@ if ROOT not in sys.path:
 
 _TMP_HOME = tempfile.mkdtemp(prefix="claudy-tests-")
 atexit.register(shutil.rmtree, _TMP_HOME, ignore_errors=True)
-
-import settings as _settings  # noqa: E402
-import memory as _memory  # noqa: E402
-
-_settings.SETTINGS_DIR = _TMP_HOME
-_settings.SETTINGS_FILE = os.path.join(_TMP_HOME, "settings.json")
-_memory.MEMORY_DIR = _TMP_HOME
-_memory.MEMORY_FILE = os.path.join(_TMP_HOME, "memory.json")
+os.environ["CLAUDY_HOME"] = _TMP_HOME

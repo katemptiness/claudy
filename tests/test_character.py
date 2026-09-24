@@ -1,19 +1,15 @@
 """Behavioral tests for the Character state machine."""
 
 import unittest
-from unittest import mock
 
-import character
-from character import Character
-from sprites.activities import ALL as ACTIVITY_SPRITES
-from sprites.base import ALL as BASE_SPRITES
+from claudy.content.sprites import SPRITES
+from claudy.core import activities
+from claudy.core.character import Character
 from tests import support
-
-ALL_SPRITES = {**BASE_SPRITES, **ACTIVITY_SPRITES}
 
 
 def _event_types(events):
-    return [etype for etype, _ in events]
+    return [kind for kind, _ in events]
 
 
 class CharacterTestCase(unittest.TestCase):
@@ -34,18 +30,18 @@ class ActivityRunTests(CharacterTestCase):
         self.assertEqual(self.char.state, name)
         seen_sprites = set()
 
-        def check(result):
-            seen_sprites.add(result["sprite"])
-            self.assertGreaterEqual(result["x"], self.char.walk_min_x - 1)
-            self.assertLessEqual(result["x"], self.char.walk_max_x + 1)
+        def check(view):
+            seen_sprites.add(view["sprite"])
+            self.assertGreaterEqual(view["x"], self.char.walk_min_x - 1)
+            self.assertLessEqual(view["x"], self.char.walk_max_x + 1)
 
         _, events = support.run_until_idle(self.char, on_tick=check)
         for sprite in seen_sprites:
-            self.assertIn(sprite, ALL_SPRITES)
+            self.assertIn(sprite, SPRITES)
         return events
 
     def test_every_activity_finishes_and_returns_to_idle(self):
-        for name in character.ACTIVITIES:
+        for name in activities.ACTIVITIES:
             for attached in (False, True):
                 with self.subTest(activity=name, attached=attached):
                     support.reset_singletons()
@@ -53,6 +49,19 @@ class ActivityRunTests(CharacterTestCase):
                         support.attach()
                     self.char = Character(support.SCREEN_WIDTH)
                     self._run_activity(name)
+
+    def test_activity_templates_are_not_modified_by_runs(self):
+        before = {name: list(phases)
+                  for name, phases in activities.ACTIVITIES.items()}
+        self.char.has_marshmallow = True
+        for name in ("fishing", "campfire", "summoning", "fishing"):
+            for seed in range(5):
+                support.seeded(seed)
+                self.char.force_activity(name)
+                support.run_until_idle(self.char)
+        after = {name: list(phases)
+                 for name, phases in activities.ACTIVITIES.items()}
+        self.assertEqual(before, after)
 
     def test_activities_emit_messages(self):
         events = self._run_activity("reading")
@@ -62,12 +71,16 @@ class ActivityRunTests(CharacterTestCase):
     def test_summoning_brings_a_friend_and_sends_it_home(self):
         visible = []
         self.char.trigger_activity("summoning")
-        _, events = support.run_until_idle(
-            self.char, on_tick=lambda r: visible.append(r["friend_visible"]))
-        types = _event_types(events)
-        self.assertIn("friend_appear", types)
-        self.assertIn("friend_leave", types)
+        support.run_until_idle(
+            self.char, on_tick=lambda v: visible.append(v["friend_visible"]))
         self.assertTrue(any(visible))
+        self.assertFalse(self.char.friend_visible)
+
+    def test_interrupted_visit_sends_the_friend_home(self):
+        self.char.trigger_activity("summoning")
+        support.run(self.char, 4000)
+        self.assertTrue(self.char.friend_visible)
+        self.char.greet(attached=False)
         self.assertFalse(self.char.friend_visible)
 
     def test_sleeping_loops_during_deep_sleep(self):
@@ -86,22 +99,47 @@ class ActivityRunTests(CharacterTestCase):
         self.char.trigger_activity("music")
         self.assertEqual(self.char.state, "reading")
 
+    def test_force_interrupts_a_running_activity(self):
+        self.char.trigger_activity("reading")
+        self.char.force_activity("music")
+        self.assertEqual(self.char.state, "music")
+
     def test_unknown_activity_is_ignored(self):
         self.char.trigger_activity("skydiving")
         self.assertEqual(self.char.state, "idle")
 
 
+class WakingTests(CharacterTestCase):
+
+    def test_waking_up_yawns_then_idles(self):
+        self.char.wake_up()
+        self.assertEqual(self.char.sprite_name(), "sleep_a")
+        elapsed, events = support.run_until_idle(self.char)
+        self.assertIn(("message", "*зевает*"), events)
+        self.assertGreaterEqual(elapsed, 3000)
+
+    def test_attached_wake_up_is_personal(self):
+        support.attach()
+        self.char.wake_up()
+        _, events = support.run_until_idle(self.char)
+        self.assertNotIn(("message", "*зевает*"), events)
+        self.assertIn("message", _event_types(events))
+
+    def test_system_sleep(self):
+        self.char.go_to_sleep()
+        self.assertEqual(self.char.state, "sleeping")
+
+
 class IdleAndWalkingTests(CharacterTestCase):
 
     def test_idle_eventually_picks_something_else(self):
-        with mock.patch.object(character, "get_weights",
-                               return_value={"reading": 1.0}):
+        with support.fixed_weights({"reading": 1.0}):
             support.run(self.char, 21_000)
         self.assertEqual(self.char.state, "reading")
 
     def test_recent_activities_are_not_repeated(self):
         weights = {"reading": 0.4, "music": 0.3, "painting": 0.3}
-        with mock.patch.object(character, "get_weights", return_value=weights):
+        with support.fixed_weights(weights):
             picks = []
             for _ in range(6):
                 self.char._enter_idle()
@@ -111,7 +149,9 @@ class IdleAndWalkingTests(CharacterTestCase):
             self.assertNotEqual(a, b)
 
     def test_gift_waiting_pauses_activity_changes(self):
-        self.char.gift_waiting = True
+        self.char.trigger_activity("reading")
+        self.char.wait_for_gift(True)
+        self.assertEqual(self.char.state, "idle")
         support.run(self.char, 60_000)
         self.assertEqual(self.char.state, "idle")
 
@@ -119,9 +159,13 @@ class IdleAndWalkingTests(CharacterTestCase):
         self.char.update_walk_bounds(10, 58)
         for _ in range(10):
             self.char._start_walking()
-            support.run_until_idle(self.char, on_tick=lambda r: (
-                self.assertGreaterEqual(r["x"], self.char.walk_min_x - 1),
-                self.assertLessEqual(r["x"], self.char.walk_max_x + 1)))
+            support.run_until_idle(self.char, on_tick=lambda v: (
+                self.assertGreaterEqual(v["x"], self.char.walk_min_x - 1),
+                self.assertLessEqual(v["x"], self.char.walk_max_x + 1)))
+
+    def test_idle_chatter(self):
+        events = support.run(self.char, 80_000)
+        self.assertIn("message", _event_types(events))
 
 
 class WalkBoundsTests(CharacterTestCase):
@@ -134,10 +178,11 @@ class WalkBoundsTests(CharacterTestCase):
         self.assertLess(self.char.walk_min_x, center)
 
     def test_huge_dock_is_clamped_to_screen(self):
+        from claudy.config import WINDOW_WIDTH
         self.char.update_walk_bounds(500, 58)
-        self.assertEqual(self.char.walk_min_x, character.WINDOW_WIDTH)
+        self.assertEqual(self.char.walk_min_x, WINDOW_WIDTH)
         self.assertEqual(self.char.walk_max_x,
-                         support.SCREEN_WIDTH - character.WINDOW_WIDTH)
+                         support.SCREEN_WIDTH - WINDOW_WIDTH)
 
     def test_tiny_dock_collapses_to_center(self):
         self.char.update_walk_bounds(0, 58)
@@ -146,18 +191,43 @@ class WalkBoundsTests(CharacterTestCase):
 
 class ReactionTests(CharacterTestCase):
 
-    def test_click_reactions_return_to_idle(self):
-        for reaction in ("happy", "happy_love", "wave", "surprise"):
+    def test_reactions_return_to_idle(self):
+        for reaction in activities.REACTIONS:
             with self.subTest(reaction=reaction):
-                self.char.interrupt(reaction)
-                self.assertTrue(self.char.state.startswith("reaction_"))
+                self.char.react(reaction)
+                self.assertTrue(self.char.is_reacting)
                 support.run_until_idle(self.char, limit_ms=5000)
+                self.assertFalse(self.char.is_reacting)
 
-    def test_happy_reaction_says_something_and_sparkles(self):
-        self.char.interrupt("happy")
-        events = self.char.events
+    def test_greeting_says_something_and_sparkles(self):
+        self.char.greet(attached=False)
+        events = self.char.take_events()
         self.assertIn("message", _event_types(events))
         self.assertIn(("particle", "sparkle"), events)
+        self.assertEqual(self.char.sprite_name(), "happy")
+
+    def test_attached_greeting_brings_hearts(self):
+        self.char.greet(attached=True)
+        support.run(self.char, 2000)
+        self.assertEqual(self.char.sprite_name(), "love")
+        events = self.char.take_events() + support.run(self.char, 500)
+        self.assertIn(("particle", "heart"), events)
+
+    def test_hover_waves_and_leaving_ends_it(self):
+        self.char.hover(True)
+        self.assertEqual(self.char.sprite_name(), "wave")
+        self.char.hover(False)
+        self.assertEqual(self.char.state, "idle")
+
+    def test_drag_and_drop(self):
+        self.char.start_drag()
+        self.char.drag_to(300)
+        self.assertEqual(self.char.sprite_name(), "surprise")
+        self.char.drop(120)
+        heights = [self.char.update(16)["y_offset"] for _ in range(200)]
+        self.assertEqual(self.char.x, 300)
+        self.assertGreater(heights[0], 100)
+        self.assertEqual(heights[-1], 0)
 
 
 class GiftReceivingTests(CharacterTestCase):
@@ -173,6 +243,10 @@ class GiftReceivingTests(CharacterTestCase):
         self.char.last_gift_received_time = 0  # skip the cooldown
         self.assertFalse(self.char.can_accept_gift("toy"))
         self.assertTrue(self.char.can_accept_gift("book"))
+        self.char.receive_gift("book")
+        self.char.last_gift_received_time = 0
+        self.assertTrue(self.char.has_book)
+        self.assertFalse(self.char.can_accept_gift("book"))
 
     def test_marshmallow_is_eaten_at_the_campfire(self):
         self.char.receive_gift("marshmallow")
@@ -180,7 +254,9 @@ class GiftReceivingTests(CharacterTestCase):
         self.assertTrue(self.char.has_marshmallow)
         self.char.trigger_activity("campfire")
         self.assertFalse(self.char.has_marshmallow)
-        support.run_until_idle(self.char)
+        _, events = support.run_until_idle(self.char)
+        messages = [text for kind, text in events if kind == "message"]
+        self.assertNotIn("жарит зефирку!", messages)
 
     def test_toy_shows_only_while_sleeping(self):
         self.char.receive_gift("toy")

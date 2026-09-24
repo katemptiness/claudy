@@ -9,9 +9,9 @@
 A tiny pixel-art crab companion that lives on your Dock. It reads books, catches fish, does magic, writes code, and generally goes about its little crab life — all on its own. Formerly known as Little Claude.
 
 <p align="center">
-  <img src="screens/screen1.png" width="280" alt="Claudy juggling">
-  <img src="screens/screen2.png" width="280" alt="Claudy idle">
-  <img src="screens/screen3.png" width="280" alt="Claudy on the Dock">
+  <img src="docs/screens/screen1.png" width="280" alt="Claudy juggling">
+  <img src="docs/screens/screen2.png" width="280" alt="Claudy idle">
+  <img src="docs/screens/screen3.png" width="280" alt="Claudy on the Dock">
 </p>
 
 **Claudy is not a tamagotchi.** It has no needs, no health bars, no demands. It's a self-sufficient creature with its own schedule, moods, and activities. You're just an observer — and sometimes a friend.
@@ -182,42 +182,52 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 
 ## Architecture
 
-Built with Python — shared core logic with platform-specific backends. No game frameworks.
+Built with Python — a shared core with thin platform-specific backends. No game frameworks.
 
 ```
-app.py                        # Cross-platform entry point (detects OS)
+app.py                        # Entry point (detects the OS, starts a backend)
 
-# Shared core (platform-independent)
-character.py                  # State machine, phased animation engine
-sprites/
-  base.py                     # Idle, blink, walk sprites
-  activities.py               # 39 activity & reaction sprites
-animations.py                 # Bounce, shake, gravity drop
-particles.py                  # 15 particle types (sparkles, hearts, notes, flames, zzz...)
-schedule.py                   # Owl/lark time-of-day behavior weights
-settings.py                   # Settings persistence (JSON)
-phrases.py                    # Bilingual phrase system (RU/EN) + relationship phrases
-memory.py                     # Relationship memory (clicks, days, gifts, app launches)
-gift_stories.py               # 160 bilingual gift backstories (40 per type)
-config.py                     # Palette, constants
+claudy/
+  config.py                   # Palette, sizes, timing, data directory
+  log.py                      # Error log (~/.claudy/error.log)
 
-# macOS backend (PyObjC / AppKit / Quartz)
-backends/macos/
-  app.py                      # NSWindow, CALayer, update loop, input, gifts
-  renderer.py                 # CGContext pixel rendering
-  speech.py                   # NSWindow speech bubbles
-  events.py                   # NSWorkspace notifications (app launches, sleep/wake)
-  settings_ui.py              # AppKit settings window
-  gifts_ui.py                 # Gift collection window
+  core/                       # Platform-independent logic
+    controller.py             # App logic shared by backends: events, gifts,
+                              #   speech timing, context menu, system events
+    character.py              # State machine and phased animation engine
+    activities.py             # Activity scripts, reactions, random outcomes
+    animations.py             # Bounce, shake, hop, gravity fall
+    particles.py              # 15 particle types (sparkles, hearts, notes, zzz...)
+    schedule.py               # Owl/lark time-of-day behavior weights
+    settings.py               # Settings persistence (JSON)
+    memory.py                 # Relationship memory (clicks, days, gifts, app launches)
 
-# Linux backend (GTK3 / PyGObject / Cairo)
-backends/linux/
-  app.py                      # GTK3 windows, Cairo rendering, GLib main loop
-  renderer.py                 # Cairo pixel rendering
-  speech.py                   # GTK3 speech bubbles
-  events.py                   # D-Bus logind + process-based app detection
-  settings_ui.py              # GTK3 settings dialog
-  gifts_ui.py                 # Gift collection window
+  content/                    # Words and pictures
+    phrases.py                # Bilingual phrases (RU/EN)
+    ui_text.py                # Bilingual menu / window labels
+    app_reactions.py          # What Claudy says when you open an app
+    gift_stories.py           # 160 bilingual gift backstories (40 per type)
+    sprites/                  # 54 pixel-art sprites as 16x16 text grids
+
+  backends/
+    sprite_cache.py           # Shared rendered-sprite cache
+    macos/                    # PyObjC / AppKit / Quartz
+      app.py                  # Windows, CALayer drawing, input, frame loop
+      renderer.py, speech.py, events.py, settings_ui.py, gifts_ui.py
+    linux/                    # GTK3 / PyGObject / Cairo
+      app.py                  # Windows, Cairo drawing, input, frame loop
+      renderer.py, speech.py, events.py, settings_ui.py, gifts_ui.py
+
+tests/                        # Unit tests for the core
+docs/                         # Original spec, v2 spec, React prototypes, screenshots
+```
+
+### Tests
+
+The platform-independent core has a unit test suite (standard library only):
+
+```bash
+python3 -m unittest discover -s tests -t .
 ```
 
 ## Settings

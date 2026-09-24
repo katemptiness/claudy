@@ -23,6 +23,12 @@ python3 app.py
 python3 app.py    # or /usr/bin/python3 if using system Python
 ```
 
+**Tests** (core only, standard library `unittest`):
+```bash
+python3 -m unittest discover -s tests -t .
+```
+Tests set `CLAUDY_HOME` to a temp dir so they never touch the real `~/.claudy`.
+
 ## Tech Stack
 
 - **Shared core**: Python 3, pure-logic state machine, pixel-art sprites
@@ -34,45 +40,46 @@ python3 app.py    # or /usr/bin/python3 if using system Python
 
 ## Architecture
 
-### Cross-platform entry point
-- `app.py` — detects OS, delegates to the correct platform backend
+Everything lives in the `claudy` package; `app.py` is only the entry point.
 
-### Shared core (platform-independent)
-- `character.py` — state machine, phased animation engine, activity/reaction definitions, random outcomes
-- `sprites/base.py` — idle, blink, walk_a, walk_b grids
-- `sprites/activities.py` — all activity + reaction sprites (39 sprites)
-- `animations.py` — BounceAnimation, ShakeAnimation, GravityDrop
-- `particles.py` — 14 particle types (zzz, sparkle, heart, note, etc.), ParticleSystem
+### Core (`claudy/core/`, platform-independent)
+- `controller.py` — `Controller`: the app logic shared by both backends. Owns the Character, particles and the gift Claudy offers; handles character events, speech timing (idle-chatter rate limit, pinned gift announcements), clicks/hover/drag, system sleep/wake, app launches, and builds the context menu as `MenuItem`s. Talks to the backend through the small `Platform` interface.
+- `character.py` — `Character` state machine and phased animation engine. Emits events (`message`, `particle`, `gift`, `gift_star`) collected with `take_events()`; `update(dt)` returns a view dict (sprite, x, y_offset, shake_dx, facing, friend, toy).
+- `activities.py` — immutable activity scripts (`Phase` dataclasses), reactions, friend-visit pool, random outcomes (catches, magic results) and gift chances
+- `animations.py` — Bounce, Shake, Hop, Fall
+- `particles.py` — 15 particle types, `ParticleSystem` (dt-based)
 - `schedule.py` — time-of-day weights (night owl / early bird modes)
-- `settings.py` — settings persistence (JSON), constants, cooldown/duration maps
-- `phrases.py` — bilingual phrase system (Russian/English)
-- `memory.py` — relationship tracking, gift system, click/day counters
-- `config.py` — palette (hex → RGBA), grid/pixel constants, window dimensions
+- `settings.py` — settings persistence (JSON) via typed descriptors, cooldown/duration maps
+- `memory.py` — relationship tracking, gift storage, click/day counters
 
-### Platform backends
-- `backends/macos/app.py` — NSApplication, NSWindow, 60fps update loop, CrabView, particle rendering, context menu
-- `backends/macos/renderer.py` — `render_sprite(grid) → CGImage` via CGBitmapContext
-- `backends/macos/speech.py` — SpeechBubble via NSWindow
-- `backends/macos/events.py` — NSWorkspace notifications (sleep/wake, app launches via bundle ID)
-- `backends/macos/settings_ui.py` — AppKit settings window
-- `backends/linux/app.py` — GTK3 application, transparent windows, GLib main loop, Cairo rendering
-- `backends/linux/renderer.py` — `render_sprite(grid) → cairo.ImageSurface`
-- `backends/linux/speech.py` — SpeechBubble via GTK3 popup
-- `backends/linux/events.py` — D-Bus logind (sleep/wake), process-based app detection
-- `backends/linux/settings_ui.py` — GTK3 settings dialog
+### Content (`claudy/content/`)
+- `phrases.py` — Claudy's speech (Russian keys, English translations via `t()`), phrase pools, `pick()` helpers
+- `ui_text.py` — bilingual labels for menus, settings and gifts windows
+- `app_reactions.py` — app categories → phrases/activities; macOS bundle IDs and Linux process names
+- `gift_stories.py` — backstories for collected gifts
+- `sprites/` — sprites as 16x16 text grids (`grid.py` documents the symbols); `SPRITES` dict
+
+### Backends (`claudy/backends/`)
+- `sprite_cache.py` — lazily renders sprites through a backend's `render_sprite(grid, palette)`
+- `macos/app.py` — `MacApp` (windows, CALayer drawing, frame loop) + thin ObjC subclasses (`AppDelegate`, `CrabView`, `MenuTarget`)
+- `macos/renderer.py`, `speech.py`, `events.py` (NSWorkspace), `settings_ui.py`, `gifts_ui.py`
+- `linux/app.py` — `CrabApp` (GTK windows, Cairo drawing, GLib loop) + `LinuxPlatform`
+- `linux/renderer.py`, `speech.py`, `events.py` (logind D-Bus + process polling), `settings_ui.py`, `gifts_ui.py`
 
 ## Key Concepts
 
-- **Sprite palette**: `0`=transparent, `1`=body (#D77757), `2`=eyes (#2D2D2D), `3`=blush (#F0C0A0), `4`=brown prop, `5`=cream prop, `6`=blue prop, `7`=purple, `8`=gray, `9`=gold
-- **Phased activities**: each activity is a list of `Phase` objects with frames, interval, duration, optional message/particle/effects. Character advances through phases automatically.
-- **State machine**: idle/walking + 12 activities + reactions. Weighted random transitions via `schedule.get_weights()`.
+- **Sprite symbols**: `.` transparent, `#` body (#D77757), `e` eyes (#2D2D2D), `b` blush (#F0C0A0), `w` brown prop, `c` cream prop, `u` blue prop, `p` purple, `g` gray, `y` gold — mapped to palette indices 0–9 in `config.PALETTE`
+- **Phased activities**: each activity is a tuple of `Phase` objects with frames, interval, duration, optional message/particle/effects/special. The Character copies the phases when an activity starts; per-run changes (catch reaction, marshmallow, friend visit) modify only that copy. `Phase.special = "x"` runs `Character._special_x()` on entry.
+- **State machine**: idle/walking + 16 activities + reactions + `waking` (launch / system wake) + `dragging`. Weighted random transitions via `schedule.get_weights()`, avoiding the last two activities.
 - **Particles**: Text/emoji rendered on a larger transparent overlay window (200x300) — crab sits at bottom-center, particles float in the space above. macOS uses CATextLayer, Linux uses Pango/Cairo.
+- **PyObjC gotcha**: in `NSObject` subclasses, a method name without an inner underscore (e.g. `_draw(self, view)`, `show(self, text)`) becomes an ObjC selector and must take exactly as many args as its colons → `BadPrototypeError` otherwise. Keep logic in plain Python classes (like `MacApp`) or use names like `_draw_crab`.
 
-## Reference Files
+## Reference Files (`docs/`)
 
-- `clawd-tamagotchi.jsx` — React prototype with base sprites, particle system, game loop
-- `clawd-activities.jsx` — React demo of 4 activities with phased animations
+- `prototypes/clawd-tamagotchi.jsx` — React prototype with base sprites, particle system, game loop
+- `prototypes/clawd-activities.jsx` — React demo of 4 activities with phased animations
 - `little-claude-spec.md` — full project specification (in Russian)
+- `UPDATE-SPEC-v2.md` — v2 "Relationships" update spec (in Russian)
 
 ## Language
 

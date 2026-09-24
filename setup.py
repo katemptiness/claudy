@@ -7,9 +7,9 @@ Usage:
 The app will be created in dist/Claudy.app
 """
 
-from setuptools import setup
-
 import os
+
+from setuptools import setup
 
 APP = ['app.py']
 
@@ -30,19 +30,15 @@ OPTIONS = {
         'CFBundleShortVersionString': '1.0.0',
         'LSUIElement': True,  # No Dock icon (the crab IS on the Dock)
     },
-    'packages': ['sprites'],
+    # The whole package: the backend is imported at runtime by app.py
+    'packages': ['claudy'],
     'excludes': [
         'numpy', 'docutils', 'setuptools', 'pkg_resources',
         'unittest', 'html', 'http', 'pydoc',
         'tkinter', 'PIL', 'matplotlib', 'scipy', 'pandas',
-        'wheel', 'pip', 'distutils', 'test',
+        'wheel', 'pip', 'distutils', 'test', 'gi', 'cairo',
     ],
-    'includes': [
-        'objc', 'AppKit', 'Quartz', 'Foundation',
-        'config', 'character', 'sprite_renderer', 'particles',
-        'animations', 'speech', 'schedule', 'system_events',
-        'settings', 'phrases',
-    ],
+    'includes': ['objc', 'AppKit', 'Quartz', 'Foundation'],
     'frameworks': FRAMEWORKS,
 }
 

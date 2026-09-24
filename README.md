@@ -163,14 +163,14 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 
 | Activity | What happens | Particles |
 |----------|-------------|-----------|
-| Reading | Grabs a book, reads, reacts with excitement | Pages |
-| Working | Opens laptop, types furiously, thinks, ships code | Code snippets, sparkles |
+| Reading | Opens a big book on the ground, reads line by line, turns pages, gets excited | Exclaims |
+| Working | Turns to a glowing laptop, types furiously, thinks, ships code | Code snippets, sparkles |
 | Fishing | Casts a line, waits, pulls — catches fish, boots, or diamonds | Exclaims, sparkles |
 | Magic | Waves a wand — conjures flowers, rainbows, butterflies, or poof | Varies by result |
 | Sleeping | Nods off (nap or deep sleep depending on time) | Zzz |
 | Playing | Bounces around happily | Notes |
 | Music | Plays a tune | Notes |
-| Painting | Sets up an easel, paints, admires the result | — |
+| Painting | Sets up an easel and paints a picture stage by stage: a landscape, a flower, a heart or a portrait of its friend | — |
 | Telescope | Pulls out a telescope, gazes at the stars | Stars |
 | Meditating | Sits quietly for a long time | Sparkles |
 | Juggling | Tosses three balls from claw to claw over its head | — |
@@ -198,7 +198,7 @@ claudy/
     character.py              # State machine and phased animation engine
     activities.py             # Activity scripts, reactions, random outcomes
     animations.py             # Bounce, shake, hop, gravity fall
-    particles.py              # 16 pixel-art particle kinds (hearts, notes, zzz, dust...)
+    particles.py              # 15 pixel-art particle kinds (hearts, notes, zzz, dust...)
     schedule.py               # Owl/lark time-of-day behavior weights
     settings.py               # Settings persistence (JSON)
     memory.py                 # Relationship memory (clicks, days, gifts, app launches)

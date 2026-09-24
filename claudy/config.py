@@ -65,6 +65,7 @@ PALETTE = {
     15: hex_rgba("#F6A5B8"),     # shell pink
     16: hex_rgba("#4A4A5C"),     # dark metal
     17: hex_rgba("#C9CCD8"),     # light metal
+    18: hex_rgba("#BE684D"),     # body side face (3/4 view)
 }
 
 # Tones the shading pass (render/art.py) adds to the body and eyes
@@ -78,6 +79,7 @@ SHADES = {
 FRIEND_PALETTE = dict(PALETTE)
 FRIEND_PALETTE[1] = hex_rgba("#57A0D7")  # body
 FRIEND_PALETTE[3] = hex_rgba("#A0C8F0")  # blush
+FRIEND_PALETTE[18] = hex_rgba("#4787BA")  # side face
 FRIEND_SHADES = dict(SHADES)
 FRIEND_SHADES["highlight"] = hex_rgba("#82BCE6")
 FRIEND_SHADES["shadow"] = hex_rgba("#3D7DB3")

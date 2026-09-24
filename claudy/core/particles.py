@@ -62,10 +62,8 @@ KINDS = {
     "dust": Kind(("dust",), (350, 450), vx=(-45, 45), vy=(8, 22), drag=4,
                  gravity=40, spread=44, at_feet=True),
     "code": Kind(("code_tag", "code_braces", "code_bits"), (900, 900),
-                 vx=(-10, 10), vy=(40, 55)),
-    "page": Kind(("page",), (1500, 1500), vx=(0, 15), vy=(20, 30),
-                 sway=6, sway_ms=1000, spread=10, at_feet=True,
-                 offset_x=45, offset_y=35),
+                 vx=(-10, 10), vy=(40, 55), spread=12, at_feet=True,
+                 offset_x=50, offset_y=30),   # from the laptop screen
     "flame": Kind(("flame", "ember", "spark"), (1100, 1500), vx=(-8, 8),
                   vy=(28, 45), sway=3, sway_ms=500, spread=10, at_feet=True,
                   offset_x=47, offset_y=30),

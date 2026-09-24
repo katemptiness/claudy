@@ -183,13 +183,6 @@ PARTICLE_ART = {
         u.u..u.
         uuu.uuu
     """,
-    "page": """
-        cccc
-        cggc
-        cccc
-        cggc
-        cccc
-    """,
     "flame": """
         ..o..
         ..oo.

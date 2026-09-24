@@ -10,13 +10,14 @@ are ignored. Symbols map to palette indices in claudy.config.PALETTE:
     s  sand           S  sand shade           o  flame orange
     r  red            n  green    k  shell pink
     d  dark metal     l  light metal
+    +  Claudy's side face, for poses turned three-quarters toward a prop
 """
 
 SYMBOLS = {
     ".": 0, "#": 1, "e": 2, "b": 3, "w": 4,
     "c": 5, "u": 6, "p": 7, "g": 8, "y": 9,
     "s": 10, "S": 11, "o": 12, "r": 13, "n": 14,
-    "k": 15, "d": 16, "l": 17,
+    "k": 15, "d": 16, "l": 17, "+": 18,
 }
 
 

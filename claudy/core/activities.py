@@ -36,16 +36,38 @@ class Phase:
         return self.duration_ms
 
 
+# Eyes run along the lines, then a page flips
+READING = ("read_a", "read_b", "read_a", "read_b", "read_turn")
+
+
+def _painting(picture, done_message):
+    """Paint `picture` in three stages, then admire it."""
+    stages = tuple(
+        Phase([f"paint_{picture}_{n}_a", f"paint_{picture}_{n}_b"], 400, 7000,
+              duration_max_ms=10000, message="рисует..." if n == 1 else None)
+        for n in (1, 2, 3))
+    return stages + (Phase([f"paint_{picture}_done"], 500, 2500,
+                           message=done_message),)
+
+
+# What Claudy paints; one is picked each time the easel goes up
+PAINTINGS = {
+    "landscape": _painting("landscape", "хмм... неплохо!"),
+    "flower": _painting("flower", "цветочек!"),
+    "heart": _painting("heart", "сердечко!"),
+    "friend": _painting("friend", "портрет друга!"),
+}
+
 ACTIVITIES = {
     "reading": (
-        Phase(["read_a"], 500, 800, message="берёт книжку..."),
-        Phase(["read_a", "read_b"], 600, 60000, duration_max_ms=120000,
-              message="читает...", particle="page", particle_interval_ms=3000),
+        Phase(["read_closed"], 500, 800, message="берёт книжку..."),
+        Phase(READING, 600, 60000, duration_max_ms=120000,
+              message="читает..."),
         Phase(["read_react"], 200, 1200, message="о! интересно!",
-              particle="exclaim", bounce=True),
-        Phase(["read_a", "read_b"], 600, 60000, duration_max_ms=120000,
-              message="читает дальше...", particle="page", particle_interval_ms=3000),
-        Phase(["idle"], 500, 1500, message="закрыл книгу"),
+              particle="exclaim"),
+        Phase(READING, 600, 60000, duration_max_ms=120000,
+              message="читает дальше..."),
+        Phase(["read_closed"], 500, 1500, message="закрыл книгу"),
     ),
     "sleeping": (
         Phase(["sleep_transition"], 500, 1000),
@@ -61,7 +83,7 @@ ACTIVITIES = {
         Phase(["idle"], 500, 1000),
     ),
     "working": (
-        Phase(["work_a"], 400, 800, message="открывает ноутбук..."),
+        Phase(["work_closed"], 400, 800, message="открывает ноутбук..."),
         Phase(["work_a", "work_b"], 180, 60000, duration_max_ms=100000,
               message="тук-тук-тук...", particle="code", particle_interval_ms=1500),
         Phase(["work_think"], 500, 5000, duration_max_ms=15000,
@@ -95,10 +117,10 @@ ACTIVITIES = {
         Phase(["idle"], 500, 1000),
     ),
     "painting": (
-        Phase(["paint_a"], 500, 1500, message="ставит мольберт..."),
-        Phase(["paint_a", "paint_b"], 400, 20000, duration_max_ms=30000,
-              message="рисует..."),
-        Phase(["paint_c"], 500, 2500, message="хмм... неплохо!"),
+        # pick_painting swaps the landscape for a random picture
+        Phase(["paint_setup"], 500, 1500, message="ставит мольберт...",
+              special="pick_painting"),
+        *PAINTINGS["landscape"],
         Phase(["idle"], 500, 1000),
     ),
     "telescope": (

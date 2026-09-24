@@ -41,6 +41,9 @@ _EN = {
     "ставит мольберт...": "sets up easel...",
     "рисует...": "painting...",
     "хмм... неплохо!": "hmm... not bad!",
+    "цветочек!": "a little flower!",
+    "сердечко!": "a little heart!",
+    "портрет друга!": "a portrait of my friend!",
 
     # Activity: telescope
     "достаёт телескоп...": "pulls out telescope...",

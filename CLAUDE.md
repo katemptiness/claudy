@@ -48,7 +48,7 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 - `character.py` — `Character` state machine and phased animation engine. Emits events (`message`, `particle`, `gift`, `gift_star`) collected with `take_events()`; `update(dt)` returns a view dict (sprite, x, y_offset, shake_dx, facing, friend, toy).
 - `activities.py` — immutable activity scripts (`Phase` dataclasses), reactions, friend-visit pool, random outcomes (catches, magic results) and gift chances
 - `animations.py` — Bounce, Shake, Hop, Fall, Juggle (ball arcs; the scene draws the balls behind Claudy)
-- `particles.py` — 16 particle kinds (`Kind`: images, velocity, gravity, drag, sway, spawn at head/feet), `ParticleSystem` (dt-based, fades in/out)
+- `particles.py` — 15 particle kinds (`Kind`: images, velocity, gravity, drag, sway, spawn at head/feet), `ParticleSystem` (dt-based, fades in/out)
 - `schedule.py` — time-of-day weights (night owl / early bird modes)
 - `settings.py` — settings persistence (JSON) via typed descriptors, cooldown/duration maps
 - `memory.py` — relationship tracking, gift storage, click/day counters
@@ -74,7 +74,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 
 ## Key Concepts
 
-- **Sprite symbols**: `.` transparent, `#` body (#D77757), `e` eyes (#2D2D2D), `b` blush, `w` brown, `c` cream, `u` blue, `p` purple, `g` gray, `y` gold, `s`/`S` sand, `o` flame orange, `r` red, `n` green, `k` shell pink, `d`/`l` dark/light metal — mapped to palette indices 0–17 in `config.PALETTE` (see `content/sprites/grid.py`). Sprites are 16 rows tall and 16 columns wide, or wider in steps of two when a prop needs room; Claudy stays centered. Only `#` pixels get the body shading, so props should use other colors.
+- **Sprite symbols**: `.` transparent, `#` body (#D77757), `e` eyes (#2D2D2D), `b` blush, `w` brown, `c` cream, `u` blue, `p` purple, `g` gray, `y` gold, `s`/`S` sand, `o` flame orange, `r` red, `n` green, `k` shell pink, `d`/`l` dark/light metal, `+` Claudy's side face in three-quarter poses — mapped to palette indices 0–18 in `config.PALETTE` (see `content/sprites/grid.py`). Sprites are 16 rows tall and 16 columns wide, or wider in steps of two when a prop needs room; Claudy stays centered. Only `#` pixels get the body shading, so props should use other colors. Working, reading and painting turn Claudy three-quarters toward the prop, like Clawd in the Claude app: a 2-column `+` side face away from the prop, eyes shifted toward it. Painting pictures are composed from stages (`PICTURES` / `painting_sprites()` in `sprites/activities.py`); `Character._special_pick_painting` picks one per run.
 - **Phased activities**: each activity is a tuple of `Phase` objects with frames, interval, duration, optional message/particle/effects/special. The Character copies the phases when an activity starts; per-run changes (catch reaction, marshmallow, friend visit) modify only that copy. `Phase.special = "x"` runs `Character._special_x()` on entry.
 - **State machine**: idle/walking + 16 activities + reactions + `waking` (launch / system wake) + `dragging`. Weighted random transitions via `schedule.get_weights()`, avoiding the last two activities.
 - **Windows**: the small crab window (takes clicks, moves up when Claudy hops), a taller click-through ground overlay (200x300) that stays on the Dock, and the speech bubble. A single tall interactive window blocked clicks on macOS, hence the split.

@@ -25,7 +25,7 @@ from claudy.core import schedule
 from claudy.core.activities import (
     ACTIVITIES, CATCHES, FISH_GIFT_CHANCE, FRIEND_ACTIVITY_POOL,
     FRIEND_ANIMATIONS, FRIEND_FRAME_MS, FRIEND_GOODBYE, MAGIC_GIFT_CHANCE,
-    MAGIC_RESULTS, REACTION_HEART_INTERVAL_MS, REACTIONS,
+    MAGIC_RESULTS, PAINTINGS, REACTION_HEART_INTERVAL_MS, REACTIONS,
     RECENT_ACTIVITY_BLOCK, SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE,
     STAR_NAMING_CHANCE, WAKING,
 )
@@ -718,6 +718,10 @@ class Character:
     def _special_shell_gift_chance(self):
         if random.random() < SHELL_GIFT_CHANCE and Memory.shared().is_attached():
             self._events.append(("gift", {"type": "shell", "emoji": "🐚"}))
+
+    def _special_pick_painting(self):
+        # Between the easel going up and the final idle
+        self.phases[1:-1] = PAINTINGS[random.choice(list(PAINTINGS))]
 
     def _special_juggle(self):
         self.juggle = Juggle()

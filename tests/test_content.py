@@ -17,6 +17,9 @@ def _all_phases():
     for name, phases in activities.ACTIVITIES.items():
         for phase in phases:
             yield name, phase
+    for picture, phases in activities.PAINTINGS.items():
+        for phase in phases:
+            yield f"painting:{picture}", phase
     for key, phases in activities.FRIEND_ACTIVITY_POOL.items():
         for phase in phases:
             yield f"friend:{key}", phase

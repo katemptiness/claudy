@@ -169,6 +169,35 @@ class IdleAndWalkingTests(CharacterTestCase):
         self.assertIn("message", _event_types(events))
 
 
+class PaintingTests(CharacterTestCase):
+
+    def _painted_frames(self):
+        self.char.force_activity("painting")
+        return {frame for phase in self.char.phases for frame in phase.frames}
+
+    def test_paints_a_different_picture_now_and_then(self):
+        pictures = set()
+        for _ in range(20):
+            frames = self._painted_frames()
+            done = [f for f in frames if f.endswith("_done")]
+            self.assertEqual(len(done), 1)
+            pictures.add(done[0])
+            for frame in frames:
+                self.assertIn(frame, SPRITES)
+        self.assertEqual(len(pictures), len(activities.PAINTINGS))
+
+    def test_the_picture_grows_stage_by_stage(self):
+        self.char.force_activity("painting")
+        canvases = []
+        for phase in self.char.phases[1:-1]:
+            grid = SPRITES[phase.frames[0]]
+            canvases.append([row[25:30] for row in grid[3:8]])
+        blank = [[5] * 5] * 5
+        self.assertNotEqual(canvases[0], blank)
+        self.assertEqual(canvases[2], canvases[3])   # admiring the last stage
+        self.assertEqual(len({str(c) for c in canvases}), 3)
+
+
 class MotionTests(CharacterTestCase):
 
     def test_juggling_throws_on_the_beat_and_over_the_head(self):

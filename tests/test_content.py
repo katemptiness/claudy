@@ -138,6 +138,15 @@ class ScheduleTests(unittest.TestCase):
                     self.assertIn(name, known)
                     self.assertGreater(weight, 0)
 
+    def test_every_activity_is_reachable_somewhere(self):
+        """An activity in no period at all would never run, and nothing else
+        would complain — the weights only say which names are allowed."""
+        scheduled = {name for weights in schedule.ACTIVITY_WEIGHTS.values()
+                     for name in weights}
+        for name in activities.ACTIVITIES:
+            with self.subTest(activity=name):
+                self.assertIn(name, scheduled)
+
     def test_owl_sleeps_in_the_morning_and_lark_at_night(self):
         self.assertEqual(schedule.get_period(hour=7, mode="owl"), "deep_sleep")
         self.assertEqual(schedule.get_period(hour=23, mode="lark"), "deep_sleep")

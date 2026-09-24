@@ -158,8 +158,8 @@ Claudy follows a daily routine based on the selected schedule mode. The day is s
 | Period | Behavior |
 |--------|----------|
 | **Deep sleep** | Sleeps continuously (zzz...) |
-| **Morning** | Wakes up slowly — idle, walking, meditating, reading, occasional nap |
-| **Day** | Most active — all 16 activities available: reading, coding, fishing, magic, painting, juggling, music, telescope, meditating, playing, summoning a friend, sandcastle, shell collecting. Walks around the Dock frequently |
+| **Morning** | Wakes up slowly — idle, walking, meditating, reading, shell collecting, occasional nap |
+| **Day** | Most active — 13 of the 16 activities: reading, coding, fishing, magic, painting, juggling, music, telescope, meditating, playing, summoning a friend, sandcastle, shell collecting. No naps, campfire or candle — those belong to the evening. Walks around the Dock frequently |
 | **Evening** | Calmer and cozier — reading, fishing, stargazing, music, meditating, summoning, campfire, sandcastle, shell collecting, candle. Short naps possible |
 | **Late night** | Winding down — reading, telescope, meditating, music, campfire, candle. Naps more often |
 

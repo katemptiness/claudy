@@ -22,6 +22,8 @@ if os.path.exists(_libffi):
 
 OPTIONS = {
     'argv_emulation': False,
+    # Built from Claudy's own sprites by tools/make_icon.py
+    'iconfile': 'assets/claudy.icns',
     'plist': {
         'CFBundleName': 'Claudy',
         'CFBundleDisplayName': 'Claudy',

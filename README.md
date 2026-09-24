@@ -9,9 +9,9 @@
 A tiny pixel-art crab companion that lives on your Dock. It reads books, catches fish, does magic, writes code, and generally goes about its little crab life — all on its own. Formerly known as Little Claude.
 
 <p align="center">
-  <img src="docs/screens/screen1.png" width="280" alt="Claudy juggling">
-  <img src="docs/screens/screen2.png" width="280" alt="Claudy idle">
-  <img src="docs/screens/screen3.png" width="280" alt="Claudy on the Dock">
+  <img src="docs/screens/screen1.png" width="280" alt="Claudy reading a book on the Dock">
+  <img src="docs/screens/screen2.png" width="280" alt="Claudy juggling three balls">
+  <img src="docs/screens/screen3.png" width="280" alt="Claudy with a summoned friend">
 </p>
 
 **Claudy is not a tamagotchi.** It has no needs, no health bars, no demands. It's a self-sufficient creature with its own schedule, moods, and activities. You're just an observer — and sometimes a friend.
@@ -29,7 +29,7 @@ A tiny pixel-art crab companion that lives on your Dock. It reads books, catches
 - Gradually notices you — click enough and Claudy starts using your name, showing hearts, and saying personal things
 - Remembers how many days you've been together and occasionally mentions it
 - Says things in cute speech bubbles — in Russian or English (configurable)
-- All rendered as pixel art: 16x16 sprite grids scaled to 80x80px
+- All rendered as pixel art: 82 hand-drawn sprites, 16 rows tall and 16 to 32 columns wide, scaled up 5x
 
 ## Installation
 
@@ -46,9 +46,17 @@ python3 app.py
 
 ```bash
 pip install py2app
-python setup.py py2app
-open "dist/Claudy.app"
+tools/build_app.sh
 ```
+
+This builds `Claudy.app`, installs it into `/Applications` and relaunches it, so
+Spotlight and any Login Items entry keep pointing at the current build. Pass
+`--no-launch` to install without starting it. `python setup.py py2app` still
+works on its own and leaves the bundle in `dist/`.
+
+To start Claudy with the system, add it in **System Settings → General → Login
+Items**. The app icon is generated from Claudy's own sprites — run
+`python3 tools/make_icon.py` (needs Pillow) after changing it.
 
 Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the screen.
 
@@ -72,7 +80,7 @@ Requires Python 3.10+, GTK3, and a bottom panel/dock. Tested on Ubuntu 24.04 LTS
 | Hover | Waves hello |
 | Click | Happy bounce + sparkles (before attachment) or hearts (after) |
 | Click (with gift) | Collects the gift — Claudy reacts happily |
-| Double-click | Opens the Claude desktop app (falls back to claude.ai if it isn't installed) |
+| Double-click | Opens the Claude desktop app (on Linux, falls back to claude.ai if it isn't installed) |
 | Drag & drop | Surprised face, falls back to Dock with gravity (macOS only) |
 | Right-click | Context menu (Open Claude, Open Claude Code, Give a gift, Gifts, Settings, About Claudy, Quit) |
 
@@ -208,7 +216,7 @@ claudy/
     ui_text.py                # Bilingual menu / window labels
     app_reactions.py          # What Claudy says when you open an app
     gift_stories.py           # 160 bilingual gift backstories (40 per type)
-    sprites/                  # 54 pixel-art sprites as text grids + particle art
+    sprites/                  # 82 pixel-art sprites as text grids + particle art
 
   render/                     # Platform-independent drawing
     scene.py                  # What each window shows (crab, ground, bubble)
@@ -223,6 +231,8 @@ claudy/
       app.py                  # Windows, input, frame loop
       canvas.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
 
+assets/                       # App icon (claudy.icns)
+tools/                        # make_icon.py, build_app.sh
 tests/                        # Unit tests for the core
 docs/                         # Original spec, v2 spec, React prototypes, screenshots
 ```
@@ -243,6 +253,8 @@ Right-click → Settings to configure:
 |---------|---------|---------|
 | Claude Code terminal | Terminal / iTerm2 / Warp (macOS), gnome-terminal / kitty / alacritty (Linux) | Terminal (macOS) / gnome-terminal (Linux) |
 | Schedule mode | Night Owl / Early Bird | Night Owl |
+| Claudy's height | Slider, -50 to +50 px above the Dock (moves Claudy live while you drag) | 0 |
+| Dock icons | Slider, 1 to 50 — how many icons your Dock has, so Claudy paces across it instead of the whole screen | 13 |
 | Language | Русский / English | English |
 | Your name | Text field | — |
 | Speech frequency | Often (10s) / Normal (1 min) / Rarely / Very rarely / Almost never | Normal |

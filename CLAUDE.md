@@ -16,6 +16,14 @@ pip install pyobjc pyobjc-framework-Quartz
 python3 app.py
 ```
 
+**Build the macOS app:**
+```bash
+pip install py2app pillow
+tools/build_app.sh          # build, install to /Applications, relaunch
+```
+`assets/claudy.icns` is the app icon, drawn from the sprites by `tools/make_icon.py`;
+it is committed, so it only needs regenerating when the icon changes.
+
 **Linux (Ubuntu 24.04+):**
 ```bash
 # GTK3, PyGObject, and Cairo are typically pre-installed on Ubuntu

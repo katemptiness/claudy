@@ -11,7 +11,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
-from claudy.config import MAX_TICK_MS, SPRITE_OFFSET_X, SPRITE_OFFSET_Y, SPRITE_SIZE
+from claudy.config import MAX_TICK_MS, SPRITE_SIZE, WINDOW_WIDTH
 from claudy.content import phrases, ui_text
 from claudy.content.phrases import pick
 from claudy.core.activities import ACTIVITIES
@@ -19,25 +19,19 @@ from claudy.core.character import Character
 from claudy.core.memory import Memory
 from claudy.core.particles import ParticleSystem
 from claudy.core.settings import Settings
+from claudy.core.speech import Speech
 from claudy.log import log
 
 # Idle chatter never follows another line faster than this
 CHATTER_GAP_MS = 3000
-# Particles spawn around the top of the sprite, in overlay coordinates
-PARTICLE_ORIGIN = (SPRITE_OFFSET_X + SPRITE_SIZE / 2, SPRITE_OFFSET_Y + SPRITE_SIZE)
+# Particles spawn around the top of the sprite. Particle coordinates are
+# overlay x and height above the overlay's bottom edge.
+PARTICLE_ORIGIN = (WINDOW_WIDTH / 2, SPRITE_SIZE)
 TEST_GIFT_EMOJIS = ["🐟", "🐡", "💎", "⭐", "🌸", "🦋"]
 
 
 class Platform:
     """What the controller asks of a backend."""
-
-    def show_speech(self, text):
-        """Show (or replace) the speech bubble above Claudy."""
-        raise NotImplementedError
-
-    def hide_speech(self):
-        """Fade the speech bubble out."""
-        raise NotImplementedError
 
     def open_claude(self):
         raise NotImplementedError
@@ -73,7 +67,7 @@ SEPARATOR = MenuItem(separator=True)
 
 
 def reading_time(text):
-    """How long a speech bubble stays up, in seconds."""
+    """How long a speech bubble stays up once typed out, in seconds."""
     return max(2.0, min(5.0, len(text) * 0.15))
 
 
@@ -97,6 +91,7 @@ class Controller:
         self._gift_expires_ms = 0.0
 
         # Speech: a pinned bubble (gift announcement) blocks other lines
+        self.speech = Speech()
         self._speech_pinned = False
         self._speech_hides_ms = None
         self._last_speech_ms = -CHATTER_GAP_MS
@@ -121,6 +116,7 @@ class Controller:
             self._expire_gift()
         if self._speech_hides_ms is not None and self._clock_ms >= self._speech_hides_ms:
             self._hide_speech()
+        self.speech.update(dt)
         self.particles.update(dt)
         return self.view
 
@@ -137,7 +133,8 @@ class Controller:
         if kind == "message":
             self._say(data, chatter=not self.character.is_busy)
         elif kind == "particle":
-            self.particles.add(data, *PARTICLE_ORIGIN)
+            x, y = PARTICLE_ORIGIN
+            self.particles.add(data, x, y + self.view["y_offset"])
         elif kind == "gift":
             self._offer_gift(data)
         elif kind == "gift_star":
@@ -164,13 +161,14 @@ class Controller:
 
     def _show_speech(self, text, duration_s):
         self._last_speech_ms = self._clock_ms
-        self._speech_hides_ms = self._clock_ms + duration_s * 1000
-        self.platform.show_speech(text)
+        self._speech_hides_ms = (self._clock_ms + Speech.typing_ms(text)
+                                 + duration_s * 1000)
+        self.speech.say(text)
 
     def _hide_speech(self):
         self._speech_pinned = False
         self._speech_hides_ms = None
-        self.platform.hide_speech()
+        self.speech.hide()
 
     # ---- Gifts from Claudy ----
 

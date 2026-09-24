@@ -11,13 +11,16 @@ GRID = 16
 PIXEL_SCALE = 5
 SPRITE_SIZE = GRID * PIXEL_SCALE  # 80
 
-# Window size (interactive crab area — particles render in a separate overlay)
+# Claudy uses two windows of the same width, bottom edges aligned at rest:
+# the small crab window (takes clicks, rises when Claudy hops) and a taller
+# click-through overlay that stays on the Dock (shadows, gift, particles).
+# Drawing coordinates have their origin at a window's top-left.
 WINDOW_WIDTH = 200
 WINDOW_HEIGHT = SPRITE_SIZE + 10  # 90, just the sprite + small margin
-PARTICLE_WINDOW_HEIGHT = 300      # overlay for particle effects
-# Sprite is centered horizontally, at the bottom of the window
-SPRITE_OFFSET_X = (WINDOW_WIDTH - SPRITE_SIZE) // 2
-SPRITE_OFFSET_Y = 0  # bottom of window
+OVERLAY_HEIGHT = 300
+# The sprite is centered horizontally, at the bottom of the crab window
+SPRITE_X = (WINDOW_WIDTH - SPRITE_SIZE) // 2
+SPRITE_Y = WINDOW_HEIGHT - SPRITE_SIZE
 
 # The friend crab stands this far to the left of Claudy
 FRIEND_OFFSET_X = -50

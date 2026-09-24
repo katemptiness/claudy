@@ -43,7 +43,8 @@ Tests set `CLAUDY_HOME` to a temp dir so they never touch the real `~/.claudy`.
 Everything lives in the `claudy` package; `app.py` is only the entry point.
 
 ### Core (`claudy/core/`, platform-independent)
-- `controller.py` — `Controller`: the app logic shared by both backends. Owns the Character, particles and the gift Claudy offers; handles character events, speech timing (idle-chatter rate limit, pinned gift announcements), clicks/hover/drag, system sleep/wake, app launches, and builds the context menu as `MenuItem`s. Talks to the backend through the small `Platform` interface.
+- `controller.py` — `Controller`: the app logic shared by both backends. Owns the Character, particles, the Speech state and the gift Claudy offers; handles character events, speech timing (idle-chatter rate limit, pinned gift announcements), clicks/hover/drag, system sleep/wake, app launches, and builds the context menu as `MenuItem`s. Talks to the backend through the small `Platform` interface (open apps/windows, quit).
+- `speech.py` — `Speech`: bubble state (typewriter text, fade in/out alpha)
 - `character.py` — `Character` state machine and phased animation engine. Emits events (`message`, `particle`, `gift`, `gift_star`) collected with `take_events()`; `update(dt)` returns a view dict (sprite, x, y_offset, shake_dx, facing, friend, toy).
 - `activities.py` — immutable activity scripts (`Phase` dataclasses), reactions, friend-visit pool, random outcomes (catches, magic results) and gift chances
 - `animations.py` — Bounce, Shake, Hop, Fall
@@ -59,19 +60,24 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 - `gift_stories.py` — backstories for collected gifts
 - `sprites/` — sprites as 16x16 text grids (`grid.py` documents the symbols); `SPRITES` dict
 
+### Rendering (`claudy/render/`, platform-independent)
+- `scene.py` — `Scene`: paints all three windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles), speech bubble (`bubble_layout()` wraps and sizes it)
+- `canvas.py` — the `Canvas` interface backends implement (`image`, `rect`, `text`, `measure`; top-left origin) and `ImageCache`
+- `art.py` — pixel art as `PixelImage`s, identified by hashable keys (`sprite_key(...)`)
+
 ### Backends (`claudy/backends/`)
-- `sprite_cache.py` — lazily renders sprites through a backend's `render_sprite(grid, palette)`
-- `macos/app.py` — `MacApp` (windows, CALayer drawing, frame loop) + thin ObjC subclasses (`AppDelegate`, `CrabView`, `MenuTarget`)
-- `macos/renderer.py`, `speech.py`, `events.py` (NSWorkspace), `settings_ui.py`, `gifts_ui.py`
-- `linux/app.py` — `CrabApp` (GTK windows, Cairo drawing, GLib loop) + `LinuxPlatform`
-- `linux/renderer.py`, `speech.py`, `events.py` (logind D-Bus + process polling), `settings_ui.py`, `gifts_ui.py`
+Each backend creates the windows, forwards input, runs the frame loop and implements a Canvas.
+- `macos/app.py` — `MacApp` (windows, frame loop) + thin ObjC subclasses (`AppDelegate`, `CrabView`, `MenuTarget`)
+- `macos/canvas.py` (Quartz canvas), `views.py` (`DrawingView`, overlay windows), `bubble.py`, `events.py` (NSWorkspace), `settings_ui.py`, `gifts_ui.py`
+- `linux/app.py` — `CrabApp` (GTK windows, GLib loop) + `LinuxPlatform`
+- `linux/canvas.py` (Cairo/Pango canvas), `bubble.py`, `events.py` (logind D-Bus + process polling), `settings_ui.py`, `gifts_ui.py`
 
 ## Key Concepts
 
 - **Sprite symbols**: `.` transparent, `#` body (#D77757), `e` eyes (#2D2D2D), `b` blush (#F0C0A0), `w` brown prop, `c` cream prop, `u` blue prop, `p` purple, `g` gray, `y` gold — mapped to palette indices 0–9 in `config.PALETTE`
 - **Phased activities**: each activity is a tuple of `Phase` objects with frames, interval, duration, optional message/particle/effects/special. The Character copies the phases when an activity starts; per-run changes (catch reaction, marshmallow, friend visit) modify only that copy. `Phase.special = "x"` runs `Character._special_x()` on entry.
 - **State machine**: idle/walking + 16 activities + reactions + `waking` (launch / system wake) + `dragging`. Weighted random transitions via `schedule.get_weights()`, avoiding the last two activities.
-- **Particles**: Text/emoji rendered on a larger transparent overlay window (200x300) — crab sits at bottom-center, particles float in the space above. macOS uses CATextLayer, Linux uses Pango/Cairo.
+- **Windows**: the small crab window (takes clicks, moves up when Claudy hops), a taller click-through ground overlay (200x300) that stays on the Dock, and the speech bubble. A single tall interactive window blocked clicks on macOS, hence the split.
 - **PyObjC gotcha**: in `NSObject` subclasses, a method name without an inner underscore (e.g. `_draw(self, view)`, `show(self, text)`) becomes an ObjC selector and must take exactly as many args as its colons → `BadPrototypeError` otherwise. Keep logic in plain Python classes (like `MacApp`) or use names like `_draw_crab`.
 
 ## Reference Files (`docs/`)

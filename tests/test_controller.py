@@ -22,15 +22,18 @@ class ControllerTestCase(unittest.TestCase):
         self.platform = support.FakePlatform()
         self.ctl = Controller(self.platform, support.SCREEN_WIDTH, 58)
         self.advance(4000)  # finish waking up
-        self.platform.speech.clear()
-        self.platform.hidden = 0
+        self._said, self._hidden = support.record_speech(self.ctl)
 
     def advance(self, ms, step=50):
         for _ in range(int(ms / step)):
             self.ctl.tick(step)
 
     def said(self):
-        return self.platform.speech
+        return self._said
+
+    @property
+    def hidden(self):
+        return self._hidden[0]
 
     def offer_gift(self):
         self.ctl._offer_gift({"type": "fish", "emoji": "🐟"})
@@ -42,10 +45,11 @@ class StartupTests(unittest.TestCase):
         support.reset_singletons()
         platform = support.FakePlatform()
         ctl = Controller(platform, support.SCREEN_WIDTH, 58)
+        said, _ = support.record_speech(ctl)
         self.assertEqual(ctl.view["sprite"], "sleep_a")
         for _ in range(80):
             ctl.tick(50)
-        self.assertIn("*зевает*", platform.speech)
+        self.assertIn("*зевает*", said)
         self.assertEqual(ctl.character.state, "idle")
 
 
@@ -59,7 +63,7 @@ class GiftTests(ControllerTestCase):
         self.ctl._say("что-то ещё")
         self.advance(60_000)
         self.assertNotIn("что-то ещё", self.said())
-        self.assertEqual(self.platform.hidden, 0)
+        self.assertEqual(self.hidden, 0)
 
     def test_click_collects_the_gift(self):
         self.offer_gift()
@@ -67,14 +71,14 @@ class GiftTests(ControllerTestCase):
         self.assertIsNone(self.ctl.gift_emoji)
         self.assertFalse(self.ctl.character.gift_waiting)
         self.assertEqual(len(Memory.shared().get_collected_gifts()), 1)
-        self.assertEqual(self.platform.hidden, 1)
+        self.assertEqual(self.hidden, 1)
         self.assertEqual(self.ctl.character.state, "reaction_happy")
 
     def test_unclaimed_gift_expires(self):
         self.offer_gift()
         self.advance(Settings.shared().gift_duration_seconds() * 1000 + 100)
         self.assertIsNone(self.ctl.gift_emoji)
-        self.assertEqual(self.platform.hidden, 1)
+        self.assertEqual(self.hidden, 1)
         self.assertIsNone(Memory.shared().get_pending_gift())
         self.assertEqual(Memory.shared().get_collected_gifts(), [])
 
@@ -115,10 +119,24 @@ class SpeechTests(ControllerTestCase):
 
     def test_speech_hides_after_reading_time(self):
         self.ctl._say("привет")
-        self.advance(1900)
-        self.assertEqual(self.platform.hidden, 0)
+        typing = len("привет") * 30
+        self.advance(typing + 1900)
+        self.assertEqual(self.hidden, 0)
+        self.assertEqual(self.ctl.speech.shown_text, "привет")
         self.advance(200)
-        self.assertEqual(self.platform.hidden, 1)
+        self.assertEqual(self.hidden, 1)
+        self.advance(400)
+        self.assertFalse(self.ctl.speech.visible)
+
+    def test_text_types_out(self):
+        self.ctl._say("привет")
+        self.ctl.tick(1)
+        self.assertEqual(self.ctl.speech.shown_text, "п")
+        self.assertTrue(self.ctl.speech.typing)
+        self.advance(100)
+        self.assertEqual(self.ctl.speech.shown_text, "прив")
+        self.advance(100)
+        self.assertFalse(self.ctl.speech.typing)
 
     def test_double_click_opens_claude(self):
         self.ctl.on_double_click()

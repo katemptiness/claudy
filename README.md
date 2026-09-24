@@ -194,6 +194,7 @@ claudy/
   core/                       # Platform-independent logic
     controller.py             # App logic shared by backends: events, gifts,
                               #   speech timing, context menu, system events
+    speech.py                 # Speech bubble state (typing, fading)
     character.py              # State machine and phased animation engine
     activities.py             # Activity scripts, reactions, random outcomes
     animations.py             # Bounce, shake, hop, gravity fall
@@ -209,14 +210,18 @@ claudy/
     gift_stories.py           # 160 bilingual gift backstories (40 per type)
     sprites/                  # 54 pixel-art sprites as 16x16 text grids
 
+  render/                     # Platform-independent drawing
+    scene.py                  # What each window shows (crab, ground, bubble)
+    canvas.py                 # Drawing interface backends implement
+    art.py                    # Pixel art as images
+
   backends/
-    sprite_cache.py           # Shared rendered-sprite cache
     macos/                    # PyObjC / AppKit / Quartz
-      app.py                  # Windows, CALayer drawing, input, frame loop
-      renderer.py, speech.py, events.py, settings_ui.py, gifts_ui.py
+      app.py                  # Windows, input, frame loop
+      canvas.py, views.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
     linux/                    # GTK3 / PyGObject / Cairo
-      app.py                  # Windows, Cairo drawing, input, frame loop
-      renderer.py, speech.py, events.py, settings_ui.py, gifts_ui.py
+      app.py                  # Windows, input, frame loop
+      canvas.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
 
 tests/                        # Unit tests for the core
 docs/                         # Original spec, v2 spec, React prototypes, screenshots

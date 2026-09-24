@@ -9,25 +9,23 @@ import time
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
-gi.require_version('PangoCairo', '1.0')
-from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
+from gi.repository import Gtk, Gdk, GLib
 import cairo
 
+from claudy.backends.linux.bubble import BubbleWindow
+from claudy.backends.linux.canvas import CairoCanvas, clear, new_image_cache
 from claudy.backends.linux.events import SystemEventHandler
 from claudy.backends.linux.gifts_ui import GiftsWindow
-from claudy.backends.linux.renderer import render_sprite
 from claudy.backends.linux.settings_ui import SettingsWindow
-from claudy.backends.linux.speech import SpeechBubble
-from claudy.backends.sprite_cache import SpriteCache
 from claudy.config import (
-    DOCK_DEFAULT_TILE_SIZE, DOCK_TILE_GAP, FRIEND_OFFSET_X,
-    PARTICLE_WINDOW_HEIGHT, SPRITE_OFFSET_X, SPRITE_SIZE, TICK_INTERVAL,
-    WINDOW_HEIGHT, WINDOW_WIDTH,
+    DOCK_DEFAULT_TILE_SIZE, DOCK_TILE_GAP, OVERLAY_HEIGHT, SPRITE_SIZE,
+    SPRITE_X, SPRITE_Y, TICK_INTERVAL, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
 from claudy.content import ui_text
 from claudy.core.controller import Controller, Platform
 from claudy.core.settings import Settings
 from claudy.log import log
+from claudy.render.scene import Scene
 
 CLAUDE_DESKTOP_ID = "com.anthropic.Claude"
 CLAUDE_WEB_URL = "https://claude.ai"
@@ -113,21 +111,6 @@ def _make_transparent_window():
     return win
 
 
-def _clear(cr):
-    cr.set_operator(cairo.OPERATOR_SOURCE)
-    cr.set_source_rgba(0, 0, 0, 0)
-    cr.paint()
-    cr.set_operator(cairo.OPERATOR_OVER)
-
-
-def _draw_text(widget, cr, text, x, y, size, rgba=(0, 0, 0, 1)):
-    cr.set_source_rgba(*rgba)
-    layout = widget.create_pango_layout(text)
-    layout.set_font_description(Pango.FontDescription(f"Sans {size}"))
-    cr.move_to(x, y)
-    PangoCairo.show_layout(cr, layout)
-
-
 class LinuxPlatform(Platform):
     """Linux implementations of what the controller needs."""
 
@@ -135,12 +118,6 @@ class LinuxPlatform(Platform):
         self._app = app
         self._settings_window = SettingsWindow()
         self._gifts_window = GiftsWindow()
-
-    def show_speech(self, text):
-        self._app.speech.show(text, *self._app.speech_anchor())
-
-    def hide_speech(self):
-        self._app.speech.hide()
 
     def open_claude(self):
         open_claude()
@@ -181,8 +158,6 @@ class CrabApp:
         # monitor-relative X (0..monitor_w); _abs_x converts.
         self._monitor_x, monitor_w, self._base_y = get_screen_geometry()
 
-        self.sprites = SpriteCache(render_sprite)
-        self.speech = SpeechBubble()
         self._click_timer = None
 
         # No Dock-tilesize query on Linux; use the default icon pitch.
@@ -191,6 +166,10 @@ class CrabApp:
             dock_tile_pitch=DOCK_DEFAULT_TILE_SIZE + DOCK_TILE_GAP)
         self.system_events = SystemEventHandler(self.controller)
 
+        self.scene = Scene(self.controller)
+        self.images = new_image_cache()
+        self.bubble = BubbleWindow(self.scene, self.images)
+
         self._create_windows()
         self.last_tick = time.monotonic()
         GLib.timeout_add(int(TICK_INTERVAL * 1000), self._tick)
@@ -198,7 +177,7 @@ class CrabApp:
     # ---- Windows ----
 
     def _create_windows(self):
-        """Create the crab window and the click-through particle overlay."""
+        """Create the crab window and the click-through ground overlay."""
         self.window = _make_transparent_window()
         self.window.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.drawing_area = Gtk.DrawingArea()
@@ -214,33 +193,32 @@ class CrabApp:
                                   lambda *_: self.controller.on_hover(False))
         self.window.add(self.drawing_area)
 
-        self.particle_window = _make_transparent_window()
-        self.particle_window.set_default_size(WINDOW_WIDTH, PARTICLE_WINDOW_HEIGHT)
-        self.particle_area = Gtk.DrawingArea()
-        self.particle_area.connect("draw", self._on_draw_particles)
-        self.particle_window.add(self.particle_area)
+        self.ground_window = _make_transparent_window()
+        self.ground_window.set_default_size(WINDOW_WIDTH, OVERLAY_HEIGHT)
+        self.ground_area = Gtk.DrawingArea()
+        self.ground_area.connect("draw", self._on_draw_ground)
+        self.ground_window.add(self.ground_area)
 
         def make_input_passthrough(widget, *args):
             gdk_win = widget.get_window()
             if gdk_win:
                 gdk_win.input_shape_combine_region(cairo.Region(), 0, 0)
         # Connect before show; re-apply after (some WMs need both)
-        self.particle_window.connect("realize", make_input_passthrough)
+        self.ground_window.connect("realize", make_input_passthrough)
 
         def shape_main_input(widget, *args):
             # Only the sprite takes clicks; the rest of the window passes through
             gdk_win = widget.get_window()
             if gdk_win:
                 rect = cairo.RectangleInt(
-                    SPRITE_OFFSET_X, WINDOW_HEIGHT - SPRITE_SIZE,
-                    SPRITE_SIZE, SPRITE_SIZE)
+                    SPRITE_X, SPRITE_Y, SPRITE_SIZE, SPRITE_SIZE)
                 gdk_win.input_shape_combine_region(cairo.Region(rect), 0, 0)
 
         self._move_windows(self.controller.view)
-        # Particle window first (behind), then the crab in front
-        self.particle_window.show_all()
+        # Ground overlay first (behind), then the crab in front
+        self.ground_window.show_all()
         self.window.show_all()
-        GLib.idle_add(make_input_passthrough, self.particle_window)
+        GLib.idle_add(make_input_passthrough, self.ground_window)
         GLib.idle_add(shape_main_input, self.window)
         self.window.present()
 
@@ -257,76 +235,25 @@ class CrabApp:
         return int(self._base_y - WINDOW_HEIGHT + PANEL_OVERLAP - y_offset
                    - self._settings.vertical_offset)
 
-    def speech_anchor(self):
-        """Where speech bubbles attach: (center x, top of the crab window)."""
-        return self._abs_x(self.controller.view["x"]), self._win_y()
-
     def _move_windows(self, view):
+        """The crab window follows Claudy up and down; the overlay stays on
+        the ground. The bubble's tail points at the crab window's top."""
         win_x = int(self._abs_x(view["x"]) - WINDOW_WIDTH / 2)
         win_y = self._win_y(view["y_offset"])
         self.window.move(win_x, win_y)
-        self.particle_window.move(
-            win_x, win_y + WINDOW_HEIGHT - PARTICLE_WINDOW_HEIGHT)
+        self.ground_window.move(
+            win_x, self._win_y() + WINDOW_HEIGHT - OVERLAY_HEIGHT)
+        self.bubble.sync(self.controller.speech, self._abs_x(view["x"]), win_y)
 
     # ---- Drawing ----
 
     def _on_draw_main(self, widget, cr):
-        """Draw the crab sprite, shadow, friend, gift and toy."""
-        _clear(cr)
-        view = self.controller.view
-        sprite_y = WINDOW_HEIGHT - SPRITE_SIZE  # sprite sits at the bottom
+        clear(cr)
+        self.scene.paint_crab(CairoCanvas(cr, self.images))
 
-        # Shadow ellipse
-        shadow_w, shadow_h = 50, 8
-        cr.save()
-        cr.set_source_rgba(0, 0, 0, 0.15)
-        cr.translate(SPRITE_OFFSET_X + SPRITE_SIZE / 2,
-                     WINDOW_HEIGHT - shadow_h / 2 - 1)
-        cr.scale(shadow_w / 2, shadow_h / 2)
-        cr.arc(0, 0, 1, 0, 6.2832)
-        cr.fill()
-        cr.restore()
-
-        # Friend sprite (behind the crab, to its left)
-        if view["friend_visible"]:
-            self._paint(cr, self.sprites.get(view["friend_sprite"], friend=True),
-                        SPRITE_OFFSET_X + FRIEND_OFFSET_X, sprite_y)
-
-        # Crab sprite, mirrored when facing left
-        self._paint(cr, self.sprites.get(view["sprite"]),
-                    SPRITE_OFFSET_X + view["shake_dx"], sprite_y,
-                    flip=not view["facing_right"])
-
-        if self.controller.gift_emoji:
-            _draw_text(widget, cr, self.controller.gift_emoji,
-                       SPRITE_OFFSET_X + SPRITE_SIZE + 5, WINDOW_HEIGHT - 30, 18)
-
-        # Toy snuggled next to sleeping Claudy
-        if view["show_toy"]:
-            _draw_text(widget, cr, "🧸",
-                       SPRITE_OFFSET_X + SPRITE_SIZE - 10, WINDOW_HEIGHT - 25, 14)
-
-    @staticmethod
-    def _paint(cr, surface, x, y, flip=False):
-        cr.save()
-        if flip:
-            cr.translate(x + SPRITE_SIZE, y)
-            cr.scale(-1, 1)
-            cr.set_source_surface(surface, 0, 0)
-        else:
-            cr.set_source_surface(surface, x, y)
-        cr.get_source().set_filter(cairo.FILTER_NEAREST)
-        cr.paint()
-        cr.restore()
-
-    def _on_draw_particles(self, widget, cr):
-        """Draw floating particles."""
-        _clear(cr)
-        for p in self.controller.particles.get_active():
-            # Particles use Y-up from the bottom of the window
-            screen_y = PARTICLE_WINDOW_HEIGHT - p.y - 15
-            _draw_text(widget, cr, p.text, p.x - 10, screen_y, p.size,
-                       (*p.color, p.opacity))
+    def _on_draw_ground(self, widget, cr):
+        clear(cr)
+        self.scene.paint_ground(CairoCanvas(cr, self.images))
 
     # ---- Input ----
 
@@ -383,9 +310,8 @@ class CrabApp:
         try:
             view = self.controller.tick(dt)
             self._move_windows(view)
-            self.speech.update_position(*self.speech_anchor())
             self.drawing_area.queue_draw()
-            self.particle_area.queue_draw()
+            self.ground_area.queue_draw()
         except Exception:
             # An exception here would silently stop the GLib timer (and
             # freeze Claudy), so log it and keep going.

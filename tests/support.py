@@ -67,15 +67,7 @@ class FakePlatform(Platform):
     """Records what the controller asks the backend to do."""
 
     def __init__(self):
-        self.speech = []      # texts shown, in order
-        self.hidden = 0
         self.opened = []
-
-    def show_speech(self, text):
-        self.speech.append(text)
-
-    def hide_speech(self):
-        self.hidden += 1
 
     def open_claude(self):
         self.opened.append("claude")
@@ -94,3 +86,25 @@ class FakePlatform(Platform):
 
     def quit(self):
         self.opened.append("quit")
+
+
+def record_speech(controller):
+    """Log every line `controller` says and every time the bubble hides.
+
+    Returns (said, hidden): a list of texts and a one-item hide counter.
+    """
+    said, hidden = [], [0]
+    speech = controller.speech
+    say, hide = speech.say, speech.hide
+
+    def logged_say(text):
+        said.append(text)
+        say(text)
+
+    def logged_hide():
+        if speech.visible and not speech._fading_out:
+            hidden[0] += 1
+        hide()
+
+    speech.say, speech.hide = logged_say, logged_hide
+    return said, hidden

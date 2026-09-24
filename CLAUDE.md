@@ -94,6 +94,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - There is no squash/stretch and no breathing. It was tried and the user disliked it: cutting a body row made the head look clipped.
 - Juggling balls are drawn by the scene behind Claudy, not as part of the sprite.
 - Particles are pixel art. The gift on the Dock is still an emoji, on purpose.
+- The macOS windows use `FullScreenAuxiliary | Stationary` and deliberately not `CanJoinAllSpaces`. Claudy was checked on macOS 26.7: it stays visible across Spaces and over full-screen apps as it is.
 
 ## Reference Files (`docs/`)
 

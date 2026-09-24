@@ -88,6 +88,20 @@ class ArtTests(unittest.TestCase):
     def test_unknown_sprite_falls_back_to_idle(self):
         self.assertEqual(art.sprite_key("nope"), art.sprite_key("idle"))
 
+    def test_every_particle_image_builds(self):
+        from claudy.content.sprites.particles import PARTICLE_ART
+        for name in PARTICLE_ART:
+            with self.subTest(particle=name):
+                image = art.build(art.particle_key(name))
+                widths = {len(row) for row in image.rows}
+                self.assertEqual(len(widths), 1, "ragged rows")
+
+    def test_tint_recolors_gold(self):
+        plain = art.build(art.particle_key("sparkle"))
+        red = art.build(art.particle_key("sparkle", "#FF0000"))
+        self.assertEqual(red.rows[0][2], (1.0, 0.0, 0.0, 1.0))
+        self.assertNotEqual(plain.rows[0][2], red.rows[0][2])
+
     def test_image_cache_builds_once(self):
         made = []
         cache = ImageCache(lambda pixels: made.append(pixels) or len(made))
@@ -151,10 +165,11 @@ class CrabAndGroundTests(SceneTestCase):
         self.ctl.particles.add("heart", 100, 80)
         canvas = RecordingCanvas()
         self.scene.paint_ground(canvas)
-        texts = canvas.of("text")
-        self.assertEqual(texts[0][1], self.ctl.gift_emoji)
-        self.assertEqual(texts[1][1], "♥")
-        self.assertLess(texts[1][3], OVERLAY_HEIGHT - 80)
+        (_, emoji, _, _), = canvas.of("text")
+        self.assertEqual(emoji, self.ctl.gift_emoji)
+        (_, key, x, y), = canvas.of("image")
+        self.assertEqual(key, art.particle_key("heart"))
+        self.assertLess(y, OVERLAY_HEIGHT - 80)
 
 
 class BubbleTests(SceneTestCase):

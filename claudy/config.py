@@ -39,7 +39,7 @@ DOCK_EDGE_PADDING = 20        # px of Dock chrome at each end (rounded corners)
 DOCK_WALK_MARGIN = 22         # keep the crab's center this far inside the edge
 
 
-def _rgba(hex_color, alpha=1.0):
+def hex_rgba(hex_color, alpha=1.0):
     """'#RRGGBB' -> (r, g, b, a) floats in 0..1."""
     h = hex_color.lstrip("#")
     return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)) + (alpha,)
@@ -48,31 +48,31 @@ def _rgba(hex_color, alpha=1.0):
 # Palette: sprite value -> RGBA (symbols in content/sprites/grid.py)
 PALETTE = {
     0: (0.0, 0.0, 0.0, 0.0),  # transparent
-    1: _rgba("#D77757"),      # body
-    2: _rgba("#2D2D2D"),      # eyes
-    3: _rgba("#F2A08A"),      # blush
-    4: _rgba("#7B5B3A"),      # brown prop
-    5: _rgba("#F5F0E8"),      # cream prop
-    6: _rgba("#60A5FA"),      # blue prop
-    7: _rgba("#A855F7"),      # purple
-    8: _rgba("#8A8A9A"),      # gray
-    9: _rgba("#FFD700"),      # gold
+    1: hex_rgba("#D77757"),      # body
+    2: hex_rgba("#2D2D2D"),      # eyes
+    3: hex_rgba("#F2A08A"),      # blush
+    4: hex_rgba("#7B5B3A"),      # brown prop
+    5: hex_rgba("#F5F0E8"),      # cream prop
+    6: hex_rgba("#60A5FA"),      # blue prop
+    7: hex_rgba("#A855F7"),      # purple
+    8: hex_rgba("#8A8A9A"),      # gray
+    9: hex_rgba("#FFD700"),      # gold
 }
 
 # Tones the shading pass (render/art.py) adds to the body and eyes
 SHADES = {
-    "highlight": _rgba("#E8987A"),
-    "shadow": _rgba("#B35A3E"),
-    "glint": _rgba("#FFFFFF"),
+    "highlight": hex_rgba("#E8987A"),
+    "shadow": hex_rgba("#B35A3E"),
+    "glint": hex_rgba("#FFFFFF"),
 }
 
 # The summoned friend is a blue crab
 FRIEND_PALETTE = dict(PALETTE)
-FRIEND_PALETTE[1] = _rgba("#57A0D7")  # body
-FRIEND_PALETTE[3] = _rgba("#A0C8F0")  # blush
+FRIEND_PALETTE[1] = hex_rgba("#57A0D7")  # body
+FRIEND_PALETTE[3] = hex_rgba("#A0C8F0")  # blush
 FRIEND_SHADES = dict(SHADES)
-FRIEND_SHADES["highlight"] = _rgba("#82BCE6")
-FRIEND_SHADES["shadow"] = _rgba("#3D7DB3")
+FRIEND_SHADES["highlight"] = hex_rgba("#82BCE6")
+FRIEND_SHADES["shadow"] = hex_rgba("#3D7DB3")
 
 # Timing
 FPS = 60

@@ -1,70 +1,130 @@
-"""Particle system for visual effects.
+"""Particles: little pixel-art bits that float, drift and fade.
 
-Particle positions are in overlay-window pixels with y pointing up from the
-window's bottom edge. Velocities are in px per 60 fps frame (the unit the
-original prototype used), with negative vy meaning "rise".
+Positions are in ground-overlay pixels: x from the left edge, y as height
+above the bottom edge. Velocities are px/s (positive vy rises), gravity is
+px/s² pulling down. Each particle picks one of its kind's images (see
+content/sprites/particles.py).
 """
 
+import math
 import random
+from dataclasses import dataclass
 
-FRAME_MS = 1000 / 60
+from claudy.content.sprites.particles import RAINBOW
+
+FADE_IN_MS = 100
+FADE_OUT_SHARE = 0.35   # the last part of a particle's life fades out
+MAX_PARTICLES = 80
+
+
+@dataclass(frozen=True)
+class Kind:
+    images: tuple               # art names; one is picked per particle
+    life_ms: tuple = (1000, 1200)
+    vx: tuple = (-15, 15)
+    vy: tuple = (45, 65)
+    gravity: float = 0.0
+    drag: float = 0.0           # share of speed lost per second
+    sway: float = 0.0           # px of side-to-side drift...
+    sway_ms: float = 1200       # ...over this period
+    spread: float = 30          # spawn area width
+    at_feet: bool = False       # spawn at Claudy's feet instead of head
+    offset_x: float = 0         # spawn this far in front of Claudy
+    flap_ms: float = 0          # cycle through the images at this pace
+    tints: tuple = ()           # recolor variants to pick from
+
+
+KINDS = {
+    "zzz": Kind(("z_big", "z_small"), (2000, 2400), vx=(10, 22), vy=(22, 32),
+                sway=4, sway_ms=1600, spread=16, offset_x=12),
+    "sparkle": Kind(("sparkle", "sparkle_small"), (650, 900),
+                    vx=(-25, 25), vy=(55, 85)),
+    "heart": Kind(("heart",), (1100, 1300), vy=(45, 65), sway=5, sway_ms=900),
+    "note": Kind(("note", "note_beamed"), (1000, 1200), vx=(-20, 20),
+                 vy=(40, 60), sway=6, sway_ms=800),
+    "sweat": Kind(("sweat",), (550, 700), vx=(8, 20), vy=(-5, 15),
+                  gravity=220, spread=20, offset_x=14),
+    "question": Kind(("question",), (1200, 1200), vx=(0, 0), vy=(35, 35),
+                     drag=2.5, spread=6),
+    "exclaim": Kind(("exclaim",), (1000, 1000), vx=(0, 0), vy=(35, 35),
+                    drag=2.5, spread=6),
+    "star": Kind(("star",), (900, 1100), vx=(-30, 30), vy=(75, 100), drag=0.7),
+    "flower": Kind(("flower_pink", "flower_yellow", "flower_red"), (1100, 1300),
+                   vx=(-20, 20), vy=(45, 65), sway=5),
+    "rainbow": Kind(("sparkle",), (1100, 1300), vx=(-12, 12), vy=(60, 80),
+                    tints=tuple(RAINBOW)),
+    "butterfly": Kind(("butterfly_open", "butterfly_closed"), (2000, 2200),
+                      vx=(-30, 30), vy=(25, 40), sway=10, sway_ms=1400,
+                      flap_ms=140),
+    "poof": Kind(("poof",), (500, 650), vx=(-50, 50), vy=(15, 40), drag=3,
+                 spread=40),
+    "dust": Kind(("dust",), (350, 450), vx=(-45, 45), vy=(8, 22), drag=4,
+                 gravity=40, spread=44, at_feet=True),
+    "code": Kind(("code_tag", "code_braces", "code_bits"), (900, 900),
+                 vx=(-10, 10), vy=(40, 55)),
+    "page": Kind(("page",), (1500, 1500), vx=(-10, 10), vy=(20, 30),
+                 sway=6, sway_ms=1000),
+    "flame": Kind(("flame", "ember", "spark"), (1100, 1500), vx=(-8, 8),
+                  vy=(28, 45), sway=3, sway_ms=500, spread=10, at_feet=True,
+                  offset_x=28),
+}
 
 
 class Particle:
-    __slots__ = ("x", "y", "vx", "vy", "lifetime", "age", "opacity",
-                 "text", "size", "color")
+    __slots__ = ("kind", "image", "tint", "x", "y", "vx", "vy", "age",
+                 "lifetime", "sway_phase", "opacity")
 
-    def __init__(self, x, y, vx, vy, lifetime, text, size, color):
-        self.x = x
-        self.y = y
-        self.vx = vx
-        self.vy = vy
-        self.lifetime = lifetime
+    def __init__(self, kind, x, y):
+        k = KINDS[kind]
+        self.kind = k
+        self.image = random.choice(k.images)
+        self.tint = random.choice(k.tints) if k.tints else None
+        self.x = x + (random.random() - 0.5) * k.spread
+        self.y = y + random.random() * 10
+        self.vx = random.uniform(*k.vx)
+        self.vy = random.uniform(*k.vy)
         self.age = 0.0
-        self.opacity = 1.0
-        self.text = text
-        self.size = size
-        self.color = color  # (r, g, b) floats 0-1
+        self.lifetime = random.uniform(*k.life_ms)
+        self.sway_phase = random.random() * 2 * math.pi
+        self.opacity = 0.0
 
+    def update(self, dt):
+        k = self.kind
+        self.age += dt
+        s = dt / 1000
+        if k.drag:
+            slow = max(0.0, 1 - k.drag * s)
+            self.vx *= slow
+            self.vy *= slow
+        self.vy -= k.gravity * s
+        self.x += self.vx * s
+        self.y += self.vy * s
 
-def _spread(amount):
-    return (random.random() - 0.5) * amount
+        fade_in = min(1.0, self.age / FADE_IN_MS)
+        fade_out = min(1.0, (self.lifetime - self.age)
+                       / (self.lifetime * FADE_OUT_SHARE))
+        self.opacity = max(0.0, min(fade_in, fade_out))
 
+    @property
+    def alive(self):
+        return self.age < self.lifetime
 
-RAINBOW = [
-    (1.0, 0.0, 0.0), (1.0, 0.5, 0.0), (1.0, 1.0, 0.0),
-    (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (0.29, 0.0, 0.51), (0.56, 0.0, 1.0),
-]
-FLAME_COLORS = [(1.0, 0.6, 0.0), (1.0, 0.843, 0.0), (1.0, 0.4, 0.0)]
+    @property
+    def draw_x(self):
+        """x including the side-to-side sway."""
+        k = self.kind
+        if not k.sway:
+            return self.x
+        angle = 2 * math.pi * self.age / k.sway_ms + self.sway_phase
+        return self.x + k.sway * math.sin(angle)
 
-# kind -> () -> (text, size, color, vx, vy, lifetime_ms)
-PARTICLE_TYPES = {
-    "zzz": lambda: ("z", 11, (0.545, 0.643, 0.769), 0.3, -0.5, 2200),
-    "sparkle": lambda: ("✦", random.randint(10, 16), (1.0, 0.843, 0.0),
-                        _spread(0.5), -1.2, 800),
-    "heart": lambda: ("♥", random.randint(10, 15), (1.0, 0.420, 0.541),
-                      _spread(0.4), -1.0, 1200),
-    "note": lambda: (random.choice(["♪", "♫", "♬"]), random.randint(11, 16),
-                     (0.753, 0.518, 0.988), _spread(0.6), -0.8, 1000),
-    "sweat": lambda: ("💧", 9, (0.376, 0.647, 0.980), 0.2, 0.8, 600),
-    "question": lambda: ("❓", 14, (1.0, 0.843, 0.0), 0, -0.3, 1200),
-    "exclaim": lambda: ("❗", 14, (1.0, 0.267, 0.267), 0, -0.3, 1000),
-    "star": lambda: ("⭐", random.randint(10, 14), (1.0, 0.843, 0.0),
-                     _spread(0.8), -1.5, 1000),
-    "flower": lambda: (random.choice(["🌸", "🌼", "🌺"]), random.randint(10, 14),
-                       (1.0, 0.753, 0.796), _spread(0.6), -1.0, 1100),
-    "rainbow": lambda: ("✦", random.randint(10, 14), random.choice(RAINBOW),
-                        _spread(0.3), -1.2, 1200),
-    "butterfly": lambda: ("🦋", random.randint(12, 16), (0.659, 0.333, 0.969),
-                          _spread(1.0), -0.5, 2000),
-    "poof": lambda: ("💨", random.randint(12, 16), (0.7, 0.7, 0.7),
-                     _spread(1.5), -0.5, 600),
-    "code": lambda: (random.choice(["</>", "{ }", "01"]), 10,
-                     (0.376, 0.647, 0.980), _spread(0.3), -0.8, 900),
-    "page": lambda: ("📖", 12, (0.961, 0.941, 0.910), _spread(0.3), -0.4, 1500),
-    "flame": lambda: (random.choice(["🔥", "✦", "•"]), random.randint(8, 12),
-                      random.choice(FLAME_COLORS), _spread(0.3), -0.6, 1400),
-}
+    @property
+    def frame(self):
+        """The image to show right now (flapping kinds cycle images)."""
+        k = self.kind
+        if not k.flap_ms:
+            return self.image
+        return k.images[int(self.age / k.flap_ms) % len(k.images)]
 
 
 class ParticleSystem:
@@ -72,29 +132,18 @@ class ParticleSystem:
     def __init__(self):
         self._particles = []
 
-    def add(self, kind, x, y):
-        """Spawn a particle of the given kind around (x, y)."""
-        factory = PARTICLE_TYPES.get(kind)
-        if not factory:
+    def add(self, kind, x, head_y, feet_y=0, facing_right=True):
+        """Spawn a particle of `kind` around Claudy (x = its center)."""
+        k = KINDS.get(kind)
+        if not k or len(self._particles) >= MAX_PARTICLES:
             return
-        text, size, color, vx, vy, lifetime = factory()
-        self._particles.append(Particle(
-            x=x + _spread(30), y=y + random.random() * 10,
-            vx=vx, vy=vy, lifetime=lifetime,
-            text=text, size=size, color=color))
+        x += k.offset_x if facing_right else -k.offset_x
+        self._particles.append(Particle(kind, x, feet_y if k.at_feet else head_y))
 
     def update(self, dt):
-        frames = dt / FRAME_MS
-        alive = []
         for p in self._particles:
-            p.age += dt
-            if p.age > p.lifetime:
-                continue
-            p.x += p.vx * frames
-            p.y -= p.vy * frames
-            p.opacity = max(0.0, 1.0 - p.age / p.lifetime)
-            alive.append(p)
-        self._particles = alive
+            p.update(dt)
+        self._particles = [p for p in self._particles if p.alive]
 
     def get_active(self):
         return self._particles

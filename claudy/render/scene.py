@@ -85,8 +85,11 @@ class Scene:
                         OVERLAY_HEIGHT - 32, 20, INK)
 
         for p in self.ctl.particles.get_active():
-            canvas.text(p.text, p.x - 10, OVERLAY_HEIGHT - p.y - 20, p.size,
-                        (*p.color, p.opacity))
+            key = art.particle_key(p.frame, p.tint)
+            image = art.build(key)
+            canvas.image(key, round(p.draw_x - image.width / 2),
+                         round(OVERLAY_HEIGHT - p.y - image.height / 2),
+                         p.opacity)
 
     @staticmethod
     def _shadow(canvas, center_x, height):

@@ -198,7 +198,7 @@ claudy/
     character.py              # State machine and phased animation engine
     activities.py             # Activity scripts, reactions, random outcomes
     animations.py             # Bounce, shake, hop, gravity fall
-    particles.py              # 15 particle types (sparkles, hearts, notes, zzz...)
+    particles.py              # 16 pixel-art particle kinds (hearts, notes, zzz, dust...)
     schedule.py               # Owl/lark time-of-day behavior weights
     settings.py               # Settings persistence (JSON)
     memory.py                 # Relationship memory (clicks, days, gifts, app launches)

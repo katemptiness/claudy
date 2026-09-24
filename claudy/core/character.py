@@ -578,6 +578,7 @@ class Character:
             self.pose = self.hop.pose
             if landed:
                 self._turn_hop(-self.hop_direction)
+                self._burst("dust", 2)
             self.x += self.hop_direction * HOP_SPEED * dt
             if self.x < self.walk_min_x:
                 self.x = self.walk_min_x
@@ -588,6 +589,8 @@ class Character:
         elif self.fall:
             self.y_offset, done = self.fall.update(dt)
             self.pose = self.fall.pose
+            if self.fall.landed:
+                self._burst("dust", 3 if self.fall.bounces == 1 else 1)
             if done:
                 self.fall = None
         elif self.bounce:

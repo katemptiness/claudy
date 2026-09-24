@@ -71,6 +71,27 @@ class ActivityDefinitionTests(unittest.TestCase):
         self.assertIsInstance(phase.frames, tuple)
 
 
+class ParticleKindTests(unittest.TestCase):
+
+    def test_every_particle_used_is_defined(self):
+        from claudy.core.particles import KINDS
+        used = {phase.particle for _, phase in _all_phases() if phase.particle}
+        used |= {c["particles"] for c in activities.CATCHES}
+        used |= {m["particles"] for m in activities.MAGIC_RESULTS}
+        used |= {"sparkle", "heart", "note", "poof", "exclaim", "star", "dust"}
+        for kind in used:
+            with self.subTest(kind=kind):
+                self.assertIn(kind, KINDS)
+
+    def test_particle_images_exist(self):
+        from claudy.content.sprites.particles import PARTICLE_ART
+        from claudy.core.particles import KINDS
+        for name, kind in KINDS.items():
+            for image in kind.images:
+                with self.subTest(kind=name, image=image):
+                    self.assertIn(image, PARTICLE_ART)
+
+
 class ScheduleTests(unittest.TestCase):
 
     def test_every_hour_maps_to_a_weighted_period(self):

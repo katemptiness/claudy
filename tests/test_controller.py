@@ -199,14 +199,18 @@ class MenuTests(ControllerTestCase):
 
 class ParticleTests(unittest.TestCase):
 
-    def test_particles_rise_fade_and_die(self):
+    def test_particles_fade_in_rise_and_die(self):
         system = ParticleSystem()
         system.add("heart", 100, 80)
         p = system.get_active()[0]
         y0 = p.y
+        system.update(10)
+        self.assertLess(p.opacity, 0.5)       # fading in
         system.update(500)
-        self.assertGreater(p.y, y0)
-        self.assertLess(p.opacity, 1.0)
+        self.assertEqual(p.opacity, 1.0)
+        self.assertGreater(p.y, y0)           # rising
+        system.update(600)
+        self.assertLess(p.opacity, 1.0)       # fading out
         system.update(1000)
         self.assertEqual(system.get_active(), [])
 
@@ -217,6 +221,31 @@ class ParticleTests(unittest.TestCase):
         y0 = p.y
         system.update(300)
         self.assertLess(p.y, y0)
+
+    def test_dust_starts_at_the_feet(self):
+        system = ParticleSystem()
+        system.add("dust", 100, head_y=80, feet_y=10)
+        self.assertLess(system.get_active()[0].y, 30)
+
+    def test_spawn_side_follows_facing(self):
+        system = ParticleSystem()
+        support.seeded(1)
+        system.add("flame", 100, 80, 10, facing_right=True)
+        support.seeded(1)
+        system.add("flame", 100, 80, 10, facing_right=False)
+        right, left = system.get_active()
+        self.assertGreater(right.x, 100)
+        self.assertLess(left.x, 100)
+
+    def test_butterflies_flap(self):
+        system = ParticleSystem()
+        system.add("butterfly", 100, 80)
+        p = system.get_active()[0]
+        frames = set()
+        for _ in range(10):
+            system.update(50)
+            frames.add(p.frame)
+        self.assertEqual(frames, {"butterfly_open", "butterfly_closed"})
 
     def test_movement_does_not_depend_on_frame_rate(self):
         a, b = ParticleSystem(), ParticleSystem()
@@ -235,6 +264,12 @@ class ParticleTests(unittest.TestCase):
         system = ParticleSystem()
         system.add("unicorn", 0, 0)
         self.assertEqual(system.get_active(), [])
+
+    def test_particle_count_is_capped(self):
+        system = ParticleSystem()
+        for _ in range(500):
+            system.add("sparkle", 100, 80)
+        self.assertLessEqual(len(system.get_active()), 80)
 
 
 if __name__ == "__main__":

@@ -6,11 +6,15 @@ convert to a native image once and cache (see canvas.ImageCache).
 """
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 from claudy.config import (
-    FRIEND_PALETTE, FRIEND_SHADES, PALETTE, PIXEL_SCALE, SHADES,
+    FRIEND_PALETTE, FRIEND_SHADES, PALETTE, PIXEL_SCALE, SHADES, hex_rgba,
 )
 from claudy.content.sprites import SPRITES
+from claudy.content.sprites.particles import (
+    PARTICLE_ART, PARTICLE_COLORS, PARTICLE_SCALE,
+)
 
 
 @dataclass(frozen=True)
@@ -36,11 +40,34 @@ def sprite_key(name, friend=False, flip=False, pose="normal"):
     return ("sprite", name if name in SPRITES else "idle", friend, flip, pose)
 
 
+def particle_key(name, tint=None):
+    """Key for a particle image; `tint` ('#RRGGBB') recolors its gold."""
+    return ("particle", name, tint)
+
+
+@lru_cache(maxsize=None)
 def build(key):
     kind = key[0]
     if kind == "sprite":
         return _build_sprite(*key[1:])
+    if kind == "particle":
+        return _build_particle(*key[1:])
     raise KeyError(key)
+
+
+def _mix(color, other, amount):
+    return tuple(a + (b - a) * amount for a, b in zip(color, other))
+
+
+def _build_particle(name, tint):
+    colors = {sym: hex_rgba(hex_color) for sym, hex_color in PARTICLE_COLORS.items()}
+    if tint:
+        colors["y"] = hex_rgba(tint)
+        colors["Y"] = _mix(colors["y"], (1, 1, 1, 1), 0.6)
+    lines = [line.strip() for line in PARTICLE_ART[name].strip().splitlines()]
+    rows = tuple(tuple(colors[ch] if ch != "." else None for ch in line)
+                 for line in lines)
+    return PixelImage(rows, PARTICLE_SCALE)
 
 
 def _build_sprite(name, friend, flip, pose):

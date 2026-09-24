@@ -48,7 +48,7 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 - `character.py` — `Character` state machine and phased animation engine. Emits events (`message`, `particle`, `gift`, `gift_star`) collected with `take_events()`; `update(dt)` returns a view dict (sprite, x, y_offset, shake_dx, facing, friend, toy).
 - `activities.py` — immutable activity scripts (`Phase` dataclasses), reactions, friend-visit pool, random outcomes (catches, magic results) and gift chances
 - `animations.py` — Bounce, Shake, Hop, Fall
-- `particles.py` — 15 particle types, `ParticleSystem` (dt-based)
+- `particles.py` — 16 particle kinds (`Kind`: images, velocity, gravity, drag, sway, spawn at head/feet), `ParticleSystem` (dt-based, fades in/out)
 - `schedule.py` — time-of-day weights (night owl / early bird modes)
 - `settings.py` — settings persistence (JSON) via typed descriptors, cooldown/duration maps
 - `memory.py` — relationship tracking, gift storage, click/day counters
@@ -58,12 +58,12 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 - `ui_text.py` — bilingual labels for menus, settings and gifts windows
 - `app_reactions.py` — app categories → phrases/activities; macOS bundle IDs and Linux process names
 - `gift_stories.py` — backstories for collected gifts
-- `sprites/` — sprites as 16x16 text grids (`grid.py` documents the symbols); `SPRITES` dict
+- `sprites/` — sprites as 16x16 text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors
 
 ### Rendering (`claudy/render/`, platform-independent)
 - `scene.py` — `Scene`: paints all three windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles), speech bubble (`bubble_layout()` wraps and sizes it)
 - `canvas.py` — the `Canvas` interface backends implement (`image`, `rect`, `text`, `measure`; top-left origin) and `ImageCache`
-- `art.py` — pixel art as `PixelImage`s, identified by hashable keys (`sprite_key(...)`)
+- `art.py` — pixel art as `PixelImage`s, identified by hashable keys (`sprite_key(name, friend, flip, pose)`, `particle_key(name, tint)`). Applies the shading pass (highlight/shadow/eye glint) and pixel-perfect squash/stretch poses.
 
 ### Backends (`claudy/backends/`)
 Each backend creates the windows, forwards input, runs the frame loop and implements a Canvas.

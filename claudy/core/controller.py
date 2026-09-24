@@ -11,7 +11,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
-from claudy.config import MAX_TICK_MS, SPRITE_SIZE, WINDOW_WIDTH
+from claudy.config import MAX_TICK_MS, PIXEL_SCALE, SPRITE_SIZE, WINDOW_WIDTH
 from claudy.content import phrases, ui_text
 from claudy.content.phrases import pick
 from claudy.core.activities import ACTIVITIES
@@ -24,9 +24,11 @@ from claudy.log import log
 
 # Idle chatter never follows another line faster than this
 CHATTER_GAP_MS = 3000
-# Particles spawn around the top of the sprite. Particle coordinates are
-# overlay x and height above the overlay's bottom edge.
-PARTICLE_ORIGIN = (WINDOW_WIDTH / 2, SPRITE_SIZE)
+# Where particles spawn, as heights above the ground overlay's bottom edge:
+# around the top of the sprite, or at Claudy's feet (the sprite's last two
+# pixel rows are empty)
+PARTICLE_HEAD_Y = SPRITE_SIZE
+PARTICLE_FEET_Y = 2 * PIXEL_SCALE
 TEST_GIFT_EMOJIS = ["🐟", "🐡", "💎", "⭐", "🌸", "🦋"]
 
 
@@ -133,8 +135,9 @@ class Controller:
         if kind == "message":
             self._say(data, chatter=not self.character.is_busy)
         elif kind == "particle":
-            x, y = PARTICLE_ORIGIN
-            self.particles.add(data, x, y + self.view["y_offset"])
+            height = self.view["y_offset"]
+            self.particles.add(data, WINDOW_WIDTH / 2, PARTICLE_HEAD_Y + height,
+                               PARTICLE_FEET_Y + height, self.view["facing_right"])
         elif kind == "gift":
             self._offer_gift(data)
         elif kind == "gift_star":

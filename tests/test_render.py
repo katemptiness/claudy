@@ -163,6 +163,40 @@ class CrabAndGroundTests(SceneTestCase):
         self.assertLess(y, OVERLAY_HEIGHT - 80)
 
 
+class RedrawTests(SceneTestCase):
+    """Backends redraw a window only when the scene says it changed."""
+
+    def test_first_frame_always_draws(self):
+        self.assertTrue(self.scene.crab_changed())
+        self.assertTrue(self.scene.ground_changed())
+
+    def test_a_still_claudy_needs_no_redraw(self):
+        self.scene.crab_changed()
+        self.scene.ground_changed()
+        self.assertFalse(self.scene.crab_changed())
+        self.assertFalse(self.scene.ground_changed())
+
+    def test_a_new_sprite_redraws_only_the_crab(self):
+        self.scene.crab_changed()
+        self.scene.ground_changed()
+        self.ctl.view = dict(self.ctl.view, sprite="blink")
+        self.assertTrue(self.scene.crab_changed())
+        self.assertFalse(self.scene.ground_changed())
+
+    def test_a_particle_redraws_only_the_ground(self):
+        self.scene.crab_changed()
+        self.scene.ground_changed()
+        self.ctl.particles.add("heart", 100, 80)
+        self.assertTrue(self.scene.ground_changed())
+        self.assertFalse(self.scene.crab_changed())
+
+    def test_a_hop_redraws_the_ground_too(self):
+        """The shadow shrinks as Claudy leaves the ground."""
+        self.scene.ground_changed()
+        self.ctl.view = dict(self.ctl.view, y_offset=30)
+        self.assertTrue(self.scene.ground_changed())
+
+
 class BubbleTests(SceneTestCase):
 
     def say(self, text, ms=5000):

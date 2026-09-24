@@ -351,8 +351,12 @@ class MacApp:
             # The bubble's tail points at the top of the crab window
             crab_top = self.window.frame().origin.y + WINDOW_HEIGHT
             self.bubble.sync(self.controller.speech, view["x"], crab_top)
-            self.crab_view.setNeedsDisplay_(True)
-            self.ground_view.setNeedsDisplay_(True)
+            # Only redraw what changed: Claudy is still most of the time, and
+            # repainting both windows every frame costs several times the CPU
+            if self.scene.crab_changed():
+                self.crab_view.setNeedsDisplay_(True)
+            if self.scene.ground_changed():
+                self.ground_view.setNeedsDisplay_(True)
         except Exception:
             log.exception("tick failed")
 

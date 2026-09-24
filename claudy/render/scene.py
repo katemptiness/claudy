@@ -14,6 +14,7 @@ from claudy.config import (
 )
 from claudy.content.sprites.particles import JUGGLE_BALL_COLORS
 from claudy.render import art
+from claudy.render.canvas import Canvas
 
 INK = (0.0, 0.0, 0.0, 1.0)
 CLAW_TOP = SPRITE_Y + 9 * PIXEL_SCALE  # where juggled balls rest
@@ -54,11 +55,49 @@ def _snap(value, unit):
     return int(-(-value // unit) * unit)
 
 
+class _Recorder(Canvas):
+    """Collects a window's drawing calls so two frames can be compared."""
+
+    def __init__(self):
+        self.calls = []
+
+    def image(self, key, x, y, alpha=1.0):
+        self.calls.append(("image", key, x, y, alpha))
+
+    def rect(self, x, y, w, h, rgba):
+        self.calls.append(("rect", x, y, w, h, rgba))
+
+    def text(self, text, x, y, size, rgba, bold=False):
+        self.calls.append(("text", text, x, y, size, rgba, bold))
+
+
 class Scene:
 
     def __init__(self, controller):
         self.ctl = controller
         self._bubble = None
+        self._painted = {}
+
+    # ---- Redrawing ----
+
+    def crab_changed(self):
+        """Would the crab window draw differently than when last asked?"""
+        return self._changed("crab", self.paint_crab)
+
+    def ground_changed(self):
+        """Would the ground overlay draw differently than when last asked?"""
+        return self._changed("ground", self.paint_ground)
+
+    def _changed(self, window, paint):
+        """Claudy holds still most of the time, and repainting a transparent
+        always-on-top window costs the same whether or not anything moved, so
+        backends ask this before marking a view dirty."""
+        recorder = _Recorder()
+        paint(recorder)
+        if self._painted.get(window) == recorder.calls:
+            return False
+        self._painted[window] = recorder.calls
+        return True
 
     # ---- Crab window ----
 

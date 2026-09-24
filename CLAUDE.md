@@ -8,8 +8,6 @@ Claudy is an autonomous desktop companion — a pixel-art crab character that li
 
 **Supported platforms:** macOS (PyObjC/AppKit) and Linux (GTK3/Cairo).
 
-> **On a Mac?** The macOS backend has not run on a real Mac since the v3 overhaul. Read `docs/macos-first-run.md` before debugging it.
-
 ## Running
 
 **macOS:**
@@ -30,6 +28,12 @@ python3 app.py    # or /usr/bin/python3 if using system Python
 python3 -m unittest discover -s tests -t .
 ```
 Tests set `CLAUDY_HOME` to a temp dir so they never touch the real `~/.claudy`.
+
+Run `python3 app.py` from a terminal to see tracebacks. Exceptions raised inside
+the frame loop are caught and logged as `tick failed` in `~/.claudy/error.log`;
+Claudy keeps running but may freeze, so check the log whenever it looks stuck.
+Settings → developer mode adds an *Activities* submenu that starts any activity
+on demand and offers a test gift.
 
 ## Tech Stack
 
@@ -71,6 +75,7 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 Each backend creates the windows, forwards input, runs the frame loop and implements a Canvas.
 - `macos/app.py` — `MacApp` (windows, frame loop) + thin ObjC subclasses (`AppDelegate`, `CrabView`, `MenuTarget`)
 - `macos/canvas.py` (Quartz canvas), `views.py` (`DrawingView`, overlay windows), `bubble.py`, `events.py` (NSWorkspace), `settings_ui.py`, `gifts_ui.py`
+  - AppKit is y-up and the views stay unflipped, so hit testing, tracking areas and mouse locations use AppKit's usual coordinates (`SPRITE_RECT` is y-up). The Scene paints top-left down; `QuartzCanvas._flip` converts, and `canvas.make_image` flips its bitmap so row 0 of the art ends up on top.
 - `linux/app.py` — `CrabApp` (GTK windows, GLib loop) + `LinuxPlatform`
 - `linux/canvas.py` (Cairo/Pango canvas), `bubble.py`, `events.py` (logind D-Bus + process polling), `settings_ui.py`, `gifts_ui.py`
 
@@ -80,11 +85,18 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - **Phased activities**: each activity is a tuple of `Phase` objects with frames, interval, duration, optional message/particle/effects/special. The Character copies the phases when an activity starts; per-run changes (catch reaction, marshmallow, friend visit) modify only that copy. `Phase.special = "x"` runs `Character._special_x()` on entry.
 - **State machine**: idle/walking + 16 activities + reactions + `waking` (launch / system wake) + `dragging`. Weighted random transitions via `schedule.get_weights()`, avoiding the last two activities.
 - **Windows**: the small crab window (takes clicks, moves up when Claudy hops), a taller click-through ground overlay (200x300) that stays on the Dock, and the speech bubble. A single tall interactive window blocked clicks on macOS, hence the split.
+- **Redrawing**: a view is marked dirty only when `Scene.crab_changed()` / `ground_changed()` says its drawing calls differ from the last frame. Claudy holds still most of the time, and repainting two transparent always-on-top windows at 60 FPS costs several times the CPU. Linux still redraws every frame and could adopt the same two calls.
 - **PyObjC gotcha**: in `NSObject` subclasses, a method name without an inner underscore (e.g. `_draw(self, view)`, `show(self, text)`) becomes an ObjC selector and must take exactly as many args as its colons → `BadPrototypeError` otherwise. Keep logic in plain Python classes (like `MacApp`) or use names like `_draw_crab`.
+
+## Deliberate choices, don't "fix" these
+
+- Sprites have no outline.
+- There is no squash/stretch and no breathing. It was tried and the user disliked it: cutting a body row made the head look clipped.
+- Juggling balls are drawn by the scene behind Claudy, not as part of the sprite.
+- Particles are pixel art. The gift on the Dock is still an emoji, on purpose.
 
 ## Reference Files (`docs/`)
 
-- `macos-first-run.md` — handoff notes and a checklist for the first macOS run after v3
 - `prototypes/clawd-tamagotchi.jsx` — React prototype with base sprites, particle system, game loop
 - `prototypes/clawd-activities.jsx` — React demo of 4 activities with phased animations
 - `little-claude-spec.md` — full project specification (in Russian)

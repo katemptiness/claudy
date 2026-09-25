@@ -310,8 +310,12 @@ class CrabApp:
         try:
             view = self.controller.tick(dt)
             self._move_windows(view)
-            self.drawing_area.queue_draw()
-            self.ground_area.queue_draw()
+            # Only redraw what changed: Claudy is still most of the time, and
+            # repainting both windows every frame costs several times the CPU
+            if self.scene.crab_changed():
+                self.drawing_area.queue_draw()
+            if self.scene.ground_changed():
+                self.ground_area.queue_draw()
         except Exception:
             # An exception here would silently stop the GLib timer (and
             # freeze Claudy), so log it and keep going.

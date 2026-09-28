@@ -24,6 +24,7 @@ A tiny pixel-art crab companion that lives on your Dock. It reads books, catches
 - Mirrors your activity — open a terminal or code editor and the crab starts coding; open Spotify and it listens to music
 - Notices when you launch apps and comments on them (remembers how many times you opened the same app today)
 - Sleeps when your machine sleeps, greets you when it wakes up
+- Dreams while it sleeps — a little picture of something it actually did that day floats above it
 - Gives you gifts — catches a fish? Finds a shell? Might leave it on the Dock for you
 - Accepts gifts from you — give Claudy a marshmallow and it'll roast it at the campfire; give a toy and it sleeps with it
 - Gradually notices you — click enough and Claudy starts using your name, showing hearts, and saying personal things
@@ -110,6 +111,17 @@ During some activities, Claudy may find something and leave it on the Dock for y
 | Telescope | Names a star after you | ~10%, once ever |
 | Shell collecting | A pretty shell | ~10% per find |
 
+#### Dreams
+
+While Claudy is deeply asleep, a small picture sometimes surfaces above it for
+a few seconds and fades away again: the fish it caught, the book it was
+reading, the sandcastle it built, the shell it found. It floats in a
+see-through thought cloud with bubbles trailing down to the sleeper, so a
+dream never looks like something Claudy said out loud. Claudy only dreams of
+things it actually did — it keeps a rolling log of its recent activities, and a
+dream is drawn from that. Nothing is asked of you; it is just there if you
+happen to look at the Dock at six in the morning.
+
 #### Your star
 
 Once — and only once — Claudy's telescope finds a star worth naming after you.
@@ -142,6 +154,7 @@ Right-click → **Gifts** to view your collection. Each gift comes with a unique
 
 Claudy remembers things in `~/.claudy/memory.json`:
 
+- **Recent activities** — a rolling log of what Claudy has been up to, which is where its dreams come from
 - **Your star** — the one thing that outlives a session: the star Claudy named after you, and where it hangs
 - **Days together** — occasionally says "we've been together for 47 days" (special phrases for milestones: 10, 50, 100...)
 - **App launches** — "Spotify for the 3rd time today :)"
@@ -225,7 +238,8 @@ claudy/
     ui_text.py                # Bilingual menu / window labels
     app_reactions.py          # What Claudy says when you open an app
     gift_stories.py           # 160 bilingual gift backstories (40 per type)
-    sprites/                  # 82 pixel-art sprites as text grids + particle art
+    sprites/                  # 82 pixel-art sprites as text grids, particle
+                              #   art, and the gifts, toy, star and dreams
 
   render/                     # Platform-independent drawing
     scene.py                  # What each window shows (crab, ground, star, bubble)

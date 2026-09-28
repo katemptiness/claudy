@@ -57,7 +57,7 @@ on demand and offers a test gift.
 Everything lives in the `claudy` package; `app.py` is only the entry point.
 
 ### Core (`claudy/core/`, platform-independent)
-- `controller.py` — `Controller`: the app logic shared by both backends. Owns the Character, particles, the Speech state and the gift Claudy offers; handles character events, speech timing (idle-chatter rate limit, pinned gift announcements), clicks/hover/drag, system sleep/wake, app launches, and builds the context menu as `MenuItem`s. Talks to the backend through the small `Platform` interface (open apps/windows, quit).
+- `controller.py` — `Controller`: the app logic shared by both backends. Owns the Character, particles, the Speech state, the gift Claudy offers and the dreams that surface while he sleeps; handles character events, speech timing (idle-chatter rate limit, pinned gift announcements), clicks/hover/drag, system sleep/wake, app launches, and builds the context menu as `MenuItem`s. Talks to the backend through the small `Platform` interface (open apps/windows, quit).
 - `speech.py` — `Speech`: bubble state (typewriter text, fade in/out alpha)
 - `character.py` — `Character` state machine and phased animation engine. Emits events (`message`, `particle`, `gift`, `gift_star`) collected with `take_events()`; `update(dt)` returns a view dict (sprite, x, y_offset, shake_dx, facing, friend, toy).
 - `activities.py` — immutable activity scripts (`Phase` dataclasses), reactions, friend-visit pool, random outcomes (catches, magic results) and gift chances
@@ -72,10 +72,10 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 - `ui_text.py` — bilingual labels for menus, settings and gifts windows
 - `app_reactions.py` — app categories → phrases/activities; macOS bundle IDs and Linux process names
 - `gift_stories.py` — backstories for collected gifts
-- `sprites/` — sprites as text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors; `items.py` holds the gifts Claudy leaves and the toy he sleeps with, plus `GIFT_ART`, which maps a stored gift emoji to its picture
+- `sprites/` — sprites as text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors; `items.py` holds the gifts Claudy leaves, the toy he sleeps with, the named star and the things he dreams about, plus `GIFT_ART` (stored gift emoji → picture) and `DREAM_ART` (activity → pictures)
 
 ### Rendering (`claudy/render/`, platform-independent)
-- `scene.py` — `Scene`: paints all four windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles), star window (the named star, `star_offset_x()` places it), speech bubble (`bubble_layout()` wraps and sizes it)
+- `scene.py` — `Scene`: paints all four windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles, dreams), star window (the named star, `star_offset_x()` places it), speech bubble (`bubble_layout()` wraps and sizes it)
 - `canvas.py` — the `Canvas` interface backends implement (`image`, `rect`, `text`, `measure`; top-left origin) and `ImageCache`
 - `art.py` — pixel art as `PixelImage`s, identified by hashable keys (`sprite_key(name, friend, flip)`, `particle_key(name, tint)`, `item_key(name)`). Applies the shading pass (highlight/shadow/eye glint).
 
@@ -103,6 +103,8 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - Juggling balls are drawn by the scene behind Claudy, not as part of the sprite.
 - Particles are pixel art, and so are the gifts and the toy (`content/sprites/items.py`). Emoji stay where they are text: in speech bubbles, in the menus and in the gifts window.
 - Gifts and the toy are drawn on Claudy's own pixel grid (`ITEM_SCALE == PIXEL_SCALE`), not the finer particle grid. They are objects in his world, not effects; at particle size they read as icons borrowed from another game. The named star is the one exception (`ITEM_SCALES`): it is far away, and its points need a grid finer than the particles' to taper at all.
+- A dream's cloud (`Scene._cloud`) is deliberately unlike the speech bubble: bumpy instead of stepped, translucent, and with no dark outline. It is built from the picture's own size, so every dream gets a cloud that fits it.
+- Claudy dreams only of activities that left a picture in `DREAM_ART`; the rest simply never turn up in a dream. `Memory.log_activity()` collapses runs of the same activity, because through a night of deep sleep he restarts "sleeping" every half minute and would otherwise have nothing else in the log by morning — exactly when he sleeps long enough to dream.
 - The named star shows by real clock hours (`schedule.is_dark()`), not by schedule period — in owl mode "deep sleep" runs to 11:00, long after the stars are gone.
 - Claudy names exactly one star, ever, and it outlives the session in `memory.json`. A second would silently replace the first in the sky, and a rebuild would wipe it.
 - The star twinkles through a few discrete opacities (`STAR_ALPHAS`), not a smooth curve: `Scene.star_changed()` compares drawing calls, so a continuous fade would wake an always-on-top window every frame.

@@ -1,4 +1,4 @@
-"""Pixel art for the things Claudy gives away and keeps.
+"""Pixel art for the things Claudy gives away, keeps and dreams about.
 
 Each image is a text grid; symbols map to ITEM_COLORS. Unlike particles,
 items are drawn on Claudy's own pixel grid (ITEM_SCALE): a gift is an object
@@ -6,7 +6,8 @@ in his world, not an effect, and on the finer particle grid it reads as an
 icon borrowed from somewhere else.
 
 GIFT_ART maps the emoji a gift is stored under in memory.json to its picture,
-so collections saved before these pictures existed keep working.
+so collections saved before these pictures existed keep working. DREAM_ART
+maps an activity to what Claudy may dream of having done.
 """
 
 ITEM_SCALE = 5      # config.PIXEL_SCALE; a test keeps the two in step
@@ -37,6 +38,8 @@ ITEM_COLORS = {
     "W": "#BE8C5E",  # teddy light brown
     "k": "#5F3E26",  # teddy nose
     "g": "#A7A7B5",  # butterfly body
+    "s": "#E8C67C",  # sand
+    "S": "#C49A55",  # sand shade
 }
 
 ITEM_ART = {
@@ -126,6 +129,33 @@ ITEM_ART = {
         .wWWWWWw.
         ..ww.ww..
     """,
+    "book": """
+        .cccc.cccc.
+        cccccxccccc
+        cgggcxcgggc
+        cccccxccccc
+        cgggcxcgggc
+        cccccxccccc
+        .xxxxxxxxx.
+    """,
+    "canvas": """
+        wwwwwwwww
+        wUUUUUUUw
+        wUUyyUUUw
+        wUUyyUUUw
+        wUnnnnnUw
+        wnnnnnnnw
+        wwwwwwwww
+    """,
+    "sandcastle": """
+        ....xx...
+        ....w....
+        .s..w..s.
+        .sssssss.
+        sssssssss
+        ssssSssss
+        sssSSSsss
+    """,
     "sky_star": """
         ...y...
         ...Y...
@@ -157,3 +187,16 @@ TOY = "teddy"
 
 # The star Claudy named after the user, kept in the night sky
 NAMED_STAR = "sky_star"
+
+# What Claudy may dream of, by the activity that left it in his head. An
+# activity missing here leaves no picture behind: he dreams of what stayed,
+# not of everything he did.
+DREAM_ART = {
+    "reading": ("book",),
+    "fishing": ("fish", "puffer"),
+    "shell_collecting": ("shell",),
+    "magic": ("flower", "rainbow", "butterfly"),
+    "telescope": ("star",),
+    "painting": ("canvas",),
+    "sandcastle": ("sandcastle",),
+}

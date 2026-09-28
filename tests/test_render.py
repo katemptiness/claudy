@@ -4,7 +4,7 @@ import unittest
 
 from claudy.config import (
     FRIEND_SHADES, OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SHADES, SPRITE_SIZE,
-    STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
+    SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
 from claudy.content.sprites.items import GIFT_ART, NAMED_STAR
 from claudy.core.controller import Controller
@@ -12,8 +12,8 @@ from claudy.core.settings import STAR_HEIGHT_MIN
 from claudy.render import art
 from claudy.render.canvas import Canvas, ImageCache
 from claudy.render.scene import (
-    BUBBLE_MAX_TEXT_WIDTH, GIFT_BASE_Y, STAR_ALPHAS, STAR_TWINKLE_MS, Scene,
-    star_offset_x,
+    BUBBLE_MAX_TEXT_WIDTH, CLOUD_FILL, DREAM_BASE_Y, GIFT_BASE_Y, STAR_ALPHAS,
+    STAR_TWINKLE_MS, Scene, star_offset_x,
 )
 from tests import support
 
@@ -199,6 +199,61 @@ class CrabAndGroundTests(SceneTestCase):
         self.assertEqual(canvas.of("text"), [])
         keys = [c[1] for c in canvas.of("image")]
         self.assertIn(art.item_key("teddy"), keys)
+
+
+class DreamTests(SceneTestCase):
+
+    def test_a_dream_floats_centered_just_above_claudy(self):
+        self.ctl._dream, self.ctl._dream_age_ms = "book", 1500.0
+        canvas = RecordingCanvas()
+        self.scene.paint_ground(canvas)
+        (_, key, x, y), = canvas.of("image")
+        self.assertEqual(key, art.item_key("book"))
+        image = art.build(key)
+        self.assertEqual(x, round((WINDOW_WIDTH - image.width) / 2))
+        self.assertEqual(y + image.height, DREAM_BASE_Y)
+
+    def _cloud_of(self, canvas):
+        return [c for c in canvas.of("rect") if c[5][:3] == CLOUD_FILL[:3]]
+
+    def test_the_dream_sits_in_a_see_through_cloud_behind_it(self):
+        """A thought has to read as a thought and not as something Claudy
+        said out loud, so the cloud is translucent and has no dark outline."""
+        self.ctl._dream, self.ctl._dream_age_ms = "book", 1500.0
+        canvas = RecordingCanvas()
+        self.scene.paint_ground(canvas)
+        cloud = self._cloud_of(canvas)
+        self.assertTrue(cloud)
+        self.assertLess(max(c[5][3] for c in cloud), 1.0)
+        drawn_at = [i for i, c in enumerate(canvas.calls) if c in cloud]
+        image_at = next(i for i, c in enumerate(canvas.calls)
+                        if c[0] == "image")
+        self.assertLess(max(drawn_at), image_at, "cloud belongs behind")
+
+    def test_the_cloud_wraps_the_picture_and_stops_above_claudy(self):
+        self.ctl._dream, self.ctl._dream_age_ms = "book", 1500.0
+        canvas = RecordingCanvas()
+        self.scene.paint_ground(canvas)
+        (_, key, x, y), = canvas.of("image")
+        image = art.build(key)
+        cloud = self._cloud_of(canvas)
+        self.assertLess(min(c[1] for c in cloud), x)
+        self.assertGreater(max(c[1] + c[3] for c in cloud), x + image.width)
+        self.assertLess(min(c[2] for c in cloud), y)
+        # The trailing bubbles reach down toward Claudy, but never onto him
+        sleeping = art.build(art.sprite_key("sleep_a"))
+        first = next(r for r, row in enumerate(sleeping.rows) if any(row))
+        head_top = (OVERLAY_HEIGHT - WINDOW_HEIGHT + SPRITE_Y
+                    + first * sleeping.scale)
+        bottom = max(c[2] + c[4] for c in cloud)
+        self.assertGreater(bottom, y + image.height)
+        self.assertLessEqual(bottom, head_top)
+
+    def test_nothing_is_drawn_when_claudy_is_not_dreaming(self):
+        canvas = RecordingCanvas()
+        self.scene.paint_ground(canvas)
+        self.assertEqual(canvas.of("image"), [])
+        self.assertEqual(self._cloud_of(canvas), [])
 
 
 class StarTests(SceneTestCase):

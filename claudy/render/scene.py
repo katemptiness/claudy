@@ -2,7 +2,7 @@
 
 Four windows, all drawn here:
 - the crab window: Claudy, the summoned friend, the toy;
-- the ground overlay: shadows, the gift on the Dock, particles;
+- the ground overlay: shadows, the gift on the Dock, particles, dreams;
 - the star window: the one star Claudy named after the user;
 - the speech bubble, sized to its text by bubble_layout().
 """
@@ -33,6 +33,21 @@ SHADOW_FADE_HEIGHT = 80  # px above ground where the shadow is smallest
 # only when a wide picture would otherwise run off the edge of the window
 GIFT_X = SPRITE_X + SPRITE_SIZE + 5
 GIFT_BASE_Y = SHADOW_Y
+
+# A dream floats just above the sleeping Claudy, centered on him rather than
+# beside him: it belongs to him and not to the Dock. A sleeping Claudy lies
+# low in his window (his sprite starts about 40 px down), so measuring from
+# the window's top leaves room for the cloud and its trail of bubbles.
+DREAM_BASE_Y = OVERLAY_HEIGHT - WINDOW_HEIGHT - 2
+
+# The cloud a dream sits in. It is deliberately unlike the speech bubble —
+# no dark outline, bumpy instead of stepped, and see-through — so that a
+# thought never reads as something Claudy said out loud.
+CLOUD_FILL = (1.0, 0.973, 0.933, 1.0)    # #FFF8EE, the bubble's cream
+CLOUD_ALPHA = 0.82
+CLOUD_PAD = 2        # art pixels of cloud around the picture
+CLOUD_BUMP = 3       # art pixels wide (or tall) per bump
+CLOUD_BUMP_STEP = 5  # one bump every this many art pixels along an edge
 
 # The named star breathes between these opacities, one step at a time. It is
 # deliberately a handful of steps and not a smooth curve: the backends redraw
@@ -167,12 +182,56 @@ class Scene:
         if self.ctl.gift_emoji:
             self._gift(canvas, self.ctl.gift_emoji)
 
+        if self.ctl.dream:
+            self._dream(canvas, *self.ctl.dream)
+
         for p in self.ctl.particles.get_active():
             key = art.particle_key(p.frame, p.tint)
             image = art.build(key)
             canvas.image(key, round(p.draw_x - image.width / 2),
                          round(OVERLAY_HEIGHT - p.y - image.height / 2),
                          p.opacity)
+
+    @staticmethod
+    def _dream(canvas, picture, alpha):
+        """What Claudy is dreaming about, fading in and out above him."""
+        key = art.item_key(picture)
+        image = art.build(key)
+        x = round((WINDOW_WIDTH - image.width) / 2)
+        y = DREAM_BASE_Y - image.height
+        Scene._cloud(canvas, x, y, image.width, image.height, alpha)
+        canvas.image(key, x, y, alpha)
+
+    @staticmethod
+    def _cloud(canvas, x, y, w, h, alpha):
+        """The cloud a dream sits in, with its bubbles trailing to Claudy.
+
+        Built from the picture's own size so every dream gets a cloud that
+        fits it, out of two overlapping slabs (which rounds the corners) and
+        a bump on every edge.
+        """
+        u = PIXEL_SCALE
+        fill = CLOUD_FILL[:3] + (CLOUD_FILL[3] * CLOUD_ALPHA * alpha,)
+        pad = CLOUD_PAD * u
+        left, top = x - pad, y - pad
+        width, height = w + 2 * pad, h + 2 * pad
+        canvas.rect(left + u, top, width - 2 * u, height, fill)
+        canvas.rect(left, top + u, width, height - 2 * u, fill)
+        # Bumps take turns sticking out one or two pixels, so the edge reads
+        # as a cloud rather than as the teeth of a cog
+        bump, step = CLOUD_BUMP * u, CLOUD_BUMP_STEP * u
+        for i, bx in enumerate(range(left + u, left + width - bump, step)):
+            out = u * (2 if i % 2 else 1)
+            canvas.rect(bx, top - out, bump, out, fill)
+            canvas.rect(bx, top + height, bump, out, fill)
+        for i, by in enumerate(range(top + u, top + height - bump, step)):
+            out = u * (1 if i % 2 else 2)
+            canvas.rect(left - out, by, out, bump, fill)
+            canvas.rect(left + width, by, out, bump, fill)
+        # Two bubbles trailing down to the sleeper's head
+        cx = left + width / 2
+        canvas.rect(round(cx - u), top + height + 2 * u, 2 * u, 2 * u, fill)
+        canvas.rect(round(cx - u / 2), top + height + 5 * u, u, u, fill)
 
     @staticmethod
     def _gift(canvas, emoji):

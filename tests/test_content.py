@@ -161,6 +161,18 @@ class ItemArtTests(unittest.TestCase):
                 self.assertIn(GIFT_ART[emoji], ITEM_ART)
 
 
+class DreamArtTests(unittest.TestCase):
+
+    def test_every_dream_names_a_real_activity_and_a_real_picture(self):
+        from claudy.content.sprites.items import DREAM_ART, ITEM_ART
+        for name, pictures in DREAM_ART.items():
+            with self.subTest(activity=name):
+                self.assertIn(name, activities.ACTIVITIES)
+                self.assertTrue(pictures)
+                for picture in pictures:
+                    self.assertIn(picture, ITEM_ART)
+
+
 class ScheduleTests(unittest.TestCase):
 
     def test_every_hour_maps_to_a_weighted_period(self):

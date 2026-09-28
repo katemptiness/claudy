@@ -483,6 +483,8 @@ class Character:
         if len(self.recent_activities) > RECENT_ACTIVITY_BLOCK:
             self.recent_activities.pop(0)
 
+        Memory.shared().log_activity(name)
+
         phases = list(ACTIVITIES[name])
         user_name = Settings.shared().user_name
 

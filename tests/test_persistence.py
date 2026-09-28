@@ -98,6 +98,19 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(
             [g["emoji"] for g in self.mem.get_collected_gifts()], ["🐡", "🐟"])
 
+    def test_the_activity_log_forgets_the_oldest(self):
+        for i in range(memory.ACTIVITY_LOG + 10):
+            self.mem.log_activity("reading" if i % 2 else "fishing")
+        self.assertEqual(len(self.mem.recent_activities()), memory.ACTIVITY_LOG)
+
+    def test_a_long_sleep_counts_as_one_activity(self):
+        """Claudy restarts "sleeping" every half minute all night; unchecked
+        it would crowd everything else out of the log."""
+        self.mem.log_activity("fishing")
+        for _ in range(100):
+            self.mem.log_activity("sleeping")
+        self.assertEqual(self.mem.recent_activities(), ["fishing", "sleeping"])
+
     def test_the_named_star_outlives_the_session(self):
         """Claudy put it in the sky, so it has to survive a relaunch —
         unlike everything else in this file."""

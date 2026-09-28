@@ -4,6 +4,7 @@ import unittest
 from unittest import mock
 
 from claudy.content import app_reactions
+from claudy.core import controller
 from claudy.core.controller import Controller, MenuItem
 from claudy.core.memory import Memory
 from claudy.core.particles import ParticleSystem
@@ -113,6 +114,65 @@ class StarNamingTests(ControllerTestCase):
                 self.advance(100)
         self.assertEqual(self.ctl.memory.count_session_gifts("star"), 1)
         self.assertIsNotNone(self.ctl.memory.get_star())
+
+
+class DreamTests(ControllerTestCase):
+    """Pictures that surface above Claudy while he is deeply asleep."""
+
+    def sleep_until_dream(self):
+        """Keep Claudy asleep until a dream starts; return its picture.
+
+        Claudy only counts the time he is actually asleep, and a run of
+        "sleeping" ends every few seconds, so the test keeps sending him
+        back to bed.
+        """
+        limit = 3 * controller.DREAM_GAP_MS[1]
+        elapsed = 0
+        while elapsed < limit:
+            if self.ctl.character.state != "sleeping":
+                self.ctl.character.force_activity("sleeping")
+            self.ctl.tick(50)
+            elapsed += 50
+            if self.ctl.dream:
+                return self.ctl.dream[0]
+        return None
+
+    def test_claudy_dreams_of_something_he_actually_did(self):
+        self.ctl.character.force_activity("fishing")
+        self.advance(200)
+        self.assertIn(self.sleep_until_dream(), ("fish", "puffer"))
+
+    def test_nothing_is_dreamt_before_claudy_has_done_anything(self):
+        """He dreams of what stayed with him, so a blank day dreams nothing."""
+        self.ctl.memory._data["activities"] = ["walking"]
+        self.assertIsNone(self.sleep_until_dream())
+
+    def test_an_awake_claudy_never_dreams(self):
+        self.ctl.character.force_activity("fishing")
+        self.advance(sum(controller.DREAM_GAP_MS))
+        self.assertIsNone(self.ctl.dream)
+
+    def test_a_dream_fades_in_holds_and_goes(self):
+        self.ctl.character.force_activity("reading")
+        self.advance(200)
+        self.sleep_until_dream()
+        self.assertIsNotNone(self.ctl.dream)
+        alphas = []
+        while self.ctl.dream:
+            alphas.append(self.ctl.dream[1])
+            self.ctl.tick(50)
+        self.assertLess(alphas[0], 0.5, "should fade in, not appear")
+        self.assertAlmostEqual(max(alphas), 1.0, delta=0.05)
+        self.assertLess(alphas[-1], 0.5, "should fade out, not vanish")
+
+    def test_waking_up_lets_the_dream_go(self):
+        self.ctl.character.force_activity("reading")
+        self.advance(200)
+        self.sleep_until_dream()
+        self.assertIsNotNone(self.ctl.dream)
+        self.ctl.character.force_activity("playing")
+        self.advance(2 * controller.DREAM_FADE_MS + controller.DREAM_HOLD_MS)
+        self.assertIsNone(self.ctl.dream)
 
 
 class SpeechTests(ControllerTestCase):

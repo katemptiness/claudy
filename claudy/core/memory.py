@@ -11,6 +11,10 @@ from claudy.log import log
 MEMORY_FILE = os.path.join(DATA_DIR, "memory.json")
 
 ATTACHMENT_THRESHOLD = 5  # clicks per day to unlock personal phrases/hearts
+# How many activities back Claudy's dreams reach. Deliberately a rolling list
+# and not a per-day count: he sleeps deepest in the small hours, and a counter
+# that reset at midnight would only ever hold the hour before he dozed off.
+ACTIVITY_LOG = 40
 MILESTONE_DAYS = (10, 25, 50, 100, 200, 365, 500, 1000)
 
 
@@ -48,6 +52,7 @@ class Memory:
             "total_days": 1,
             "today": _fresh_day(today_str),
             "gifts": [],
+            "activities": [],
             "star": saved.get("star"),
         }
         self.save()
@@ -183,6 +188,27 @@ class Memory:
         today = date.today().isoformat()
         return sum(1 for g in self._data["gifts"]
                    if g["date"] == today and g["type"] != "star")
+
+    # --- What Claudy has been doing ---
+
+    def log_activity(self, name):
+        """Note what Claudy just started, for the things he dreams about.
+
+        Runs of the same activity count once. Through a night of deep sleep
+        Claudy starts "sleeping" again every half minute, and without this
+        the log would hold nothing else by morning — exactly when he is
+        asleep long enough to dream.
+        """
+        log = self._data["activities"]
+        if log and log[-1] == name:
+            return
+        log.append(name)
+        del log[:-ACTIVITY_LOG]
+        self.save()
+
+    def recent_activities(self):
+        """The last few things Claudy did, oldest first, repeats included."""
+        return list(self._data["activities"])
 
     # --- The named star ---
 

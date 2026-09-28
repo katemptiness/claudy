@@ -14,6 +14,7 @@ from typing import Callable, List, Optional
 from claudy.config import MAX_TICK_MS, PIXEL_SCALE, SPRITE_SIZE, WINDOW_WIDTH
 from claudy.content import phrases, ui_text
 from claudy.content.phrases import pick
+from claudy.content.sprites.items import DREAM_ART
 from claudy.core.activities import ACTIVITIES
 from claudy.core.character import Character
 from claudy.core.memory import Memory
@@ -31,6 +32,13 @@ CHATTER_GAP_MS = 3000
 PARTICLE_HEAD_Y = SPRITE_SIZE
 PARTICLE_FEET_Y = 2 * PIXEL_SCALE
 TEST_GIFT_EMOJIS = ["🐟", "🐡", "💎", "⭐", "🌸", "🦋"]
+
+# Claudy dreams while he sleeps, and rarely: minutes apart, so that catching
+# one feels like catching it, not like watching a slide show. A dream fades
+# in, holds, and fades out again; nothing about it asks anything of the user.
+DREAM_GAP_MS = (150000, 300000)
+DREAM_FADE_MS = 700
+DREAM_HOLD_MS = 2600
 
 
 class Platform:
@@ -98,6 +106,9 @@ class Controller:
         self._speech_pinned = False
         self._speech_hides_ms = None
         self._last_speech_ms = -CHATTER_GAP_MS
+        self._dream = None
+        self._dream_age_ms = 0.0
+        self._dream_due_ms = random.uniform(*DREAM_GAP_MS)
 
         self.character.wake_up()
         self.view = self.character.view()
@@ -121,7 +132,53 @@ class Controller:
             self._hide_speech()
         self.speech.update(dt)
         self.particles.update(dt)
+        self._update_dream(dt)
         return self.view
+
+    # ---- Dreams ----
+
+    def _update_dream(self, dt):
+        """Let a picture surface while Claudy is asleep, then let it go."""
+        if self._dream is not None:
+            self._dream_age_ms += dt
+            if self.character.state != "sleeping":
+                # Waking up doesn't cut a dream off mid-air, it lets it go
+                self._dream_age_ms = max(self._dream_age_ms,
+                                         DREAM_FADE_MS + DREAM_HOLD_MS)
+            if self._dream_age_ms >= 2 * DREAM_FADE_MS + DREAM_HOLD_MS:
+                self._dream = None
+            return
+        if self.character.state != "sleeping":
+            return          # the wait only runs while he is actually asleep
+        self._dream_due_ms -= dt
+        if self._dream_due_ms <= 0:
+            self._dream = self._pick_dream()
+            self._dream_age_ms = 0.0
+            self._dream_due_ms = random.uniform(*DREAM_GAP_MS)
+
+    def _pick_dream(self):
+        """Something Claudy actually did lately, or None if nothing has
+        left a picture yet — he doesn't dream of what he hasn't done."""
+        done = [name for name in self.memory.recent_activities()
+                if name in DREAM_ART]
+        if not done:
+            return None
+        return random.choice(DREAM_ART[random.choice(done)])
+
+    @property
+    def dream(self):
+        """(picture, opacity) while Claudy is dreaming, else None."""
+        if self._dream is None:
+            return None
+        age, fade = self._dream_age_ms, DREAM_FADE_MS
+        ending = age - fade - DREAM_HOLD_MS
+        if age < fade:
+            alpha = age / fade
+        elif ending <= 0:
+            alpha = 1.0
+        else:
+            alpha = max(0.0, 1 - ending / fade)
+        return self._dream, alpha
 
     @property
     def clock_ms(self):

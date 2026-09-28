@@ -107,8 +107,16 @@ During some activities, Claudy may find something and leave it on the Dock for y
 |----------|------|--------|
 | Fishing | Caught fish, pufferfish, diamond, star | ~30% on good catch |
 | Magic | Flower, butterfly, rainbow | ~20% on successful spell |
-| Telescope | Names a star after you | ~10% per session |
+| Telescope | Names a star after you | ~10%, once ever |
 | Shell collecting | A pretty shell | ~10% per find |
+
+#### Your star
+
+Once — and only once — Claudy's telescope finds a star worth naming after you.
+From then on it stays: a small pixel star hanging in the night sky above the
+Dock, in a fixed spot of its own, twinkling slowly. It shows between 19:00 and
+6:00 and is invisible by day, and it is the one thing Claudy remembers across
+relaunches. How high it hangs is a setting.
 
 When a gift appears, Claudy pauses activities and announces it ("look what i found!", "this is for you! :3"). Click Claudy to collect. If you don't collect in time, Claudy keeps it ("ok, keeping it for myself :p").
 
@@ -134,6 +142,7 @@ Right-click → **Gifts** to view your collection. Each gift comes with a unique
 
 Claudy remembers things in `~/.claudy/memory.json`:
 
+- **Your star** — the one thing that outlives a session: the star Claudy named after you, and where it hangs
 - **Days together** — occasionally says "we've been together for 47 days" (special phrases for milestones: 10, 50, 100...)
 - **App launches** — "Spotify for the 3rd time today :)"
 - **Gifts** — keeps a history of all gifts given and collected
@@ -219,7 +228,7 @@ claudy/
     sprites/                  # 82 pixel-art sprites as text grids + particle art
 
   render/                     # Platform-independent drawing
-    scene.py                  # What each window shows (crab, ground, bubble)
+    scene.py                  # What each window shows (crab, ground, star, bubble)
     canvas.py                 # Drawing interface backends implement
     art.py                    # Pixel art as images
 
@@ -255,6 +264,7 @@ Right-click → Settings to configure:
 | Schedule mode | Night Owl / Early Bird | Night Owl |
 | Claudy's height | Slider, -50 to +50 px above the Dock (moves Claudy live while you drag) | 0 |
 | Dock icons | Slider, 1 to 50 — how many icons your Dock has, so Claudy paces across it instead of the whole screen | 13 |
+| Star height | Slider, 150 to 400 px above the Dock — where your named star hangs (it floats over your windows, so you choose) | 160 |
 | Language | Русский / English | English |
 | Your name | Text field | — |
 | Speech frequency | Often (10s) / Normal (1 min) / Rarely / Very rarely / Almost never | Normal |

@@ -1,5 +1,6 @@
 """Shared helpers for the test suite."""
 
+import os
 import random
 from unittest import mock
 
@@ -10,7 +11,17 @@ SCREEN_WIDTH = 1440
 
 
 def reset_singletons():
-    """Start each test from fresh Settings/Memory with default values."""
+    """Start each test from fresh Settings/Memory with default values.
+
+    The memory file goes too. A couple of things there outlive a session on
+    purpose (the first launch date, the star Claudy named), and the whole
+    suite shares one CLAUDY_HOME, so one test's star would otherwise turn up
+    in the sky of the next.
+    """
+    try:
+        os.remove(memory.MEMORY_FILE)
+    except OSError:
+        pass
     settings.Settings._instance = None
     memory.Memory._instance = None
     settings.Settings.shared().language = "ru"
@@ -53,6 +64,11 @@ def run_until_idle(character, limit_ms=15 * 60 * 1000, step=50, on_tick=None):
 def fixed_period(period):
     """Patch the schedule so every lookup reports `period`."""
     return mock.patch("claudy.core.schedule.get_period", return_value=period)
+
+
+def dark_sky(dark=True):
+    """Patch the clock so the named star is (or isn't) in the sky."""
+    return mock.patch("claudy.core.schedule.is_dark", return_value=dark)
 
 
 def fixed_weights(weights):

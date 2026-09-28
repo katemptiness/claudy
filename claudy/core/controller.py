@@ -18,6 +18,7 @@ from claudy.core.activities import ACTIVITIES
 from claudy.core.character import Character
 from claudy.core.memory import Memory
 from claudy.core.particles import ParticleSystem
+from claudy.core import schedule
 from claudy.core.settings import Settings
 from claudy.core.speech import Speech
 from claudy.log import log
@@ -123,6 +124,21 @@ class Controller:
         return self.view
 
     @property
+    def clock_ms(self):
+        """Milliseconds since launch — what the scene twinkles the star by."""
+        return self._clock_ms
+
+    @property
+    def star(self):
+        """The named star to hang in the sky, or None.
+
+        None both when Claudy hasn't named one and while it is daylight, so
+        a backend can simply hide the star's window whenever it is None.
+        """
+        star = self.memory.get_star()
+        return star if star and schedule.is_dark() else None
+
+    @property
     def is_dragging(self):
         return self.character.state == "dragging"
 
@@ -142,6 +158,7 @@ class Controller:
             self._offer_gift(data)
         elif kind == "gift_star":
             self.memory.add_gift("star", "⭐", name=data, collected=True)
+            self.memory.name_star(data)
 
     # ---- Speech ----
 

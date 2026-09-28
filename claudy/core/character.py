@@ -691,10 +691,11 @@ class Character:
                 phase, frames=("fish_confused",))
 
     def _special_star_gaze(self):
-        # Rarely name a star after the user — at most one per session
+        # Rarely name a star after the user, and only ever one: it stays
+        # in the sky from then on, so a second would replace the first
         mem = Memory.shared()
         if (random.random() < STAR_NAMING_CHANCE and mem.is_attached()
-                and mem.count_session_gifts("star") == 0):
+                and mem.get_star() is None):
             name = Settings.shared().user_name
             self._say(pick_personal(phrases.STAR_NAMING_PHRASES,
                                     phrases.STAR_NAMING_PHRASES_NAMELESS, name))

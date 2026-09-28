@@ -19,13 +19,14 @@ from claudy.backends.linux.gifts_ui import GiftsWindow
 from claudy.backends.linux.settings_ui import SettingsWindow
 from claudy.config import (
     DOCK_DEFAULT_TILE_SIZE, DOCK_TILE_GAP, OVERLAY_HEIGHT, SPRITE_SIZE,
-    SPRITE_X, SPRITE_Y, TICK_INTERVAL, WINDOW_HEIGHT, WINDOW_WIDTH,
+    SPRITE_X, SPRITE_Y, STAR_WINDOW, TICK_INTERVAL, WINDOW_HEIGHT,
+    WINDOW_WIDTH,
 )
 from claudy.content import ui_text
 from claudy.core.controller import Controller, Platform
 from claudy.core.settings import Settings
 from claudy.log import log
-from claudy.render.scene import Scene
+from claudy.render.scene import Scene, star_offset_x
 
 CLAUDE_DESKTOP_ID = "com.anthropic.Claude"
 CLAUDE_WEB_URL = "https://claude.ai"
@@ -94,6 +95,13 @@ def get_screen_geometry():
     return geom.x, geom.width, base_y
 
 
+def _input_passthrough(window, *args):
+    """Let clicks fall through a window to whatever is behind it."""
+    gdk_win = window.get_window()
+    if gdk_win:
+        gdk_win.input_shape_combine_region(cairo.Region(), 0, 0)
+
+
 def _make_transparent_window():
     """A borderless, transparent, always-on-top popup window.
 
@@ -156,13 +164,13 @@ class CrabApp:
 
         # Screen geometry (absolute screen coords). The controller works in
         # monitor-relative X (0..monitor_w); _abs_x converts.
-        self._monitor_x, monitor_w, self._base_y = get_screen_geometry()
+        self._monitor_x, self._monitor_width, self._base_y = get_screen_geometry()
 
         self._click_timer = None
 
         # No Dock-tilesize query on Linux; use the default icon pitch.
         self.controller = Controller(
-            LinuxPlatform(self), monitor_w,
+            LinuxPlatform(self), self._monitor_width,
             dock_tile_pitch=DOCK_DEFAULT_TILE_SIZE + DOCK_TILE_GAP)
         self.system_events = SystemEventHandler(self.controller)
 
@@ -199,12 +207,8 @@ class CrabApp:
         self.ground_area.connect("draw", self._on_draw_ground)
         self.ground_window.add(self.ground_area)
 
-        def make_input_passthrough(widget, *args):
-            gdk_win = widget.get_window()
-            if gdk_win:
-                gdk_win.input_shape_combine_region(cairo.Region(), 0, 0)
         # Connect before show; re-apply after (some WMs need both)
-        self.ground_window.connect("realize", make_input_passthrough)
+        self.ground_window.connect("realize", _input_passthrough)
 
         def shape_main_input(widget, *args):
             # Only the sprite takes clicks; the rest of the window passes through
@@ -214,13 +218,39 @@ class CrabApp:
                     SPRITE_X, SPRITE_Y, SPRITE_SIZE, SPRITE_SIZE)
                 gdk_win.input_shape_combine_region(cairo.Region(rect), 0, 0)
 
+        # The named star keeps a fixed spot in the sky, so it cannot live in
+        # the overlay: that one rides along with Claudy as he paces the panel
+        self.star_window = _make_transparent_window()
+        self.star_window.set_default_size(STAR_WINDOW, STAR_WINDOW)
+        self.star_area = Gtk.DrawingArea()
+        self.star_area.connect("draw", self._on_draw_star)
+        self.star_window.add(self.star_area)
+        self.star_window.connect("realize", _input_passthrough)
+
         self._move_windows(self.controller.view)
         # Ground overlay first (behind), then the crab in front
         self.ground_window.show_all()
         self.window.show_all()
-        GLib.idle_add(make_input_passthrough, self.ground_window)
+        self._place_star()
+        GLib.idle_add(_input_passthrough, self.ground_window)
         GLib.idle_add(shape_main_input, self.window)
         self.window.present()
+
+    def _place_star(self):
+        """Hang the named star in its spot, or hide it in daylight."""
+        star = self.controller.star
+        if star is None:
+            if self.star_window.get_visible():
+                self.star_window.hide()
+            return
+        self.star_window.move(
+            int(self._monitor_x + self._monitor_width / 2
+                + star_offset_x(star["name"]) - STAR_WINDOW / 2),
+            self._win_y() + WINDOW_HEIGHT - self._settings.star_height
+            - STAR_WINDOW)
+        if not self.star_window.get_visible():
+            self.star_window.show_all()
+            GLib.idle_add(_input_passthrough, self.star_window)
 
     def _abs_x(self, x):
         """Convert controller X to absolute screen X."""
@@ -254,6 +284,10 @@ class CrabApp:
     def _on_draw_ground(self, widget, cr):
         clear(cr)
         self.scene.paint_ground(CairoCanvas(cr, self.images))
+
+    def _on_draw_star(self, widget, cr):
+        clear(cr)
+        self.scene.paint_star(CairoCanvas(cr, self.images))
 
     # ---- Input ----
 
@@ -316,6 +350,9 @@ class CrabApp:
                 self.drawing_area.queue_draw()
             if self.scene.ground_changed():
                 self.ground_area.queue_draw()
+            self._place_star()
+            if self.scene.star_changed():
+                self.star_area.queue_draw()
         except Exception:
             # An exception here would silently stop the GLib timer (and
             # freeze Claudy), so log it and keep going.

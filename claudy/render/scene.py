@@ -1,18 +1,20 @@
 """What Claudy's windows show, painted through a backend's Canvas.
 
-Three windows, all drawn here:
+Four windows, all drawn here:
 - the crab window: Claudy, the summoned friend, the toy;
 - the ground overlay: shadows, the gift on the Dock, particles;
+- the star window: the one star Claudy named after the user;
 - the speech bubble, sized to its text by bubble_layout().
 """
 
+import zlib
 from dataclasses import dataclass
 
 from claudy.config import (
     FRIEND_OFFSET_X, OVERLAY_HEIGHT, PIXEL_SCALE, SPRITE_SIZE, SPRITE_X,
-    SPRITE_Y, WINDOW_HEIGHT, WINDOW_WIDTH,
+    SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
-from claudy.content.sprites.items import GIFT_ART, TOY
+from claudy.content.sprites.items import GIFT_ART, NAMED_STAR, TOY
 from claudy.content.sprites.particles import JUGGLE_BALL_COLORS
 from claudy.render import art
 from claudy.render.canvas import Canvas
@@ -31,6 +33,13 @@ SHADOW_FADE_HEIGHT = 80  # px above ground where the shadow is smallest
 # only when a wide picture would otherwise run off the edge of the window
 GIFT_X = SPRITE_X + SPRITE_SIZE + 5
 GIFT_BASE_Y = SHADOW_Y
+
+# The named star breathes between these opacities, one step at a time. It is
+# deliberately a handful of steps and not a smooth curve: the backends redraw
+# a window whenever its drawing calls change, and a star fading continuously
+# would wake an always-on-top window 60 times a second to move nothing.
+STAR_TWINKLE_MS = 3200
+STAR_ALPHAS = (0.55, 0.75, 0.95, 0.75)
 
 # Speech bubble
 BUBBLE_UNIT = 3          # its art pixel, a little finer than Claudy's
@@ -54,6 +63,16 @@ class BubbleLayout:
     width: int           # whole window, tail included
     height: int
     box_height: int
+
+
+def star_offset_x(name):
+    """Where the named star hangs, in pixels from the center of the screen.
+
+    Taken from the name so that it is always the same star in the same place,
+    and so that two people's stars are not in the same spot.
+    """
+    seed = zlib.crc32(name.encode("utf-8"))
+    return seed % (2 * STAR_SPREAD + 1) - STAR_SPREAD
 
 
 def _snap(value, unit):
@@ -93,6 +112,10 @@ class Scene:
     def ground_changed(self):
         """Would the ground overlay draw differently than when last asked?"""
         return self._changed("ground", self.paint_ground)
+
+    def star_changed(self):
+        """Would the star window draw differently than when last asked?"""
+        return self._changed("star", self.paint_star)
 
     def _changed(self, window, paint):
         """Claudy holds still most of the time, and repainting a transparent
@@ -175,6 +198,24 @@ class Scene:
         edge = (0, 0, 0, alpha / 2)
         canvas.rect(x - PIXEL_SCALE, SHADOW_Y, PIXEL_SCALE, PIXEL_SCALE, edge)
         canvas.rect(x + w, SHADOW_Y, PIXEL_SCALE, PIXEL_SCALE, edge)
+
+    # ---- Star window ----
+
+    def paint_star(self, canvas):
+        """The star Claudy named, twinkling in its own small window.
+
+        Nothing is drawn while Controller.star is None (no star yet, or
+        daylight); backends hide the window then, and this keeps the two in
+        step if one is ever slower than the other.
+        """
+        if self.ctl.star is None:
+            return
+        key = art.item_key(NAMED_STAR)
+        image = art.build(key)
+        step = int(self.ctl.clock_ms / STAR_TWINKLE_MS * len(STAR_ALPHAS))
+        canvas.image(key, (STAR_WINDOW - image.width) // 2,
+                     (STAR_WINDOW - image.height) // 2,
+                     STAR_ALPHAS[step % len(STAR_ALPHAS)])
 
     # ---- Speech bubble ----
 

@@ -17,6 +17,13 @@ LINUX_TERMINAL_OPTIONS = ["gnome-terminal", "kitty", "alacritty"]
 VERTICAL_OFFSET_MIN = -50
 VERTICAL_OFFSET_MAX = 50
 
+# How high the named star hangs above the Dock line, in pixels (to the bottom
+# of its little window). The floor keeps it clear of the speech bubble, which
+# sits right above Claudy's head; above that it is a matter of taste and of
+# which windows the user keeps open, so it is a slider.
+STAR_HEIGHT_MIN = 150
+STAR_HEIGHT_MAX = 400
+
 # How many icons are in the Dock — used to estimate its width so Claudy paces
 # only across the Dock. The user updates this when they add/remove Dock items.
 DOCK_ICONS_MIN = 1
@@ -102,6 +109,7 @@ class Settings:
     gift_cooldown = _Setting("10m")
     vertical_offset = _IntSetting(0, VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX)
     dock_icons = _IntSetting(13, DOCK_ICONS_MIN, DOCK_ICONS_MAX)
+    star_height = _IntSetting(160, STAR_HEIGHT_MIN, STAR_HEIGHT_MAX)
 
     _instance = None
 

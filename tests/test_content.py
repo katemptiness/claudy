@@ -129,6 +129,14 @@ class ItemArtTests(unittest.TestCase):
         from claudy.content.sprites.items import ITEM_SCALE
         self.assertEqual(ITEM_SCALE, PIXEL_SCALE)
 
+    def test_only_the_star_in_the_sky_leaves_claudys_grid(self):
+        """Everything else is an object on the Dock and shares his pixels."""
+        from claudy.content.sprites.items import (
+            ITEM_SCALE, ITEM_SCALES, NAMED_STAR, SKY_SCALE,
+        )
+        self.assertEqual(set(ITEM_SCALES), {NAMED_STAR})
+        self.assertLess(SKY_SCALE, ITEM_SCALE)
+
     def test_item_grids_are_rectangular_and_use_known_colors(self):
         from claudy.content.sprites.items import ITEM_ART, ITEM_COLORS
         for name, text in ITEM_ART.items():
@@ -178,6 +186,14 @@ class ScheduleTests(unittest.TestCase):
         for name in activities.ACTIVITIES:
             with self.subTest(activity=name):
                 self.assertIn(name, scheduled)
+
+    def test_the_sky_is_dark_in_the_evening_and_not_at_noon(self):
+        """The star follows the real clock, not a period: owl mode calls
+        7:00 deep sleep, long after the stars have gone."""
+        for hour in (19, 23, 0, 5):
+            self.assertTrue(schedule.is_dark(hour), hour)
+        for hour in (6, 12, 18):
+            self.assertFalse(schedule.is_dark(hour), hour)
 
     def test_owl_sleeps_in_the_morning_and_lark_at_night(self):
         self.assertEqual(schedule.get_period(hour=7, mode="owl"), "deep_sleep")

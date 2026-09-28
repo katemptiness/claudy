@@ -23,14 +23,14 @@ from claudy.backends.macos.views import (
 )
 from claudy.config import (
     DOCK_DEFAULT_TILE_SIZE, DOCK_TILE_GAP, DOCK_Y_ADJUST, OVERLAY_HEIGHT,
-    SPRITE_SIZE, SPRITE_X, SPRITE_Y, TICK_INTERVAL, WINDOW_HEIGHT,
-    WINDOW_WIDTH,
+    SPRITE_SIZE, SPRITE_X, SPRITE_Y, STAR_WINDOW, TICK_INTERVAL,
+    WINDOW_HEIGHT, WINDOW_WIDTH,
 )
 from claudy.content import ui_text
 from claudy.core.controller import Controller, Platform
 from claudy.core.settings import Settings
 from claudy.log import log
-from claudy.render.scene import Scene
+from claudy.render.scene import Scene, star_offset_x
 
 # Wait this long after a click to see whether it becomes a double-click
 DOUBLE_CLICK_S = 0.35
@@ -284,7 +284,16 @@ class MacApp:
             self.ground_window, WINDOW_WIDTH, OVERLAY_HEIGHT,
             self.scene.paint_ground, self.images)
 
+        # The named star keeps a fixed spot in the sky, so it cannot live in
+        # the overlay: that one rides along with Claudy as he paces the Dock
+        self.star_window = make_overlay_window(STAR_WINDOW, STAR_WINDOW)
+        self.star_window.setIgnoresMouseEvents_(True)
+        self.star_view = add_drawing_view(
+            self.star_window, STAR_WINDOW, STAR_WINDOW, self.scene.paint_star,
+            self.images)
+
         self._move_windows(self.controller.view)
+        self._place_star()
         # Ground overlay behind, the crab in front
         self.ground_window.orderFront_(None)
         self.window.makeKeyAndOrderFront_(None)
@@ -296,6 +305,20 @@ class MacApp:
         x = view["x"] - WINDOW_WIDTH / 2
         self.window.setFrameOrigin_((x, self.dock_y + view["y_offset"]))
         self.ground_window.setFrameOrigin_((x, self.dock_y))
+
+    def _place_star(self):
+        """Hang the named star in its spot, or hide it in daylight."""
+        star = self.controller.star
+        if star is None:
+            if self.star_window.isVisible():
+                self.star_window.orderOut_(None)
+            return
+        width = AppKit.NSScreen.mainScreen().frame().size.width
+        self.star_window.setFrameOrigin_(
+            (width / 2 + star_offset_x(star["name"]) - STAR_WINDOW / 2,
+             self.dock_y + self.settings.star_height))
+        if not self.star_window.isVisible():
+            self.star_window.orderFront_(None)
 
     # ---- Dragging ----
 
@@ -357,6 +380,9 @@ class MacApp:
                 self.crab_view.setNeedsDisplay_(True)
             if self.scene.ground_changed():
                 self.ground_view.setNeedsDisplay_(True)
+            self._place_star()
+            if self.scene.star_changed():
+                self.star_view.setNeedsDisplay_(True)
         except Exception:
             log.exception("tick failed")
 

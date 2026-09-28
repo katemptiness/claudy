@@ -4,13 +4,17 @@ import unittest
 
 from claudy.config import (
     FRIEND_SHADES, OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SHADES, SPRITE_SIZE,
-    WINDOW_WIDTH,
+    STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
-from claudy.content.sprites.items import GIFT_ART
+from claudy.content.sprites.items import GIFT_ART, NAMED_STAR
 from claudy.core.controller import Controller
+from claudy.core.settings import STAR_HEIGHT_MIN
 from claudy.render import art
 from claudy.render.canvas import Canvas, ImageCache
-from claudy.render.scene import BUBBLE_MAX_TEXT_WIDTH, GIFT_BASE_Y, Scene
+from claudy.render.scene import (
+    BUBBLE_MAX_TEXT_WIDTH, GIFT_BASE_Y, STAR_ALPHAS, STAR_TWINKLE_MS, Scene,
+    star_offset_x,
+)
 from tests import support
 
 
@@ -195,6 +199,62 @@ class CrabAndGroundTests(SceneTestCase):
         self.assertEqual(canvas.of("text"), [])
         keys = [c[1] for c in canvas.of("image")]
         self.assertIn(art.item_key("teddy"), keys)
+
+
+class StarTests(SceneTestCase):
+    """The one star Claudy names after the user, in a window of its own."""
+
+    def test_nothing_is_drawn_before_claudy_names_a_star(self):
+        with support.dark_sky():
+            canvas = RecordingCanvas()
+            self.scene.paint_star(canvas)
+            self.assertEqual(canvas.calls, [])
+
+    def test_the_star_sits_in_the_middle_of_its_window(self):
+        with support.dark_sky():
+            self.ctl.memory.name_star("Kate")
+            canvas = RecordingCanvas()
+            self.scene.paint_star(canvas)
+            (_, key, x, y), = canvas.of("image")
+            self.assertEqual(key, art.item_key(NAMED_STAR))
+            image = art.build(key)
+            self.assertLessEqual(image.width, STAR_WINDOW)
+            self.assertEqual(x, (STAR_WINDOW - image.width) // 2)
+            self.assertEqual(y, (STAR_WINDOW - image.height) // 2)
+
+    def test_the_sky_is_empty_in_daylight(self):
+        self.ctl.memory.name_star("Kate")
+        with support.dark_sky(False):
+            self.assertIsNone(self.ctl.star)
+            canvas = RecordingCanvas()
+            self.scene.paint_star(canvas)
+            self.assertEqual(canvas.calls, [])
+
+    def test_the_star_twinkles_in_steps_rather_than_every_frame(self):
+        """A star fading smoothly would wake an always-on-top window sixty
+        times a second to move nothing at all."""
+        with support.dark_sky():
+            self.ctl.memory.name_star("Kate")
+            self.scene.star_changed()        # first reading, always True
+            cycles, redraws = 2, 0
+            for _ in range(int(cycles * STAR_TWINKLE_MS / 50)):
+                self.ctl.tick(50)
+                redraws += self.scene.star_changed()
+            self.assertAlmostEqual(redraws, cycles * len(STAR_ALPHAS), delta=1)
+
+    def test_the_lowest_the_star_can_hang_clears_the_speech_bubble(self):
+        """Tried at 100 px above the Dock: the bubble covered the star."""
+        self.ctl.speech.say("тут длинная фраза, которой хватит на две строчки")
+        layout = self.scene.bubble_layout(RecordingCanvas())
+        self.assertGreater(len(layout.lines), 1, "wanted a two-line bubble")
+        self.assertGreaterEqual(STAR_HEIGHT_MIN, WINDOW_HEIGHT + layout.height)
+
+    def test_a_name_always_gets_the_same_spot_in_the_sky(self):
+        self.assertEqual(star_offset_x("Kate"), star_offset_x("Kate"))
+        self.assertNotEqual(star_offset_x("Kate"), star_offset_x("Sam"))
+        for name in ("", "Kate", "Клод", "a rather long name indeed"):
+            with self.subTest(name=name):
+                self.assertLessEqual(abs(star_offset_x(name)), STAR_SPREAD)
 
 
 class RedrawTests(SceneTestCase):

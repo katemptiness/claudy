@@ -27,7 +27,9 @@ class Memory:
     """Persistent relationship memory. Use Memory.shared().
 
     Each launch starts a fresh session: clicks, app launches, the days
-    counter and gifts reset. Only the very first launch date survives.
+    counter and gifts reset. Only two things survive: the very first launch
+    date, and the star Claudy named after the user — that one hangs in the
+    sky for good, so it has to outlive a rebuild.
     """
 
     _instance = None
@@ -40,22 +42,25 @@ class Memory:
 
     def __init__(self):
         today_str = date.today().isoformat()
-        first_launch = self._load_first_launch() or today_str
+        saved = self._load_saved()
         self._data = {
-            "first_launch": first_launch,
+            "first_launch": saved.get("first_launch") or today_str,
             "total_days": 1,
             "today": _fresh_day(today_str),
             "gifts": [],
+            "star": saved.get("star"),
         }
         self.save()
 
     @staticmethod
-    def _load_first_launch():
+    def _load_saved():
+        """What the last session left behind, or {} if there is nothing."""
         try:
             with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-                return json.load(f).get("first_launch")
-        except (OSError, json.JSONDecodeError, AttributeError):
-            return None
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def save(self):
         try:
@@ -178,6 +183,23 @@ class Memory:
         today = date.today().isoformat()
         return sum(1 for g in self._data["gifts"]
                    if g["date"] == today and g["type"] != "star")
+
+    # --- The named star ---
+
+    def name_star(self, name):
+        """Remember the star Claudy named after the user.
+
+        The star also goes into the collection as a gift, like everything
+        else Claudy gives away; this is the copy that stays in the sky, so
+        it is stored on its own and survives a relaunch.
+        """
+        self._data["star"] = {"name": name or "",
+                              "date": date.today().isoformat()}
+        self.save()
+
+    def get_star(self):
+        """The named star, or None if Claudy hasn't named one yet."""
+        return self._data.get("star")
 
     def get_collected_gifts(self):
         """Return all collected gifts, newest first."""

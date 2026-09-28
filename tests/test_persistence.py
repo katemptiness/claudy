@@ -21,6 +21,7 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(s.schedule, "owl")
         self.assertEqual(s.dock_icons, 13)
         self.assertEqual(s.vertical_offset, 0)
+        self.assertEqual(s.star_height, 160)
 
     def test_numeric_settings_are_clamped(self):
         s = settings.Settings.shared()
@@ -32,6 +33,8 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(s.dock_icons, settings.DOCK_ICONS_MIN)
         s.dock_icons = 7.6
         self.assertEqual(s.dock_icons, 8)
+        s.star_height = 10
+        self.assertEqual(s.star_height, settings.STAR_HEIGHT_MIN)
 
     def test_save_and_reload(self):
         s = settings.Settings.shared()
@@ -94,6 +97,14 @@ class MemoryTests(unittest.TestCase):
             self.mem.collect_gift()
         self.assertEqual(
             [g["emoji"] for g in self.mem.get_collected_gifts()], ["🐡", "🐟"])
+
+    def test_the_named_star_outlives_the_session(self):
+        """Claudy put it in the sky, so it has to survive a relaunch —
+        unlike everything else in this file."""
+        self.mem.name_star("Kate")
+        memory.Memory._instance = None
+        fresh = memory.Memory.shared()
+        self.assertEqual(fresh.get_star()["name"], "Kate")
 
     def test_each_launch_starts_a_fresh_session(self):
         self.mem.record_click()

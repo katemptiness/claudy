@@ -9,8 +9,8 @@ from claudy.content.ui_text import (
     LANGUAGE_OPTIONS, SCHEDULE_OPTIONS, SPEECH_OPTIONS, label, localized,
 )
 from claudy.core.settings import (
-    DOCK_ICONS_MAX, DOCK_ICONS_MIN, LINUX_TERMINAL_OPTIONS, Settings,
-    VERTICAL_OFFSET_MAX, VERTICAL_OFFSET_MIN,
+    DOCK_ICONS_MAX, DOCK_ICONS_MIN, LINUX_TERMINAL_OPTIONS, STAR_HEIGHT_MAX,
+    STAR_HEIGHT_MIN, Settings, VERTICAL_OFFSET_MAX, VERTICAL_OFFSET_MIN,
 )
 
 
@@ -37,6 +37,7 @@ class SettingsWindow:
         self.window = None
         self.settings = Settings.shared()
         self._orig_vertical_offset = None
+        self._orig_star_height = None
         self._saved = False
 
     def show(self):
@@ -49,9 +50,10 @@ class SettingsWindow:
         # Remember the height so we can revert if the user closes without
         # saving (the scale previews live by mutating the shared settings).
         self._orig_vertical_offset = s.vertical_offset
+        self._orig_star_height = s.star_height
         self._saved = False
         self.window = Gtk.Window(title=label("title", lang))
-        self.window.set_default_size(320, 520)
+        self.window.set_default_size(320, 640)
         self.window.set_resizable(False)
         self.window.set_position(Gtk.WindowPosition.CENTER)
         self.window.connect("delete-event", self._on_close)
@@ -98,6 +100,20 @@ class SettingsWindow:
         hint.get_style_context().add_class("dim-label")
         self._add_widget(hint)
 
+        # How high the named star hangs above the panel
+        self._add_label(label("star_height", lang))
+        self.star_height_scale = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL, STAR_HEIGHT_MIN, STAR_HEIGHT_MAX, 1)
+        self.star_height_scale.set_value(s.star_height)
+        self.star_height_scale.set_value_pos(Gtk.PositionType.RIGHT)
+        self.star_height_scale.connect("format-value", self._format_star_height)
+        self.star_height_scale.connect("value-changed",
+                                       self._on_star_height_changed)
+        self._add_widget(self.star_height_scale)
+        hint = Gtk.Label(label=label("star_height_hint", lang), xalign=0)
+        hint.get_style_context().add_class("dim-label")
+        self._add_widget(hint)
+
         self._add_choice("language", "language", LANGUAGE_OPTIONS, s.language)
 
         self._add_label(label("name", lang))
@@ -122,7 +138,13 @@ class SettingsWindow:
         save_btn.connect("clicked", self._on_save)
         self._add_widget(save_btn)
 
-        self.window.add(self._grid)
+        # The form is taller than a small laptop screen, so it scrolls
+        # inside the window rather than pushing Save off the bottom
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroller.set_propagate_natural_height(True)
+        scroller.add(self._grid)
+        self.window.add(scroller)
         self.window.show_all()
 
     def _add_widget(self, widget):
@@ -147,6 +169,7 @@ class SettingsWindow:
         self.settings.dev_mode = self.dev_check.get_active()
         self.settings.vertical_offset = self.height_scale.get_value()
         self.settings.dock_icons = self.dock_icons_scale.get_value()
+        self.settings.star_height = self.star_height_scale.get_value()
 
         self._saved = True
         self.settings.save()
@@ -156,6 +179,15 @@ class SettingsWindow:
         # Preview live by mutating the shared settings; the running crab reads
         # vertical_offset every tick, so it rises/lowers as the scale moves.
         self.settings.vertical_offset = scale.get_value()
+
+    def _on_star_height_changed(self, scale):
+        # Previews live: the star's window is placed from this setting on
+        # every tick, so it rises and falls as the scale moves.
+        self.settings.star_height = scale.get_value()
+
+    def _format_star_height(self, scale, value):
+        return "%d %s" % (int(round(value)),
+                          label("height_unit", self.settings.language))
 
     def _format_height(self, scale, value):
         lang = self.settings.language
@@ -168,5 +200,6 @@ class SettingsWindow:
         # Revert the live preview if the user closed without saving.
         if not self._saved and self._orig_vertical_offset is not None:
             self.settings.vertical_offset = self._orig_vertical_offset
+            self.settings.star_height = self._orig_star_height
         self.window = None
         return False

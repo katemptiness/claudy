@@ -22,6 +22,15 @@ OVERLAY_HEIGHT = 300
 SPRITE_X = (WINDOW_WIDTH - SPRITE_SIZE) // 2
 SPRITE_Y = WINDOW_HEIGHT - SPRITE_SIZE
 
+# The star Claudy named after the user hangs in a small window of its own.
+# The ground overlay rides along with Claudy as he paces the Dock, and a
+# star that slid across the screen with him would not read as a star.
+# How high it hangs is a user setting (settings.star_height): it floats over
+# whatever windows are open, so where it is least in the way is the user's
+# call, not ours.
+STAR_WINDOW = 40        # its window, square, with the art centered in it
+STAR_SPREAD = 180       # px each side of the screen center it may hang
+
 # The friend crab stands this far to the left of Claudy
 FRIEND_OFFSET_X = -50
 

@@ -101,6 +101,20 @@ class GiftTests(ControllerTestCase):
         self.assertEqual(self.ctl.gift_emoji, "🐚")
 
 
+class StarNamingTests(ControllerTestCase):
+
+    def test_claudy_names_one_star_and_then_keeps_it(self):
+        """The star stays in the sky from then on, so a second one would
+        quietly replace the first."""
+        support.attach(self.ctl.memory)
+        with mock.patch("claudy.core.character.random.random", return_value=0.0):
+            for _ in range(3):
+                self.ctl.character._special_star_gaze()
+                self.advance(100)
+        self.assertEqual(self.ctl.memory.count_session_gifts("star"), 1)
+        self.assertIsNotNone(self.ctl.memory.get_star())
+
+
 class SpeechTests(ControllerTestCase):
 
     def test_click_greets_out_loud(self):

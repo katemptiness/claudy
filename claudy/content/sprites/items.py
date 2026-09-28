@@ -11,6 +11,13 @@ so collections saved before these pictures existed keep working.
 
 ITEM_SCALE = 5      # config.PIXEL_SCALE; a test keeps the two in step
 
+# The named star is the one exception: it hangs far away in the night sky
+# instead of standing on the Dock, so it is drawn finer than anything else
+# here — finer even than particles. At Claudy's own scale a star reads as an
+# object left hanging in mid-air rather than as something distant, and its
+# points need a grid this fine to taper at all.
+SKY_SCALE = 3
+
 ITEM_COLORS = {
     "e": "#2D2D2D",  # eye
     "c": "#FFF8EE",  # eye glint
@@ -119,7 +126,19 @@ ITEM_ART = {
         .wWWWWWw.
         ..ww.ww..
     """,
+    "sky_star": """
+        ...y...
+        ...Y...
+        ..yYy..
+        yYYcYYy
+        ..yYy..
+        ...Y...
+        ...y...
+    """,
 }
+
+# Pictures not drawn on Claudy's own pixel grid (see SKY_SCALE)
+ITEM_SCALES = {"sky_star": SKY_SCALE}
 
 # The gift Claudy leaves on the Dock, by the emoji it is stored under
 GIFT_ART = {
@@ -135,3 +154,6 @@ GIFT_ART = {
 
 # What Claudy sleeps with after being given a toy
 TOY = "teddy"
+
+# The star Claudy named after the user, kept in the night sky
+NAMED_STAR = "sky_star"

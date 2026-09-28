@@ -36,6 +36,19 @@ def get_period(hour=None, mode=None):
             return "late_night"
 
 
+# When the named star shows in the sky. Deliberately real clock hours and
+# not a schedule period: in owl mode "deep sleep" runs until 11:00, long
+# after the stars are gone.
+DARK_FROM, DARK_UNTIL = 19, 6
+
+
+def is_dark(hour=None):
+    """True while Claudy's sky is dark enough to see the named star."""
+    if hour is None:
+        hour = datetime.now().hour
+    return hour >= DARK_FROM or hour < DARK_UNTIL
+
+
 # Activity weights by period.
 # Higher weight = more likely to be chosen.
 ACTIVITY_WEIGHTS = {

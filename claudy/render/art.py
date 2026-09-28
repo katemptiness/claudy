@@ -12,7 +12,9 @@ from claudy.config import (
     FRIEND_PALETTE, FRIEND_SHADES, PALETTE, PIXEL_SCALE, SHADES, hex_rgba,
 )
 from claudy.content.sprites import SPRITES
-from claudy.content.sprites.items import ITEM_ART, ITEM_COLORS, ITEM_SCALE
+from claudy.content.sprites.items import (
+    ITEM_ART, ITEM_COLORS, ITEM_SCALE, ITEM_SCALES,
+)
 from claudy.content.sprites.particles import (
     PARTICLE_ART, PARTICLE_COLORS, PARTICLE_SCALE,
 )
@@ -81,7 +83,8 @@ def _build_particle(name, tint):
 
 def _build_item(name):
     colors = {sym: hex_rgba(hex_color) for sym, hex_color in ITEM_COLORS.items()}
-    return _grid_image(ITEM_ART[name], colors, ITEM_SCALE)
+    return _grid_image(ITEM_ART[name], colors,
+                       ITEM_SCALES.get(name, ITEM_SCALE))
 
 
 def _build_sprite(name, friend, flip):

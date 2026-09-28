@@ -8,8 +8,8 @@ from claudy.content.ui_text import (
     LANGUAGE_OPTIONS, SCHEDULE_OPTIONS, SPEECH_OPTIONS, label, localized,
 )
 from claudy.core.settings import (
-    DOCK_ICONS_MAX, DOCK_ICONS_MIN, TERMINAL_OPTIONS, Settings,
-    VERTICAL_OFFSET_MAX, VERTICAL_OFFSET_MIN,
+    DOCK_ICONS_MAX, DOCK_ICONS_MIN, STAR_HEIGHT_MAX, STAR_HEIGHT_MIN,
+    TERMINAL_OPTIONS, Settings, VERTICAL_OFFSET_MAX, VERTICAL_OFFSET_MIN,
 )
 
 
@@ -34,8 +34,11 @@ class SettingsWindow(AppKit.NSObject):
         self.height_value_label = None
         self.dock_icons_slider = None
         self.dock_icons_value_label = None
+        self.star_height_slider = None
+        self.star_height_value_label = None
         self.dev_check = None
         self._orig_vertical_offset = None
+        self._orig_star_height = None
         self._saved = False
         return self
 
@@ -45,11 +48,18 @@ class SettingsWindow(AppKit.NSObject):
             return
 
         lang = self.settings.language
-        # Remember the height so we can revert if the user closes without saving
-        # (the slider previews live by mutating the shared settings).
+        # Remember the heights so we can revert if the user closes without
+        # saving (the sliders preview live by mutating the shared settings).
         self._orig_vertical_offset = self.settings.vertical_offset
+        self._orig_star_height = self.settings.star_height
         self._saved = False
-        w, h = 320, 800
+        # The form is taller than a small laptop screen, so the window is only
+        # as tall as fits between the menu bar and the Dock and the form
+        # scrolls inside it. Without this the Save button ends up behind the
+        # Dock, out of reach.
+        w, form_h = 320, 878
+        visible = AppKit.NSScreen.mainScreen().visibleFrame()
+        h = int(min(form_h, visible.size.height - 40))
         self.window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             ((200, 200), (w, h)),
             AppKit.NSWindowStyleMaskTitled
@@ -62,8 +72,14 @@ class SettingsWindow(AppKit.NSObject):
         self.window.setDelegate_(self)
         self.window.center()
 
-        content = self.window.contentView()
-        y = h - 50
+        content = AppKit.NSView.alloc().initWithFrame_(((0, 0), (w, form_h)))
+        scroll = AppKit.NSScrollView.alloc().initWithFrame_(((0, 0), (w, h)))
+        scroll.setHasVerticalScroller_(True)
+        scroll.setAutohidesScrollers_(True)
+        scroll.setDrawsBackground_(False)
+        scroll.setDocumentView_(content)
+        self.window.setContentView_(scroll)
+        y = form_h - 50
 
         # Terminal
         self._add_label(content, label("terminal", lang), 20, y)
@@ -124,6 +140,26 @@ class SettingsWindow(AppKit.NSObject):
         content.addSubview_(self.dock_icons_slider)
         y -= 18
         self._add_hint(content, label("dock_icons_hint", lang), 20, y, 270, left=True)
+        y -= 34
+
+        # How high the named star hangs above the Dock
+        self._add_label(content, label("star_height", lang), 20, y)
+        self.star_height_value_label = self._add_value_label(
+            content, self._format_star_height(self.settings.star_height),
+            190, y, 100)
+        y -= 26
+        self.star_height_slider = AppKit.NSSlider.alloc().initWithFrame_(
+            ((20, y), (270, 22)))
+        self.star_height_slider.setMinValue_(STAR_HEIGHT_MIN)
+        self.star_height_slider.setMaxValue_(STAR_HEIGHT_MAX)
+        self.star_height_slider.setDoubleValue_(self.settings.star_height)
+        self.star_height_slider.setContinuous_(True)
+        self.star_height_slider.setTarget_(self)
+        self.star_height_slider.setAction_("starHeightChanged:")
+        content.addSubview_(self.star_height_slider)
+        y -= 18
+        self._add_hint(content, label("star_height_hint", lang), 20, y, 270,
+                       left=True)
         y -= 34
 
         # Language (always bilingual so user can find it)
@@ -215,6 +251,8 @@ class SettingsWindow(AppKit.NSObject):
         save_btn.setAction_("saveSettings:")
         content.addSubview_(save_btn)
 
+        # An unflipped document view starts scrolled to the bottom
+        content.scrollRectToVisible_(((0, form_h - 1), (w, 1)))
         self.window.makeKeyAndOrderFront_(None)
         AppKit.NSApp.activateIgnoringOtherApps_(True)
 
@@ -250,6 +288,7 @@ class SettingsWindow(AppKit.NSObject):
 
         self.settings.vertical_offset = self.height_slider.doubleValue()
         self.settings.dock_icons = self.dock_icons_slider.doubleValue()
+        self.settings.star_height = self.star_height_slider.doubleValue()
 
         self.settings.dev_mode = (
             self.dev_check.state() == AppKit.NSControlStateValueOn)
@@ -269,6 +308,18 @@ class SettingsWindow(AppKit.NSObject):
         # Revert the live preview if the user closed without saving.
         if not self._saved and self._orig_vertical_offset is not None:
             self.settings.vertical_offset = self._orig_vertical_offset
+            self.settings.star_height = self._orig_star_height
+
+    def starHeightChanged_(self, sender):
+        # Previews live: the star's window is placed from this setting on
+        # every tick, so it rises and falls as the slider moves.
+        self.settings.star_height = sender.doubleValue()
+        self.star_height_value_label.setStringValue_(
+            self._format_star_height(self.settings.star_height))
+
+    def _format_star_height(self, value):
+        lang = self.settings.language
+        return "%d %s" % (int(round(value)), label("height_unit", lang))
 
     def _format_height(self, value):
         lang = self.settings.language

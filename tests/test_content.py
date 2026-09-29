@@ -132,10 +132,32 @@ class ItemArtTests(unittest.TestCase):
     def test_only_the_star_in_the_sky_leaves_claudys_grid(self):
         """Everything else is an object on the Dock and shares his pixels."""
         from claudy.content.sprites.items import (
-            ITEM_SCALE, ITEM_SCALES, NAMED_STAR, SKY_SCALE,
+            ITEM_SCALE, ITEM_SCALES, SKY_SCALE, STAR_TWINKLE,
         )
-        self.assertEqual(set(ITEM_SCALES), {NAMED_STAR})
+        self.assertEqual(set(ITEM_SCALES), {name for name, _ in STAR_TWINKLE})
         self.assertLess(SKY_SCALE, ITEM_SCALE)
+
+    def test_the_star_keeps_its_size_as_it_twinkles(self):
+        """Its window centers each picture; a size change would make it jump."""
+        from claudy.content.sprites.items import ITEM_ART, STAR_TWINKLE
+        sizes = {(len(ITEM_ART[name].split()), len(ITEM_ART[name].split()[0]))
+                 for name, _ in STAR_TWINKLE}
+        self.assertEqual(len(sizes), 1)
+
+    def test_pictures_have_no_empty_border(self):
+        """Pictures are placed by their size: an empty row or column along an
+        edge would push them off center and off the ground."""
+        from claudy.content.sprites.items import ITEM_ART, STAR_TWINKLE
+        framed = {name for name, _ in STAR_TWINKLE}   # sized like the others
+        for name, text in ITEM_ART.items():
+            if name in framed:
+                continue
+            with self.subTest(item=name):
+                lines = text.split()
+                edges = (lines[0], lines[-1], "".join(l[0] for l in lines),
+                         "".join(l[-1] for l in lines))
+                for edge in edges:
+                    self.assertNotEqual(set(edge), {"."})
 
     def test_item_grids_are_rectangular_and_use_known_colors(self):
         from claudy.content.sprites.items import ITEM_ART, ITEM_COLORS

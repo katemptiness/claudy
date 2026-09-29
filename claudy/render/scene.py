@@ -14,17 +14,22 @@ from claudy.config import (
     FRIEND_OFFSET_X, OVERLAY_HEIGHT, PIXEL_SCALE, SPRITE_SIZE, SPRITE_X,
     SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
-from claudy.content.sprites.items import GIFT_ART, NAMED_STAR, TOY
+from claudy.content.sprites.items import (
+    DREAM_CLOUD, GIFT_ART, STAR_TWINKLE, TOY,
+)
 from claudy.content.sprites.particles import JUGGLE_BALL_COLORS
 from claudy.render import art
 from claudy.render.canvas import Canvas
 
-INK = (0.0, 0.0, 0.0, 1.0)
 CLAW_TOP = SPRITE_Y + 9 * PIXEL_SCALE  # where juggled balls rest
 
-# Shadows sit on the ground just under the feet (the sprite's last two
-# rows are empty), as one row of art pixels
-SHADOW_Y = OVERLAY_HEIGHT - WINDOW_HEIGHT + SPRITE_Y + 14 * PIXEL_SCALE + 1
+# The ground line in the crab window: every sprite leaves its last two rows
+# empty, so Claudy's feet end here. Whatever stands beside him stands on it.
+FEET_Y = SPRITE_Y + 14 * PIXEL_SCALE
+GROUND_Y = OVERLAY_HEIGHT - WINDOW_HEIGHT + FEET_Y   # the same, in the overlay
+
+# Shadows lie on the ground just under the feet, as one row of art pixels
+SHADOW_Y = GROUND_Y + 1
 SHADOW_UNITS = 10       # width of the dark middle, in art pixels
 SHADOW_ALPHA = 0.22
 SHADOW_FADE_HEIGHT = 80  # px above ground where the shadow is smallest
@@ -32,29 +37,25 @@ SHADOW_FADE_HEIGHT = 80  # px above ground where the shadow is smallest
 # The gift stands on the ground a fixed step clear of Claudy, pulled back
 # only when a wide picture would otherwise run off the edge of the window
 GIFT_X = SPRITE_X + SPRITE_SIZE + 5
-GIFT_BASE_Y = SHADOW_Y
 
-# A dream floats just above the sleeping Claudy, centered on him rather than
-# beside him: it belongs to him and not to the Dock. A sleeping Claudy lies
-# low in his window (his sprite starts about 40 px down), so measuring from
-# the window's top leaves room for the cloud and its trail of bubbles.
-DREAM_BASE_Y = OVERLAY_HEIGHT - WINDOW_HEIGHT - 2
+# The toy is tucked against Claudy's side and drawn behind him, so his claw
+# lies across it: something he sleeps with, not a separate object
+TOY_X = SPRITE_X + SPRITE_SIZE - 3 * PIXEL_SCALE
 
-# The cloud a dream sits in. It is deliberately unlike the speech bubble —
-# no dark outline, bumpy instead of stepped, and see-through — so that a
-# thought never reads as something Claudy said out loud.
-CLOUD_FILL = (1.0, 0.973, 0.933, 1.0)    # #FFF8EE, the bubble's cream
-CLOUD_ALPHA = 0.82
-CLOUD_PAD = 2        # art pixels of cloud around the picture
-CLOUD_BUMP = 3       # art pixels wide (or tall) per bump
-CLOUD_BUMP_STEP = 5  # one bump every this many art pixels along an edge
+# A dream floats above the sleeping Claudy in a cloud of its own (an item
+# picture, so it is drawn with one opacity throughout). The cloud hangs on
+# Claudy's own pixel grid, a little off to one side, and its trail of bubbles
+# ends just above his head; the picture goes in the middle of the cloud.
+DREAM_CLOUD_X = SPRITE_X
+DREAM_CLOUD_Y = 120
+DREAM_CENTER = (10.5, 8)    # art pixels into the cloud
+CLOUD_ALPHA = 0.92
 
-# The named star breathes between these opacities, one step at a time. It is
-# deliberately a handful of steps and not a smooth curve: the backends redraw
-# a window whenever its drawing calls change, and a star fading continuously
-# would wake an always-on-top window 60 times a second to move nothing.
-STAR_TWINKLE_MS = 3200
-STAR_ALPHAS = (0.55, 0.75, 0.95, 0.75)
+# The named star twinkles through a few pictures (STAR_TWINKLE) rather than
+# fading: the backends redraw a window whenever its drawing calls change, and
+# a star fading continuously would wake an always-on-top window 60 times a
+# second to move nothing.
+STAR_TWINKLE_MS = sum(ms for _, ms in STAR_TWINKLE)
 
 # Speech bubble
 BUBBLE_UNIT = 3          # its art pixel, a little finer than Claudy's
@@ -158,17 +159,13 @@ class Scene:
             size = art.build(ball).width
             canvas.image(ball, round(center + side * dx - size / 2),
                          round(CLAW_TOP - height - size))
+        if view["show_toy"]:
+            toy = art.item_key(TOY)
+            canvas.image(toy, TOY_X, FEET_Y - art.build(toy).height)
         key = art.sprite_key(view["sprite"], flip=not view["facing_right"])
         # Sprites wider than 16 (props) keep Claudy in their middle
         x = (WINDOW_WIDTH - art.build(key).width) / 2
         canvas.image(key, round(x + view["shake_dx"]), SPRITE_Y)
-        if view["show_toy"]:
-            # Tucked against Claudy's side, overlapping a little, so it reads
-            # as something he sleeps with and not as a separate object
-            toy = art.item_key(TOY)
-            image = art.build(toy)
-            canvas.image(toy, SPRITE_X + SPRITE_SIZE - image.width // 3,
-                         WINDOW_HEIGHT - image.height)
 
     # ---- Ground overlay ----
 
@@ -178,13 +175,14 @@ class Scene:
         if view["friend_visible"]:
             self._shadow(canvas, WINDOW_WIDTH / 2 + FRIEND_OFFSET_X, height)
         self._shadow(canvas, WINDOW_WIDTH / 2, height)
+        if view["show_toy"]:
+            self._item_shadow(canvas, TOY_X, art.build(art.item_key(TOY)))
 
         if self.ctl.gift_emoji:
             self._gift(canvas, self.ctl.gift_emoji)
 
-        if self.ctl.dream:
-            self._dream(canvas, *self.ctl.dream)
-
+        # Particles go behind a dream: the zzz already in the air when one
+        # surfaces drift on behind its cloud instead of across the picture
         for p in self.ctl.particles.get_active():
             key = art.particle_key(p.frame, p.tint)
             image = art.build(key)
@@ -192,64 +190,50 @@ class Scene:
                          round(OVERLAY_HEIGHT - p.y - image.height / 2),
                          p.opacity)
 
+        if self.ctl.dream:
+            self._dream(canvas, *self.ctl.dream)
+
     @staticmethod
     def _dream(canvas, picture, alpha):
         """What Claudy is dreaming about, fading in and out above him."""
+        canvas.image(art.item_key(DREAM_CLOUD), DREAM_CLOUD_X, DREAM_CLOUD_Y,
+                     alpha * CLOUD_ALPHA)
         key = art.item_key(picture)
         image = art.build(key)
-        x = round((WINDOW_WIDTH - image.width) / 2)
-        y = DREAM_BASE_Y - image.height
-        Scene._cloud(canvas, x, y, image.width, image.height, alpha)
-        canvas.image(key, x, y, alpha)
-
-    @staticmethod
-    def _cloud(canvas, x, y, w, h, alpha):
-        """The cloud a dream sits in, with its bubbles trailing to Claudy.
-
-        Built from the picture's own size so every dream gets a cloud that
-        fits it, out of two overlapping slabs (which rounds the corners) and
-        a bump on every edge.
-        """
         u = PIXEL_SCALE
-        fill = CLOUD_FILL[:3] + (CLOUD_FILL[3] * CLOUD_ALPHA * alpha,)
-        pad = CLOUD_PAD * u
-        left, top = x - pad, y - pad
-        width, height = w + 2 * pad, h + 2 * pad
-        canvas.rect(left + u, top, width - 2 * u, height, fill)
-        canvas.rect(left, top + u, width, height - 2 * u, fill)
-        # Bumps take turns sticking out one or two pixels, so the edge reads
-        # as a cloud rather than as the teeth of a cog
-        bump, step = CLOUD_BUMP * u, CLOUD_BUMP_STEP * u
-        for i, bx in enumerate(range(left + u, left + width - bump, step)):
-            out = u * (2 if i % 2 else 1)
-            canvas.rect(bx, top - out, bump, out, fill)
-            canvas.rect(bx, top + height, bump, out, fill)
-        for i, by in enumerate(range(top + u, top + height - bump, step)):
-            out = u * (1 if i % 2 else 2)
-            canvas.rect(left - out, by, out, bump, fill)
-            canvas.rect(left + width, by, out, bump, fill)
-        # Two bubbles trailing down to the sleeper's head
-        cx = left + width / 2
-        canvas.rect(round(cx - u), top + height + 2 * u, 2 * u, 2 * u, fill)
-        canvas.rect(round(cx - u / 2), top + height + 5 * u, u, u, fill)
+        cx, cy = DREAM_CENTER
+        # Whole art pixels, so the picture stays on the cloud's grid (and
+        # Claudy's); an odd-sized picture sits half a pixel off center
+        canvas.image(key, DREAM_CLOUD_X + int(cx - image.width / u / 2) * u,
+                     DREAM_CLOUD_Y + int(cy - image.height / u / 2 + 0.5) * u,
+                     alpha)
 
     @staticmethod
     def _gift(canvas, emoji):
-        """The gift waiting on the Dock, standing beside Claudy."""
-        name = GIFT_ART.get(emoji)
-        if name is None:     # a gift collected before it had a picture
-            canvas.text(emoji, GIFT_X, GIFT_BASE_Y - 22, 20, INK)
-            return
-        key = art.item_key(name)
+        """The gift waiting on the Dock, standing beside Claudy.
+
+        Every gift Claudy offers has a picture (a content test makes sure).
+        """
+        key = art.item_key(GIFT_ART[emoji])
         image = art.build(key)
-        canvas.image(key, min(GIFT_X, WINDOW_WIDTH - 2 - image.width),
-                     GIFT_BASE_Y - image.height)
+        # On Claudy's pixel grid, pulled back as far as a wide picture needs
+        x = min(GIFT_X, SPRITE_X + (WINDOW_WIDTH - SPRITE_X - image.width)
+                // PIXEL_SCALE * PIXEL_SCALE)
+        Scene._item_shadow(canvas, x, image)
+        canvas.image(key, x, GROUND_Y - image.height)
 
     @staticmethod
-    def _shadow(canvas, center_x, height):
+    def _item_shadow(canvas, x, image):
+        """The shadow under something standing on the ground at `x`, a
+        little narrower than its picture, like Claudy's under him."""
+        Scene._shadow(canvas, x + image.width / 2, 0,
+                      max(2, image.width // PIXEL_SCALE - 4))
+
+    @staticmethod
+    def _shadow(canvas, center_x, height, units=SHADOW_UNITS):
         """A pixel shadow that shrinks and fades as Claudy leaves the ground."""
         closeness = max(0.3, 1 - height / SHADOW_FADE_HEIGHT)
-        units = max(2, round(SHADOW_UNITS * closeness))
+        units = max(2, round(units * closeness))
         alpha = SHADOW_ALPHA * (0.4 + 0.6 * closeness)
         w = units * PIXEL_SCALE
         x = round(center_x - w / 2)
@@ -269,12 +253,15 @@ class Scene:
         """
         if self.ctl.star is None:
             return
-        key = art.item_key(NAMED_STAR)
+        t = self.ctl.clock_ms % STAR_TWINKLE_MS
+        for picture, ms in STAR_TWINKLE:
+            if t < ms:
+                break
+            t -= ms
+        key = art.item_key(picture)
         image = art.build(key)
-        step = int(self.ctl.clock_ms / STAR_TWINKLE_MS * len(STAR_ALPHAS))
         canvas.image(key, (STAR_WINDOW - image.width) // 2,
-                     (STAR_WINDOW - image.height) // 2,
-                     STAR_ALPHAS[step % len(STAR_ALPHAS)])
+                     (STAR_WINDOW - image.height) // 2)
 
     # ---- Speech bubble ----
 

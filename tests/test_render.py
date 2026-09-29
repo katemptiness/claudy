@@ -1,31 +1,41 @@
 """Tests for the shared drawing code (art, scene) with a recording canvas."""
 
 import unittest
+from unittest import mock
 
 from claudy.config import (
     FRIEND_SHADES, OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SHADES, SPRITE_SIZE,
-    SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
+    SPRITE_X, SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
-from claudy.content.sprites.items import GIFT_ART, NAMED_STAR
+from claudy.content.sprites.items import (
+    DREAM_ART, DREAM_CLOUD, GIFT_ART, STAR_TWINKLE, TOY,
+)
+from claudy.core import controller
 from claudy.core.controller import Controller
 from claudy.core.settings import STAR_HEIGHT_MIN
 from claudy.render import art
 from claudy.render.canvas import Canvas, ImageCache
 from claudy.render.scene import (
-    BUBBLE_MAX_TEXT_WIDTH, CLOUD_FILL, DREAM_BASE_Y, GIFT_BASE_Y, STAR_ALPHAS,
-    STAR_TWINKLE_MS, Scene, star_offset_x,
+    BUBBLE_MAX_TEXT_WIDTH, DREAM_CLOUD_X, DREAM_CLOUD_Y, FEET_Y, GROUND_Y,
+    SHADOW_Y, STAR_TWINKLE_MS, Scene, star_offset_x,
 )
 from tests import support
 
 
 class RecordingCanvas(Canvas):
-    """Measures text as 7 px per character and records every call."""
+    """Measures text as 7 px per character and records every call.
+
+    Images are recorded as (kind, key, x, y); the opacity each image was last
+    drawn with is kept in `alpha`, by key.
+    """
 
     def __init__(self):
         self.calls = []
+        self.alpha = {}
 
     def image(self, key, x, y, alpha=1.0):
         self.calls.append(("image", key, x, y))
+        self.alpha[key] = alpha
 
     def rect(self, x, y, w, h, rgba):
         self.calls.append(("rect", x, y, w, h, rgba))
@@ -107,6 +117,14 @@ class SceneTestCase(unittest.TestCase):
     def setUp(self):
         support.reset_singletons()
         support.seeded()
+        # The controller logs and swallows errors so a bad frame can't freeze
+        # Claudy; here they have to fail the test instead
+        def reraise(*args, **kwargs):
+            raise
+        logged = mock.patch.object(controller.log, "exception",
+                                   side_effect=reraise)
+        logged.start()
+        self.addCleanup(logged.stop)
         self.period = support.fixed_period("day")
         self.period.start()
         self.addCleanup(self.period.stop)
@@ -168,6 +186,11 @@ class CrabAndGroundTests(SceneTestCase):
         self.assertEqual(particle[1], art.particle_key("heart"))
         self.assertLess(particle[3], OVERLAY_HEIGHT - 80)
 
+    def _shadows_under(self, canvas, left, right):
+        """Shadow rects on the ground row that lie within [left, right]."""
+        return [c for c in canvas.of("rect")
+                if c[2] == SHADOW_Y and left <= c[1] and c[1] + c[3] <= right]
+
     def test_every_gift_picture_stands_on_the_ground_and_fits(self):
         """Wide pictures used to run off the window when hung off Claudy."""
         for emoji, name in GIFT_ART.items():
@@ -177,83 +200,113 @@ class CrabAndGroundTests(SceneTestCase):
                 self.scene.paint_ground(canvas)
                 (_, key, x, y), = canvas.of("image")
                 image = art.build(key)
-                self.assertEqual(y + image.height, GIFT_BASE_Y)
-                self.assertGreater(x, SPRITE_SIZE)
+                self.assertEqual(y + image.height, GROUND_Y)
+                self.assertGreaterEqual(x, SPRITE_X + SPRITE_SIZE)
                 self.assertLessEqual(x + image.width, WINDOW_WIDTH)
+                self.assertEqual((x - SPRITE_X) % PIXEL_SCALE, 0,
+                                 "off Claudy's pixel grid")
+                self.assertTrue(self._shadows_under(canvas, x, x + image.width))
 
-    def test_a_gift_without_a_picture_still_shows_its_emoji(self):
-        """Collections saved before the pictures existed keep working."""
-        self.ctl.gift_emoji = "\U0001F36D"     # a gift no longer handed out
-        canvas = RecordingCanvas()
-        self.scene.paint_ground(canvas)
-        (_, text, _, _), = canvas.of("text")
-        self.assertEqual(text, self.ctl.gift_emoji)
-        self.assertEqual(canvas.of("image"), [])
-
-    def test_the_toy_is_a_picture_beside_sleeping_claudy(self):
+    def test_the_toy_stands_beside_sleeping_claudy_on_his_ground(self):
         self.ctl.character.has_toy = True
         self.ctl.character.state = "sleeping"
         self.ctl.view = self.ctl.character.view()
         canvas = RecordingCanvas()
         self.scene.paint_crab(canvas)
         self.assertEqual(canvas.of("text"), [])
-        keys = [c[1] for c in canvas.of("image")]
-        self.assertIn(art.item_key("teddy"), keys)
+        toy, crab = canvas.of("image")
+        self.assertEqual(toy[1], art.item_key(TOY), "the toy goes behind him")
+        self.assertEqual(crab[1][0], "sprite")
+        image = art.build(toy[1])
+        self.assertEqual(toy[3] + image.height, FEET_Y)
+        # His claw lies across it, and it casts a shadow like he does
+        self.assertLess(toy[2], SPRITE_X + SPRITE_SIZE)
+        ground = RecordingCanvas()
+        self.scene.paint_ground(ground)
+        self.assertTrue(self._shadows_under(
+            ground, SPRITE_X + SPRITE_SIZE, toy[2] + image.width))
+
+    def test_claudys_feet_and_the_ground_line_agree(self):
+        """Every sprite leaves its last two rows empty; FEET_Y is where the
+        lowest drawn row ends."""
+        idle = art.build(art.sprite_key("idle"))
+        last = max(r for r, row in enumerate(idle.rows) if any(row))
+        self.assertEqual(SPRITE_Y + (last + 1) * idle.scale, FEET_Y)
+        self.assertEqual(GROUND_Y, OVERLAY_HEIGHT - WINDOW_HEIGHT + FEET_Y)
 
 
 class DreamTests(SceneTestCase):
 
-    def test_a_dream_floats_centered_just_above_claudy(self):
-        self.ctl._dream, self.ctl._dream_age_ms = "book", 1500.0
+    def dream(self, picture="book", age_ms=1500.0):
+        """Paint the overlay with Claudy dreaming of `picture`."""
+        self.ctl._dream, self.ctl._dream_age_ms = picture, age_ms
         canvas = RecordingCanvas()
         self.scene.paint_ground(canvas)
-        (_, key, x, y), = canvas.of("image")
-        self.assertEqual(key, art.item_key("book"))
-        image = art.build(key)
-        self.assertEqual(x, round((WINDOW_WIDTH - image.width) / 2))
-        self.assertEqual(y + image.height, DREAM_BASE_Y)
+        return canvas
 
-    def _cloud_of(self, canvas):
-        return [c for c in canvas.of("rect") if c[5][:3] == CLOUD_FILL[:3]]
+    def test_the_dream_floats_in_its_cloud(self):
+        canvas = self.dream()
+        cloud, picture = canvas.of("image")
+        self.assertEqual(cloud[1:], (art.item_key(DREAM_CLOUD),
+                                     DREAM_CLOUD_X, DREAM_CLOUD_Y))
+        self.assertEqual(picture[1], art.item_key("book"))
 
-    def test_the_dream_sits_in_a_see_through_cloud_behind_it(self):
-        """A thought has to read as a thought and not as something Claudy
-        said out loud, so the cloud is translucent and has no dark outline."""
-        self.ctl._dream, self.ctl._dream_age_ms = "book", 1500.0
-        canvas = RecordingCanvas()
-        self.scene.paint_ground(canvas)
-        cloud = self._cloud_of(canvas)
-        self.assertTrue(cloud)
-        self.assertLess(max(c[5][3] for c in cloud), 1.0)
-        drawn_at = [i for i, c in enumerate(canvas.calls) if c in cloud]
-        image_at = next(i for i, c in enumerate(canvas.calls)
-                        if c[0] == "image")
-        self.assertLess(max(drawn_at), image_at, "cloud belongs behind")
+    def test_the_cloud_is_see_through_and_fades_with_the_dream(self):
+        """One picture drawn with one opacity: no seams where parts overlap."""
+        held = self.dream().alpha[art.item_key(DREAM_CLOUD)]
+        fading = self.dream(age_ms=200.0).alpha[art.item_key(DREAM_CLOUD)]
+        self.assertLess(held, 1.0)
+        self.assertLess(fading, held)
+        self.assertEqual({c[2] for c in self.dream().of("rect")}, {SHADOW_Y},
+                         "only shadows are rects; the cloud is one picture")
 
-    def test_the_cloud_wraps_the_picture_and_stops_above_claudy(self):
-        self.ctl._dream, self.ctl._dream_age_ms = "book", 1500.0
-        canvas = RecordingCanvas()
-        self.scene.paint_ground(canvas)
-        (_, key, x, y), = canvas.of("image")
-        image = art.build(key)
-        cloud = self._cloud_of(canvas)
-        self.assertLess(min(c[1] for c in cloud), x)
-        self.assertGreater(max(c[1] + c[3] for c in cloud), x + image.width)
-        self.assertLess(min(c[2] for c in cloud), y)
-        # The trailing bubbles reach down toward Claudy, but never onto him
+    def test_the_cloud_is_softer_than_the_speech_bubble(self):
+        """A thought mustn't read as something Claudy said out loud: the
+        cloud's edge is a cool mid tone, never the bubble's dark ink."""
+        from claudy.render.scene import BUBBLE_INK
+        cloud = art.build(art.item_key(DREAM_CLOUD))
+        darkest = min(sum(px[:3]) for row in cloud.rows for px in row if px)
+        self.assertGreater(darkest, 3 * max(BUBBLE_INK[:3]) + 0.9)
+
+    def test_every_dream_picture_sits_inside_the_cloud(self):
+        cloud = art.build(art.item_key(DREAM_CLOUD))
+        edge = min((px for row in cloud.rows for px in row if px),
+                   key=lambda px: sum(px[:3]))
+        for picture in {p for pictures in DREAM_ART.values() for p in pictures}:
+            with self.subTest(picture=picture):
+                _, (_, key, x, y) = self.dream(picture).of("image")
+                self.assertEqual((x - SPRITE_X) % PIXEL_SCALE, 0)
+                self.assertEqual((y - DREAM_CLOUD_Y) % PIXEL_SCALE, 0)
+                image = art.build(key)
+                for r, row in enumerate(image.rows):
+                    for c, px in enumerate(row):
+                        if px is None:
+                            continue
+                        under = cloud.rows[(y - DREAM_CLOUD_Y) // cloud.scale
+                                           + r][(x - DREAM_CLOUD_X)
+                                                // cloud.scale + c]
+                        self.assertIsNotNone(under)
+                        self.assertNotEqual(under, edge)
+
+    def test_the_trail_stops_above_the_sleeping_head(self):
+        cloud = art.build(art.item_key(DREAM_CLOUD))
         sleeping = art.build(art.sprite_key("sleep_a"))
         first = next(r for r, row in enumerate(sleeping.rows) if any(row))
         head_top = (OVERLAY_HEIGHT - WINDOW_HEIGHT + SPRITE_Y
                     + first * sleeping.scale)
-        bottom = max(c[2] + c[4] for c in cloud)
-        self.assertGreater(bottom, y + image.height)
-        self.assertLessEqual(bottom, head_top)
+        self.assertLessEqual(DREAM_CLOUD_Y + cloud.height, head_top)
+        self.assertLessEqual(DREAM_CLOUD_X + cloud.width, WINDOW_WIDTH)
+
+    def test_particles_drift_behind_the_dream(self):
+        self.ctl.particles.add("zzz", 100, 80)
+        keys = [c[1] for c in self.dream().of("image")]
+        self.assertEqual(keys[0][0], "particle")
+        self.assertEqual(keys[1], art.item_key(DREAM_CLOUD))
 
     def test_nothing_is_drawn_when_claudy_is_not_dreaming(self):
         canvas = RecordingCanvas()
         self.scene.paint_ground(canvas)
         self.assertEqual(canvas.of("image"), [])
-        self.assertEqual(self._cloud_of(canvas), [])
 
 
 class StarTests(SceneTestCase):
@@ -268,14 +321,21 @@ class StarTests(SceneTestCase):
     def test_the_star_sits_in_the_middle_of_its_window(self):
         with support.dark_sky():
             self.ctl.memory.name_star("Kate")
-            canvas = RecordingCanvas()
-            self.scene.paint_star(canvas)
-            (_, key, x, y), = canvas.of("image")
-            self.assertEqual(key, art.item_key(NAMED_STAR))
-            image = art.build(key)
-            self.assertLessEqual(image.width, STAR_WINDOW)
-            self.assertEqual(x, (STAR_WINDOW - image.width) // 2)
-            self.assertEqual(y, (STAR_WINDOW - image.height) // 2)
+            seen = set()
+            for _ in range(int(STAR_TWINKLE_MS / 50)):
+                self.ctl.tick(50)
+                canvas = RecordingCanvas()
+                self.scene.paint_star(canvas)
+                (_, key, x, y), = canvas.of("image")
+                seen.add(key)
+                image = art.build(key)
+                self.assertLessEqual(image.width, STAR_WINDOW)
+                self.assertEqual(x, (STAR_WINDOW - image.width) // 2)
+                self.assertEqual(y, (STAR_WINDOW - image.height) // 2)
+                self.assertEqual(canvas.alpha[key], 1.0,
+                                 "a faded star turns khaki; it twinkles by shape")
+            self.assertEqual(seen, {art.item_key(name)
+                                    for name, _ in STAR_TWINKLE})
 
     def test_the_sky_is_empty_in_daylight(self):
         self.ctl.memory.name_star("Kate")
@@ -295,7 +355,7 @@ class StarTests(SceneTestCase):
             for _ in range(int(cycles * STAR_TWINKLE_MS / 50)):
                 self.ctl.tick(50)
                 redraws += self.scene.star_changed()
-            self.assertAlmostEqual(redraws, cycles * len(STAR_ALPHAS), delta=1)
+            self.assertAlmostEqual(redraws, cycles * len(STAR_TWINKLE), delta=1)
 
     def test_the_lowest_the_star_can_hang_clears_the_speech_bubble(self):
         """Tried at 100 px above the Dock: the bubble covered the star."""

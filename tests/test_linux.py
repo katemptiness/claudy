@@ -9,8 +9,13 @@ The GTK tests are skipped where GTK 3 or a display isn't available.
 import ctypes
 import ctypes.util
 import os
+import select
+import shutil
+import socket
 import subprocess
 import sys
+import tempfile
+import time
 import types
 import unittest
 from unittest import mock
@@ -346,37 +351,73 @@ class CrabAppTests(unittest.TestCase):
 
 @needs_gtk
 class GtkStartTests(unittest.TestCase):
-    """How the backend starts GTK, in a fresh process of its own."""
+    """How the backend starts GTK, in a fresh process of its own.
 
-    def start(self, backend=None):
-        """(prgname, application name, display class, GDK_BACKEND) as the
-        backend leaves them, started with GDK_BACKEND=`backend` or unset."""
+    WAYLAND_DISPLAY points at a stand-in that only counts who knocks, so
+    whether GTK went for Wayland shows on an X11 session too, where it
+    would end up on X11 either way.
+    """
+
+    CLAUDY = "import claudy.backends.linux.app\n"
+    PLAIN_GTK = ("import gi\n"
+                 "gi.require_version('Gtk', '3.0')\n"
+                 "from gi.repository import Gtk\n")
+    REPORT = ("import os\n"
+              "from gi.repository import Gdk, GLib\n"
+              "print(GLib.get_prgname(), GLib.get_application_name(),\n"
+              "      type(Gdk.Display.get_default()).__name__,\n"
+              "      os.environ.get('GDK_BACKEND'))\n")
+
+    def start(self, first_import=CLAUDY, backend=None):
+        """Start GTK through `first_import`, with GDK_BACKEND=`backend` or
+        unset. Returns ((prgname, application name, display class,
+        GDK_BACKEND afterwards), how often GTK knocked on Wayland's door)."""
         environ = dict(os.environ)
         environ.pop("GDK_BACKEND", None)
         if backend:
             environ["GDK_BACKEND"] = backend
         self.assertIn("CLAUDY_HOME", environ)   # never the real ~/.claudy
-        probe = ("import os\n"
-                 "import claudy.backends.linux.app\n"
-                 "from gi.repository import Gdk, GLib\n"
-                 "print(GLib.get_prgname(), GLib.get_application_name(),\n"
-                 "      type(Gdk.Display.get_default()).__name__,\n"
-                 "      os.environ.get('GDK_BACKEND'))\n")
-        done = subprocess.run([sys.executable, "-c", probe], cwd=ROOT,
-                              env=environ, capture_output=True, text=True,
-                              timeout=60)
-        self.assertEqual(done.returncode, 0, done.stderr)
-        return done.stdout.split()
+        folder = tempfile.mkdtemp(prefix="claudy-wayland-")
+        self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        wayland = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(wayland.close)
+        wayland.bind(os.path.join(folder, "wayland-0"))
+        wayland.listen()
+        environ["WAYLAND_DISPLAY"] = wayland.getsockname()
+
+        probe = subprocess.Popen(
+            [sys.executable, "-c", first_import + self.REPORT], cwd=ROOT,
+            env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True)
+        knocks, give_up = 0, time.monotonic() + 60
+        while probe.poll() is None:
+            if time.monotonic() > give_up:
+                probe.kill()
+                probe.communicate()
+                self.fail("GTK never finished starting")
+            # A GTK that knocks waits for an answer; hanging up on it sends
+            # it on to X11
+            if select.select([wayland], [], [], 0.1)[0]:
+                wayland.accept()[0].close()
+                knocks += 1
+        out, err = probe.communicate()
+        self.assertEqual(probe.returncode, 0, err)
+        return out.split(), knocks
 
     def test_named_claudy_on_x11_without_passing_it_on(self):
-        name, app_name, display, backend = self.start()
+        (name, app_name, display, backend), knocks = self.start()
         self.assertEqual((name, app_name), ("claudy", "Claudy"))
         self.assertEqual(display, "X11Display")
+        self.assertEqual(knocks, 0)
         # Apps Claudy launches inherit his environment
         self.assertEqual(backend, "None")
 
+    def test_left_to_itself_gtk_would_go_for_wayland(self):
+        # Otherwise no knocks above would prove nothing
+        self.assertGreater(self.start(self.PLAIN_GTK)[1], 0)
+
     def test_a_backend_the_user_chose_is_kept(self):
-        self.assertEqual(self.start(backend="x11")[3], "x11")
+        self.assertEqual(self.start(backend="x11")[0][3], "x11")
 
 
 @needs_gtk

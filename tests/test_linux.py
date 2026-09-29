@@ -8,6 +8,7 @@ The GTK tests are skipped where GTK 3 or a display isn't available.
 
 import ctypes
 import ctypes.util
+import subprocess
 import types
 import unittest
 from unittest import mock
@@ -291,6 +292,18 @@ class CrabAppTests(unittest.TestCase):
         self.crab._place_star()
         self.assertEqual(star.move.call_count, 2)
 
+    def test_a_click_waits_as_long_as_the_desktop_says(self):
+        settings = Gtk.Settings.get_default()
+        before = settings.props.gtk_double_click_time
+        settings.props.gtk_double_click_time = 250
+        self.addCleanup(setattr, settings.props, "gtk_double_click_time",
+                        before)
+        press = types.SimpleNamespace(button=1,
+                                      type=Gdk.EventType.BUTTON_PRESS)
+        with mock.patch.object(app.GLib, "timeout_add") as timeout_add:
+            self.crab._on_button_press(None, press)
+        timeout_add.assert_called_once_with(250, self.crab._single_click_fired)
+
     def test_follows_the_primary_monitor_when_monitors_change(self):
         with mock.patch.object(app, "get_screen_geometry",
                                return_value=(1080, 2560, 1586)):
@@ -304,6 +317,14 @@ class CrabAppTests(unittest.TestCase):
         with mock.patch.object(app, "get_screen_geometry", return_value=None):
             self.crab._follow_screen()
         self.assertEqual(self.crab._monitor_width, 2560)
+
+    def test_launched_apps_get_a_session_of_their_own(self):
+        with mock.patch.object(app.subprocess, "Popen") as popen:
+            app._launch(["kitty", "claude"])
+        kwargs = popen.call_args[1]
+        self.assertTrue(kwargs["start_new_session"])
+        for stream in ("stdin", "stdout", "stderr"):
+            self.assertEqual(kwargs[stream], subprocess.DEVNULL)
 
 
 @needs_gtk

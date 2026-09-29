@@ -36,8 +36,6 @@ CLAUDE_WEB_URL = "https://claude.ai"
 
 # The crab window's bottom edge overlaps the panel by this much
 PANEL_OVERLAP = 15
-# Wait this long after a click to see whether it becomes a double-click
-DOUBLE_CLICK_MS = 350
 # After the monitors change, look at the screen once more this much later
 SCREEN_SETTLE_S = 2
 
@@ -58,8 +56,16 @@ def _find_claude_desktop_entry():
 
 
 def _launch(argv):
+    """Start one of the user's apps, apart from Claudy.
+
+    It gets a session of its own, so Ctrl+C in the terminal Claudy runs in,
+    or closing that terminal, doesn't take the app down with him, and its
+    output stays out of that terminal.
+    """
     try:
-        subprocess.Popen(argv)
+        subprocess.Popen(argv, start_new_session=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
     except OSError:
         log.exception("failed to launch %s", argv[0])
 
@@ -106,8 +112,7 @@ def get_screen_geometry():
 class LinuxPlatform(Platform):
     """Linux implementations of what the controller needs."""
 
-    def __init__(self, app):
-        self._app = app
+    def __init__(self):
         self._settings_window = SettingsWindow()
         self._gifts_window = GiftsWindow()
 
@@ -158,7 +163,7 @@ class CrabApp:
 
         # No Dock-tilesize query on Linux; use the default icon pitch.
         self.controller = Controller(
-            LinuxPlatform(self), self._monitor_width,
+            LinuxPlatform(), self._monitor_width,
             dock_tile_pitch=DOCK_DEFAULT_TILE_SIZE + DOCK_TILE_GAP)
         self.system_events = SystemEventHandler(self.controller)
 
@@ -314,9 +319,11 @@ class CrabApp:
         if event.type == Gdk.EventType._2BUTTON_PRESS:
             self.controller.on_double_click()
         else:
-            # Single press — wait to see if a double-click follows
+            # Single press — wait to see if a double-click follows, exactly
+            # as long as GTK would count one: the desktop's double-click time
             self._click_timer = GLib.timeout_add(
-                DOUBLE_CLICK_MS, self._single_click_fired)
+                Gtk.Settings.get_default().props.gtk_double_click_time,
+                self._single_click_fired)
         return True
 
     def _single_click_fired(self):

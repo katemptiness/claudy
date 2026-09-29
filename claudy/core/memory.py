@@ -1,11 +1,11 @@
 """Memory system — tracks relationship data (clicks, days, gifts)."""
 
-import json
 import os
 from datetime import date
 
 from claudy.config import DATA_DIR
 from claudy.content.gift_stories import random_story_id
+from claudy.core.settings import read_json, write_json_atomic
 from claudy.log import log
 
 MEMORY_FILE = os.path.join(DATA_DIR, "memory.json")
@@ -16,6 +16,41 @@ ATTACHMENT_THRESHOLD = 5  # clicks per day to unlock personal phrases/hearts
 # that reset at midnight would only ever hold the hour before he dozed off.
 ACTIVITY_LOG = 40
 MILESTONE_DAYS = (10, 25, 50, 100, 200, 365, 500, 1000)
+
+
+def _saved_star(saved):
+    """The star named in an earlier session, checked, or None.
+
+    It is the one thing in the file meant to last for good, so a hand edit
+    that broke it must not crash every night frame that places it, nor block
+    naming a real one.
+    """
+    star = saved.get("star")
+    if not (isinstance(star, dict) and isinstance(star.get("name"), str)):
+        star = _star_from_gifts(saved.get("gifts"))
+        if star is None:
+            return None
+    named_on = star.get("date")
+    return {"name": star["name"],
+            "date": named_on if isinstance(named_on, str) else None}
+
+
+def _star_from_gifts(gifts):
+    """The newest star in the gift list, or None.
+
+    Builds before the star had a key of its own kept it only as a gift,
+    and a crash between recording the gift and the star leaves the same
+    shape, so the gift is where such a star is found.
+    """
+    if not isinstance(gifts, list):
+        return None
+    for gift in reversed(gifts):
+        if isinstance(gift, dict) and gift.get("type") == "star":
+            name = gift.get("name", "")     # no name when the user had none
+            if not isinstance(name, str):
+                return None
+            return {"name": name, "date": gift.get("date")}
+    return None
 
 
 def _fresh_day(today_str):
@@ -46,37 +81,25 @@ class Memory:
 
     def __init__(self):
         today_str = date.today().isoformat()
-        saved = self._load_saved()
+        # An unreadable file is set aside rather than overwritten by the
+        # save below: the star in it can only be recovered by hand
+        saved = read_json(MEMORY_FILE)
+        first_launch = saved.get("first_launch")
+        if not (isinstance(first_launch, str) and first_launch):
+            first_launch = today_str
         self._data = {
-            "first_launch": saved.get("first_launch") or today_str,
+            "first_launch": first_launch,
             "total_days": 1,
             "today": _fresh_day(today_str),
             "gifts": [],
             "activities": [],
-            "star": saved.get("star"),
+            "star": _saved_star(saved),
         }
         self.save()
 
-    @staticmethod
-    def _load_saved():
-        """What the last session left behind, or {} if there is nothing."""
-        try:
-            with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return {}
-        return data if isinstance(data, dict) else {}
-
     def save(self):
         try:
-            os.makedirs(DATA_DIR, exist_ok=True)
-            content = json.dumps(self._data, indent=2, ensure_ascii=False)
-            tmp = MEMORY_FILE + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write(content)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, MEMORY_FILE)
+            write_json_atomic(MEMORY_FILE, self._data)
         except Exception:
             # Memory is best-effort — never crash over it
             log.exception("failed to save memory")

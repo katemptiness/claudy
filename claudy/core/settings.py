@@ -5,6 +5,7 @@ import os
 
 from claudy.config import DATA_DIR
 from claudy.content.phrases import set_language
+from claudy.log import log
 
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
@@ -49,6 +50,53 @@ GIFT_COOLDOWNS = {
     "off": 0, "1m": 60, "5m": 300,
     "10m": 600, "30m": 1800,
 }
+
+
+def read_json(path):
+    """The JSON object saved at `path`, or {} if there is none.
+
+    A file that is there but can't be used (a typo from a hand edit, a write
+    cut short, text that isn't UTF-8, anything but a JSON object) is moved
+    aside to `path + ".bad"` and logged. Starting fresh would otherwise write
+    over it at the first save, and it may hold something the user wants back.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as e:
+        # ValueError covers both broken JSON and bytes that aren't UTF-8
+        problem = e
+    else:
+        if isinstance(data, dict):
+            return data
+        problem = f"expected a JSON object, found {type(data).__name__}"
+    bad = path + ".bad"
+    try:
+        os.replace(path, bad)
+        log.error("could not read %s (%s); moved it to %s and started fresh",
+                  path, problem, bad)
+    except OSError:
+        log.exception("could not read %s (%s) or move it aside", path, problem)
+    return {}
+
+
+def write_json_atomic(path, data):
+    """Save `data` as JSON so that a crash never leaves half a file.
+
+    It goes to a temp file first, which replaces the old one only once it is
+    safely on disk. Raises OSError (or TypeError for data JSON can't hold);
+    callers log it, since nothing here is worth crashing over.
+    """
+    content = json.dumps(data, indent=2, ensure_ascii=False)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(content)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
 
 
 class _Setting:
@@ -130,21 +178,18 @@ class Settings:
         set_language(self.language)
 
     def _load(self):
-        try:
-            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-        except (OSError, json.JSONDecodeError):
-            return
-        if not isinstance(saved, dict):
-            return
-        for name in self._data:
+        saved = read_json(SETTINGS_FILE)
+        for name, field in self.fields().items():
             if name in saved:
-                self._data[name] = saved[name]
+                self._data[name] = field.coerce(saved[name])
 
     def save(self):
-        os.makedirs(DATA_DIR, exist_ok=True)
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, indent=2, ensure_ascii=False)
+        try:
+            write_json_atomic(SETTINGS_FILE, self._data)
+        except Exception:
+            # The settings in use are already applied; only the file is
+            # stale. Never crash the Save button over it.
+            log.exception("failed to save settings")
 
     # Derived values
 

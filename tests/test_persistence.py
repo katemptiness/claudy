@@ -3,9 +3,23 @@
 import json
 import os
 import unittest
+from unittest import mock
 
 from claudy.core import memory, settings
 from tests import support
+
+
+def write_file(path, content):
+    """Put `content` (bytes, or anything JSON can hold) at `path`."""
+    if not isinstance(content, bytes):
+        content = json.dumps(content, ensure_ascii=False).encode("utf-8")
+    with open(path, "wb") as f:
+        f.write(content)
+
+
+def read_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
 
 
 class SettingsTests(unittest.TestCase):
@@ -60,6 +74,38 @@ class SettingsTests(unittest.TestCase):
         s = settings.Settings.shared()
         self.assertEqual(s.schedule, "lark")
         self.assertNotIn("bogus", s._data)
+
+    def test_text_that_is_not_utf8_does_not_stop_the_launch(self):
+        """A write cut off inside a Cyrillic letter, or a hand edit saved
+        in another encoding: defaults, and the file kept for the user."""
+        broken = '{"user_name": "Катя'.encode("utf-8")[:-1]
+        write_file(settings.SETTINGS_FILE, broken)
+        settings.Settings._instance = None
+        with self.assertLogs("claudy", level="ERROR"):
+            s = settings.Settings.shared()
+        self.assertEqual(s.user_name, "")
+        self.assertEqual(read_bytes(settings.SETTINGS_FILE + ".bad"), broken)
+
+    def test_save_replaces_the_file_whole(self):
+        s = settings.Settings.shared()
+        s.user_name = "Катя"
+        s.save()
+        self.assertFalse(os.path.exists(settings.SETTINGS_FILE + ".tmp"))
+        with open(settings.SETTINGS_FILE, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["user_name"], "Катя")
+
+    def test_a_failed_save_is_logged_and_keeps_the_old_file(self):
+        """The Save button must still close its window, and a disk that
+        filled up mid-write must not leave half a settings file."""
+        s = settings.Settings.shared()
+        s.schedule = "lark"
+        s.save()
+        before = read_bytes(settings.SETTINGS_FILE)
+        s.schedule = "owl"
+        with mock.patch("os.replace", side_effect=OSError(28, "No space")), \
+                self.assertLogs("claudy", level="ERROR"):
+            s.save()
+        self.assertEqual(read_bytes(settings.SETTINGS_FILE), before)
 
 
 class MemoryTests(unittest.TestCase):
@@ -118,6 +164,73 @@ class MemoryTests(unittest.TestCase):
         memory.Memory._instance = None
         fresh = memory.Memory.shared()
         self.assertEqual(fresh.get_star()["name"], "Kate")
+
+    def test_a_broken_star_is_dropped_on_load(self):
+        """A hand edit gone wrong must not crash every night frame that
+        places the star, nor stop Claudy from ever naming a real one."""
+        for broken in ("Kate", {"date": "2026-09-25"}, {"name": None}, {}, []):
+            with self.subTest(star=broken):
+                write_file(memory.MEMORY_FILE, {"star": broken})
+                memory.Memory._instance = None
+                self.assertIsNone(memory.Memory.shared().get_star())
+
+    def test_a_star_with_a_broken_date_keeps_its_name(self):
+        write_file(memory.MEMORY_FILE, {"star": {"name": "Kate", "date": 5}})
+        memory.Memory._instance = None
+        self.assertEqual(memory.Memory.shared().get_star(),
+                         {"name": "Kate", "date": None})
+
+    def test_a_star_named_by_an_older_build_is_kept(self):
+        """Before the star had a key of its own it was only a gift. This is
+        the file such a build leaves behind, star and all."""
+        write_file(memory.MEMORY_FILE, {
+            "first_launch": "2026-09-25",
+            "total_days": 5,
+            "today": {"date": "2026-09-29", "clicks": 12,
+                      "app_launches": {"firefox": 3},
+                      "days_phrase_shown": True},
+            "gifts": [
+                {"type": "fish", "emoji": "🐟", "date": "2026-09-25",
+                 "collected": True, "story_id": 4},
+                {"type": "star", "emoji": "⭐", "date": "2026-09-25",
+                 "collected": True, "story_id": 11, "name": "katemptiness"},
+            ],
+        })
+        memory.Memory._instance = None
+        star = {"name": "katemptiness", "date": "2026-09-25"}
+        self.assertEqual(memory.Memory.shared().get_star(), star)
+        # ...and it is now saved where the next launch looks for it
+        memory.Memory._instance = None
+        self.assertEqual(memory.Memory.shared().get_star(), star)
+        self.assertEqual(memory.Memory.shared()._data["first_launch"],
+                         "2026-09-25")
+
+    def test_an_older_star_named_for_nobody_is_kept_too(self):
+        """Without a user name the gift was stored with no name at all."""
+        write_file(memory.MEMORY_FILE, {"gifts": [
+            {"type": "star", "emoji": "⭐", "date": "2026-09-25",
+             "collected": True, "story_id": 0}]})
+        memory.Memory._instance = None
+        self.assertEqual(memory.Memory.shared().get_star(),
+                         {"name": "", "date": "2026-09-25"})
+
+    def test_an_unreadable_file_is_set_aside_not_overwritten(self):
+        """A trailing comma from renaming the star by hand must not cost
+        the star: the file moves to memory.json.bad before Claudy starts
+        fresh."""
+        for content in (b'{"star": {"name": "Kate",},}',
+                        b'{"star": {"name": "\xd0"}}',
+                        b'["not", "an", "object"]'):
+            with self.subTest(content=content):
+                write_file(memory.MEMORY_FILE, content)
+                memory.Memory._instance = None
+                with self.assertLogs("claudy", level="ERROR"):
+                    fresh = memory.Memory.shared()
+                self.assertIsNone(fresh.get_star())
+                self.assertEqual(read_bytes(memory.MEMORY_FILE + ".bad"),
+                                 content)
+                with open(memory.MEMORY_FILE, encoding="utf-8") as f:
+                    self.assertIsNone(json.load(f)["star"])
 
     def test_each_launch_starts_a_fresh_session(self):
         self.mem.record_click()

@@ -4,7 +4,8 @@ import random
 from claudy.content.phrases import get_language
 
 # Stories per gift type.  Each story has "ru" and "en" keys.
-# {name} placeholder is replaced with the user's name (or removed if blank).
+# {name} is the user's name. A story that uses it is never told without one
+# (see get_story), so it can take the name wherever it reads best.
 
 FISH_STORIES = [
     {
@@ -1009,28 +1010,24 @@ def random_story_id(gift_type):
     return random.randint(0, len(stories) - 1)
 
 
+def _names_the_user(story):
+    return "{name}" in story["ru"] or "{name}" in story["en"]
+
+
 def get_story(gift_type, story_id, name=""):
-    """Return the translated story text for a gift."""
+    """Return the translated story text for a gift.
+
+    Without a name, a story that needs one is swapped for one that doesn't.
+    Cutting the name out would leave "a gift for!", and in Russian "для
+    {name}" or "{name} обрадуется" would need rewording, not just a word
+    less. The swap follows the story id, so a gift keeps telling the same
+    story, and it happens here, when the story is shown, because the user
+    can set or clear the name at any time.
+    """
     stories = _get_stories(gift_type)
-    if story_id < 0 or story_id >= len(stories):
-        story_id = story_id % len(stories) if stories else 0
-    lang = get_language()
-    text = stories[story_id].get(lang, stories[story_id]["en"])
-    # Handle {name} placeholder
-    if name:
-        text = text.replace("{name}", name)
-    else:
-        # Clean removal: preposition+name phrases (space-delimited to avoid
-        # matching inside words like "чтО {name}")
-        for pattern in [
-            " для {name}", " о {name}", " с {name}",
-            " for {name}", " of {name}", " after {name}", " about {name}",
-            "{name}'s ", ", {name}", " {name}", "{name} ", "{name}",
-        ]:
-            text = text.replace(pattern, "")
-        # Clean up double spaces and orphaned punctuation
-        while "  " in text:
-            text = text.replace("  ", " ")
-        for p in [" .", " ,", " !", " ?"]:
-            text = text.replace(p, p.strip())
-    return text.strip()
+    story = stories[story_id % len(stories)]
+    if not name and _names_the_user(story):
+        nameless = [s for s in stories if not _names_the_user(s)]
+        story = nameless[story_id % len(nameless)]
+    text = story.get(get_language(), story["en"])
+    return text.replace("{name}", name).strip()

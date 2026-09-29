@@ -1,6 +1,7 @@
 """Bilingual phrase system — Russian and English."""
 
 import random
+import re
 
 _current_lang = "ru"
 
@@ -271,15 +272,17 @@ _EN = {
     "а? что? ...о, {name}!": "huh? what? ...oh, {name}!",
 
     # Days-together phrases
-    "мы уже {n} дней вместе": "we've been together for {n} days",
-    "{n} дней! время летит": "{n} days! time flies",
+    "мы уже {n} {день|дня|дней} вместе": "we've been together for {n} {day|days}",
+    "{n} {день|дня|дней}! время летит": "{n} {day|days}! time flies",
     # Days-together milestones
-    "ого, {n} дней! это что-то значит, {name}": "wow, {n} days! that means something, {name}",
-    "{n} дней! мне нравится эта традиция, {name}": "{n} days! i like this tradition, {name}",
+    "ого, {n} {день|дня|дней}! это что-то значит, {name}": "wow, {n} {day|days}! that means something, {name}",
+    "{n} {день|дня|дней}! мне нравится эта традиция, {name}": "{n} {day|days}! i like this tradition, {name}",
+    "ого, {n} {день|дня|дней}! это что-то значит": "wow, {n} {day|days}! that means something",
+    "{n} {день|дня|дней}! мне нравится эта традиция": "{n} {day|days}! i like this tradition",
 
     # App launch counter
-    "{app} в {n}-й раз за сегодня :)": "{app} for the {n}th time today :)",
-    "опять {app}? это уже {n}-й раз": "{app} again? that's {n} times now",
+    "{app} уже {n}-й раз за сегодня :)": "{app} for the {nth} time today :)",
+    "опять {app}? это уже {n}-й раз": "{app} again? that's {n} {time|times} now",
 
     # Gift announcement
     "смотри, что я нашёл!": "look what i found!",
@@ -444,17 +447,19 @@ WAKE_PHRASES = [
 ]
 
 DAYS_PHRASES = [
-    "мы уже {n} дней вместе",
-    "{n} дней! время летит",
+    "мы уже {n} {день|дня|дней} вместе",
+    "{n} {день|дня|дней}! время летит",
 ]
 
 DAYS_MILESTONE_PHRASES = [
-    "ого, {n} дней! это что-то значит, {name}",
-    "{n} дней! мне нравится эта традиция, {name}",
+    "ого, {n} {день|дня|дней}! это что-то значит, {name}",
+    "{n} {день|дня|дней}! мне нравится эта традиция, {name}",
+    "ого, {n} {день|дня|дней}! это что-то значит",
+    "{n} {день|дня|дней}! мне нравится эта традиция",
 ]
 
 APP_COUNT_PHRASES = [
-    "{app} в {n}-й раз за сегодня :)",
+    "{app} уже {n}-й раз за сегодня :)",
     "опять {app}? это уже {n}-й раз",
 ]
 
@@ -590,24 +595,65 @@ def t(text):
     return text
 
 
-def format_phrase(text, name="", n=0, app=""):
-    """Translate and fill in {name}, {n}, {app} placeholders.
+# A word given in all the forms it takes after a number: {день|дня|дней}
+_FORMS = re.compile(r"\{([^{}|]*(?:\|[^{}|]*)+)\}")
+_MISSING_NAME = re.compile(r",?\s*\{name\}")
 
-    If name is empty, strips surrounding punctuation/spaces around {name}."""
+
+def plural_ru(n, one, few, many):
+    """The Russian form that goes with n: 1 день, 2 дня, 5 дней, 21 день."""
+    n = abs(n)
+    if n % 10 == 1 and n % 100 != 11:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
+def ordinal_en(n):
+    """n as an English ordinal: 1st, 2nd, 3rd, 4th, 11th, 12th, 21st."""
+    suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    if 11 <= n % 100 <= 13:
+        suffix = "th"
+    return f"{n}{suffix}"
+
+
+def _agree(n, forms):
+    """The one of `forms` that goes with n: three Russian ones or two
+    English ones (1 day, 2 days)."""
+    if len(forms) == 3:
+        return plural_ru(n, *forms)
+    return forms[0] if n == 1 else forms[-1]
+
+
+def format_phrase(text, name="", n=0, app=""):
+    """Translate and fill in the placeholders.
+
+    {n} is the number and {nth} its English ordinal (3rd). A word written
+    with its forms, {день|дня|дней} or {day|days}, takes the one that goes
+    with n. {app} and {name} are filled in last, so whatever the user calls
+    themselves is never mistaken for a placeholder.
+    """
     result = t(text)
-    if name:
-        result = result.replace("{name}", name)
-    else:
-        # Clean removal of {name} with surrounding separators
-        for pattern in [", {name}", " {name}", "{name} ", "{name}", "{name},", "{name}!"]:
-            result = result.replace(pattern, "")
-    result = result.replace("{n}", str(n))
+    result = _FORMS.sub(lambda m: _agree(n, m.group(1).split("|")), result)
+    result = result.replace("{nth}", ordinal_en(n)).replace("{n}", str(n))
     result = result.replace("{app}", app)
-    return result.strip()
+    if not name:
+        # pick() keeps to phrases that need no name when there is none;
+        # this only tidies one that was asked for with no name anyway
+        result = _MISSING_NAME.sub("", result)
+    return result.replace("{name}", name).strip()
 
 
 def pick(pool, name="", n=0, app=""):
-    """Pick a random phrase from `pool`, translated and filled in."""
+    """Pick a random phrase from `pool`, translated and filled in.
+
+    With no name, only phrases that don't need one are chosen: a sentence
+    with the name cut out reads broken ("о! подарок для!"), and in Russian
+    it would need rewording, not just a word less.
+    """
+    if not name:
+        pool = [p for p in pool if "{name}" not in p] or pool
     return format_phrase(random.choice(pool), name=name, n=n, app=app)
 
 

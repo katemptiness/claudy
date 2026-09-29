@@ -6,6 +6,8 @@ straight from the test, and the app's own windows are stood in for by mocks.
 The GTK tests are skipped where GTK 3 or a display isn't available.
 """
 
+import ctypes
+import ctypes.util
 import unittest
 from unittest import mock
 
@@ -15,8 +17,9 @@ try:
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
-    from claudy.backends.linux import events, settings_ui
+    from claudy.backends.linux import bubble, events, settings_ui, windows
     from gi.repository import Gdk, GLib, Gtk
+    import cairo
     HAVE_GTK = Gdk.Display.get_default() is not None
 except (ImportError, ValueError):
     HAVE_GTK = False
@@ -108,6 +111,88 @@ class SystemEventTests(unittest.TestCase):
             handler._check_new_apps()
         controller.on_app_launched.assert_called_once_with(
             "code", app_reactions.LINUX_APPS["code"], "VS Code")
+
+
+def _input_rects(window):
+    """The parts of `window` that take clicks, as the X server has them.
+
+    The window is realized, so that it exists on the server, but never shown.
+    Returns None where the server can't be asked (not X11, no libXext).
+    """
+    try:
+        gi.require_version("GdkX11", "3.0")
+        from gi.repository import GdkX11
+    except (ImportError, ValueError):
+        return None
+    libx11 = ctypes.util.find_library("X11")
+    libxext = ctypes.util.find_library("Xext")
+    if not (libx11 and libxext and
+            isinstance(window.get_display(), GdkX11.X11Display)):
+        return None
+
+    class XRectangle(ctypes.Structure):
+        _fields_ = [("x", ctypes.c_short), ("y", ctypes.c_short),
+                    ("width", ctypes.c_ushort), ("height", ctypes.c_ushort)]
+
+    x11, xext = ctypes.CDLL(libx11), ctypes.CDLL(libxext)
+    x11.XOpenDisplay.restype = ctypes.c_void_p
+    x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+    x11.XFree.argtypes = [ctypes.c_void_p]
+    xext.XShapeGetRectangles.restype = ctypes.POINTER(XRectangle)
+    xext.XShapeGetRectangles.argtypes = [
+        ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int,
+        ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+    shape_input = 2
+
+    window.realize()
+    window.get_display().sync()   # let GTK's requests reach the server
+    xid = GdkX11.X11Window.get_xid(window.get_window())
+    display = x11.XOpenDisplay(window.get_display().get_name().encode())
+    if not display:
+        return None
+    try:
+        count, ordering = ctypes.c_int(), ctypes.c_int()
+        rects = xext.XShapeGetRectangles(
+            display, xid, shape_input, ctypes.byref(count),
+            ctypes.byref(ordering))
+        found = [(r.x, r.y, r.width, r.height)
+                 for r in (rects[i] for i in range(count.value))]
+        if rects:
+            x11.XFree(ctypes.cast(rects, ctypes.c_void_p))
+        return found
+    finally:
+        x11.XCloseDisplay(display)
+
+
+@needs_gtk
+class OverlayWindowTests(unittest.TestCase):
+
+    def input_rects(self, window):
+        self.addCleanup(window.destroy)
+        window.set_default_size(200, 90)
+        rects = _input_rects(window)
+        if rects is None:
+            self.skipTest("needs an X11 display and libXext")
+        self.assertFalse(window.get_mapped())
+        return rects
+
+    def test_click_through_windows_take_no_clicks(self):
+        self.assertEqual(
+            self.input_rects(windows.make_overlay_window(click_through=True)),
+            [])
+
+    def test_other_windows_take_clicks_where_asked(self):
+        self.assertEqual(self.input_rects(windows.make_overlay_window()),
+                         [(0, 0, 200, 90)])
+        window = windows.make_overlay_window()
+        windows.take_clicks_only_in(
+            window, cairo.Region(cairo.RectangleInt(60, 10, 80, 80)))
+        self.assertEqual(self.input_rects(window), [(60, 10, 80, 80)])
+
+    def test_the_speech_bubble_takes_no_clicks(self):
+        speech_bubble = bubble.BubbleWindow(scene=None, images=None)
+        self.assertEqual(self.input_rects(speech_bubble.window), [])
 
 
 @needs_gtk

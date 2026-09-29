@@ -2,11 +2,13 @@
 
 import gi
 gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk
 
 from claudy.backends.linux.canvas import (
     CairoCanvas, clear, measuring_context,
 )
+from claudy.backends.linux.windows import make_overlay_window
 from claudy.render.scene import BUBBLE_OVERLAP
 
 
@@ -20,17 +22,9 @@ class BubbleWindow:
         self._measure = CairoCanvas(measuring_context(), images)
         self._size = None
 
-        self.window = Gtk.Window(type=Gtk.WindowType.POPUP)
-        self.window.set_decorated(False)
-        self.window.set_keep_above(True)
+        self.window = make_overlay_window(click_through=True)
         self.window.set_accept_focus(False)
-        self.window.set_skip_taskbar_hint(True)
-        self.window.set_skip_pager_hint(True)
         self.window.set_type_hint(Gdk.WindowTypeHint.TOOLTIP)
-        visual = self.window.get_screen().get_rgba_visual()
-        if visual:
-            self.window.set_visual(visual)
-        self.window.set_app_paintable(True)
 
         self._area = Gtk.DrawingArea()
         self._area.connect("draw", self._on_draw)

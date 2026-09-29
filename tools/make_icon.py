@@ -36,8 +36,8 @@ BOTTOM = (0x15, 0x44, 0x53)
 # Pillow draws rounded rectangles without antialiasing, so the plate's mask is
 # drawn this many times larger and shrunk, which smooths its corners
 SUPERSAMPLE = 4
-# Smaller plates are one of this size scaled down, so they keep a soft shadow
-# that would be too faint to draw at their own size
+# Smaller plates are drawn at least this big and shrunk, so they keep a soft
+# shadow that would be too faint to draw at their own size
 SMALL = 128
 # The sizes an .iconset needs, as (pixels, file name)
 SIZES = [(16, "16x16"), (32, "16x16@2x"), (32, "32x32"), (64, "32x32@2x"),
@@ -88,9 +88,14 @@ def plate_mask(plate, size):
 
 def background(size):
     """The plate and its shadow, without Claudy."""
-    if size < SMALL:
-        return background(SMALL).resize((size, size), Image.LANCZOS)
-    plate = round(size * PLATE / CANVAS)
+    # A small plate is drawn a whole number of times larger and shrunk
+    # exactly. Its width is measured at the real size, so there its straight
+    # edges land on whole pixels, the same on every side. One big plate
+    # scaled down to every size would put them between pixels instead, with
+    # a soft rim on two sides.
+    scale = -(-SMALL // size)             # at least SMALL px while drawing
+    plate = round(size * PLATE / CANVAS) * scale
+    size *= scale
     margin = (size - plate) / 2
 
     band = Image.new("RGBA", (plate, plate))
@@ -108,6 +113,8 @@ def background(size):
                  mask)
     icon.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(size * 0.021)))
     icon.alpha_composite(band, (round(margin), round(margin)))
+    if scale > 1:
+        icon = icon.resize((size // scale, size // scale), Image.BOX)
     return icon
 
 

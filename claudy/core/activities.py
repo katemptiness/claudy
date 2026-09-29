@@ -58,7 +58,7 @@ PAINTINGS = {
     "friend": _painting("friend", "портрет друга!"),
 }
 
-# An activity opens with still poses (getting the book, the laptop, the
+# Many activities open with still poses (getting the book, the laptop, the
 # wand out) that each come with a line. They last long enough to type the
 # line out and read it (Speech.readable_ms) in either language: cut
 # shorter, the next pose's line replaced it as soon as it was typed.

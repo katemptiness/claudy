@@ -222,7 +222,7 @@ class Controller:
 
     def _say(self, text, chatter=False):
         """Show a line. Idle chatter never talks over a line still on
-        screen, and waits a moment after one that has just gone."""
+        screen, nor comes within CHATTER_GAP_MS of the last one starting."""
         if self._speech_pinned:
             return
         if chatter and (self._speech_hides_ms is not None
@@ -305,8 +305,9 @@ class Controller:
 
     def on_drag_move(self, x, height=0.0):
         """The pointer holds Claudy at `x`, `height` px above his resting
-        line (the height only moves his shadow; leave it out to keep him
-        on the ground)."""
+        line. The backend moves his window itself; the height only sizes
+        his shadow on the Dock, which without it is drawn as if he were
+        standing there."""
         self.character.drag_to(x, height)
 
     def on_drop(self, height):

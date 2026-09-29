@@ -258,7 +258,6 @@ class BubbleTests(unittest.TestCase):
 
 
 @needs_gtk
-@needs_gtk
 class ChoiceTests(unittest.TestCase):
 
     def test_a_value_off_the_list_is_kept_unless_another_is_picked(self):
@@ -271,6 +270,7 @@ class ChoiceTests(unittest.TestCase):
         self.assertEqual(_Choice(options, 3).value(), 3)
 
 
+@needs_gtk
 class CrabAppTests(unittest.TestCase):
     """CrabApp's own logic, on mock windows (building it would show them)."""
 

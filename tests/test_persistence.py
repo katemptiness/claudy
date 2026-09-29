@@ -5,6 +5,7 @@ import os
 import unittest
 from unittest import mock
 
+from claudy.content import ui_text
 from claudy.core import memory, settings
 from tests import support
 
@@ -74,6 +75,56 @@ class SettingsTests(unittest.TestCase):
         s = settings.Settings.shared()
         self.assertEqual(s.schedule, "lark")
         self.assertNotIn("bogus", s._data)
+
+    def test_hand_edited_junk_falls_back_to_the_defaults(self):
+        """Each setting checks its own value once, so nothing downstream
+        trips over a string where a number belongs, or an option that no
+        longer exists."""
+        write_file(settings.SETTINGS_FILE, b'''{
+            "speech_interval": ["1m"], "gift_duration": "2h",
+            "gift_cooldown": null, "schedule": "bat", "language": "de",
+            "terminal": 5, "dev_mode": "false", "user_name": 5,
+            "gift_limit": "a lot", "dock_icons": 1e999}''')
+        settings.Settings._instance = None
+        s = settings.Settings.shared()
+        defaults = {name: field.default
+                    for name, field in settings.Settings.fields().items()}
+        for name in ("speech_interval", "gift_duration", "gift_cooldown",
+                     "schedule", "language", "terminal", "dev_mode",
+                     "user_name", "gift_limit", "dock_icons"):
+            with self.subTest(setting=name):
+                self.assertEqual(getattr(s, name), defaults[name])
+                self.assertEqual(s._data[name], defaults[name])
+        self.assertEqual(s.speech_cooldown_range(),
+                         settings.SPEECH_COOLDOWNS["1m"])
+        self.assertEqual(s.gift_duration_seconds(), 300)
+        self.assertEqual(s.gift_cooldown_seconds(), 600)
+
+    def test_a_gift_limit_is_a_count(self):
+        s = settings.Settings.shared()
+        s.gift_limit = "5"
+        self.assertEqual(s.gift_limit, 5)
+        s.gift_limit = 0
+        self.assertEqual(s.gift_limit, 0)       # no limit
+        s.gift_limit = -4
+        self.assertEqual(s.gift_limit, 0)
+
+    def test_every_option_the_windows_offer_is_a_valid_setting(self):
+        """The settings windows list the options from ui_text, and the
+        tables here turn them into numbers: the two must agree."""
+        tables = (
+            (ui_text.SPEECH_OPTIONS, settings.SPEECH_COOLDOWNS),
+            (ui_text.GIFT_DURATION_OPTIONS, settings.GIFT_DURATIONS),
+            (ui_text.GIFT_COOLDOWN_OPTIONS, settings.GIFT_COOLDOWNS),
+        )
+        for options, table in tables:
+            self.assertEqual(sorted(o[0] for o in options), sorted(table))
+        for name, field in settings.Settings.fields().items():
+            if hasattr(field, "choices"):
+                with self.subTest(setting=name):
+                    self.assertIn(field.default, field.choices)
+                    for choice in field.choices:
+                        self.assertEqual(field.coerce(choice), choice)
 
     def test_text_that_is_not_utf8_does_not_stop_the_launch(self):
         """A write cut off inside a Cyrillic letter, or a hand edit saved

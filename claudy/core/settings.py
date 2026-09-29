@@ -5,6 +5,10 @@ import os
 
 from claudy.config import DATA_DIR
 from claudy.content.phrases import set_language
+from claudy.content.ui_text import (
+    GIFT_COOLDOWN_OPTIONS, GIFT_DURATION_OPTIONS, GIFT_LIMIT_OPTIONS,
+    LANGUAGE_OPTIONS, SCHEDULE_OPTIONS, SPEECH_OPTIONS,
+)
 from claudy.log import log
 
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
@@ -29,6 +33,13 @@ STAR_HEIGHT_MAX = 400
 # only across the Dock. The user updates this when they add/remove Dock items.
 DOCK_ICONS_MIN = 1
 DOCK_ICONS_MAX = 50
+
+# Gifts Claudy may offer a day; 0 means no limit. A count rather than one of
+# the window's presets: any number in range means something to Claudy.
+GIFT_LIMIT_MAX = max(option[0] for option in GIFT_LIMIT_OPTIONS)
+
+# The maps below are keyed by the same options the settings windows offer
+# (ui_text); the settings only ever hold one of those keys.
 
 # Cooldown ranges in ms for each speech interval
 SPEECH_COOLDOWNS = {
@@ -130,31 +141,64 @@ class _IntSetting(_Setting):
     def coerce(self, value):
         try:
             value = int(round(float(value)))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
+            # OverflowError: JSON's 1e999 loads as infinity
             value = self.default
         return max(self.lo, min(self.hi, value))
 
 
-class _LanguageSetting(_Setting):
+class _ChoiceSetting(_Setting):
+    """One of a fixed set of values; anything else falls back to default.
+
+    This is the one place a stale or hand-edited value is caught, so code
+    that looks the setting up in a table can take it as given.
+    """
+
+    def __init__(self, default, choices):
+        super().__init__(default)
+        self.choices = tuple(choices)
+
+    def coerce(self, value):
+        # The type counts too: JSON's true would otherwise pass for 1
+        for choice in self.choices:
+            if type(value) is type(choice) and value == choice:
+                return choice
+        return self.default
+
+
+class _TextSetting(_Setting):
+    """A string; anything else falls back to default."""
+
+    def coerce(self, value):
+        return value if isinstance(value, str) else self.default
+
+
+class _LanguageSetting(_ChoiceSetting):
     """Switching the language also switches the phrase translator."""
 
     def __set__(self, obj, value):
         super().__set__(obj, value)
-        set_language(value)
+        set_language(obj._data[self.name])
+
+
+def _keys(options):
+    """The values a settings window can choose from its option list."""
+    return [option[0] for option in options]
 
 
 class Settings:
     """Load, save, and access settings. Use Settings.shared()."""
 
-    terminal = _Setting("Terminal")
-    schedule = _Setting("owl")
-    language = _LanguageSetting("en")
-    speech_interval = _Setting("1m")
-    user_name = _Setting("")
-    dev_mode = _Setting(False)
-    gift_duration = _Setting("5m")
-    gift_limit = _Setting(3)
-    gift_cooldown = _Setting("10m")
+    terminal = _ChoiceSetting("Terminal",
+                              TERMINAL_OPTIONS + LINUX_TERMINAL_OPTIONS)
+    schedule = _ChoiceSetting("owl", _keys(SCHEDULE_OPTIONS))
+    language = _LanguageSetting("en", _keys(LANGUAGE_OPTIONS))
+    speech_interval = _ChoiceSetting("1m", _keys(SPEECH_OPTIONS))
+    user_name = _TextSetting("")
+    dev_mode = _ChoiceSetting(False, (False, True))
+    gift_duration = _ChoiceSetting("5m", _keys(GIFT_DURATION_OPTIONS))
+    gift_limit = _IntSetting(3, 0, GIFT_LIMIT_MAX)
+    gift_cooldown = _ChoiceSetting("10m", _keys(GIFT_COOLDOWN_OPTIONS))
     vertical_offset = _IntSetting(0, VERTICAL_OFFSET_MIN, VERTICAL_OFFSET_MAX)
     dock_icons = _IntSetting(13, DOCK_ICONS_MIN, DOCK_ICONS_MAX)
     star_height = _IntSetting(160, STAR_HEIGHT_MIN, STAR_HEIGHT_MAX)
@@ -195,10 +239,10 @@ class Settings:
 
     def speech_cooldown_range(self):
         """(min_ms, max_ms) between idle phrases."""
-        return SPEECH_COOLDOWNS.get(self.speech_interval, SPEECH_COOLDOWNS["1m"])
+        return SPEECH_COOLDOWNS[self.speech_interval]
 
     def gift_duration_seconds(self):
-        return GIFT_DURATIONS.get(self.gift_duration, 300)
+        return GIFT_DURATIONS[self.gift_duration]
 
     def gift_cooldown_seconds(self):
-        return GIFT_COOLDOWNS.get(self.gift_cooldown, 600)
+        return GIFT_COOLDOWNS[self.gift_cooldown]

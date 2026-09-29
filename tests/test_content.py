@@ -171,11 +171,9 @@ class ItemArtTests(unittest.TestCase):
 
     def test_every_gift_claudy_offers_has_a_picture(self):
         from claudy.content.sprites.items import GIFT_ART, ITEM_ART
-        from claudy.core.controller import TEST_GIFT_EMOJIS
         offered = {c["emoji"] for c in activities.CATCHES if c["good"]}
         offered |= {m["gift_emoji"] for m in activities.MAGIC_RESULTS
                     if m["gift_emoji"]}
-        offered |= set(TEST_GIFT_EMOJIS)
         offered |= {"\U0001F41A", "\u2B50"}   # the shell found, the star named
         for emoji in offered:
             with self.subTest(gift=emoji):

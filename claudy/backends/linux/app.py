@@ -334,9 +334,7 @@ class CrabApp:
         geometry = get_screen_geometry()
         if geometry is not None:
             self._monitor_x, self._monitor_width, self._base_y = geometry
-            # Claudy paces the new width from the next frame on, when the
-            # controller works out his walking bounds again
-            self.controller.character.screen_width = self._monitor_width
+            self.controller.set_screen_width(self._monitor_width)
         return False  # once, also when run as a timeout
 
     # ---- Drawing ----

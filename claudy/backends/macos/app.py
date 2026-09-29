@@ -247,7 +247,12 @@ class MenuTarget(AppKit.NSObject):
     def invoke_(self, sender):
         action = self.actions.get(sender.tag())
         if action:
-            action()
+            # AppKit reports an exception raised here itself, never to
+            # error.log (see log.install_excepthook)
+            try:
+                action()
+            except Exception:
+                log.exception("menu action failed")
 
 
 class MacApp:
@@ -428,7 +433,13 @@ class MacApp:
 class AppDelegate(AppKit.NSObject):
 
     def applicationDidFinishLaunching_(self, notification):
-        self.app = MacApp()
+        # An exception here reaches AppKit, not error.log, and leaves a
+        # process running with no windows at all; log it and quit instead
+        try:
+            self.app = MacApp()
+        except Exception:
+            log.exception("startup failed")
+            AppKit.NSApp.terminate_(None)
 
     def tick_(self, timer):
         self.app.tick()

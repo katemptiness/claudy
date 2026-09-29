@@ -137,10 +137,6 @@ class Memory:
         self.save()
         return launches[app_id]
 
-    def get_app_launches_today(self, app_id):
-        self._check_new_day()
-        return self._data["today"]["app_launches"].get(app_id, 0)
-
     # --- Days ---
 
     def get_total_days(self):
@@ -201,10 +197,6 @@ class Memory:
             self._data["gifts"].remove(gift)
             self.save()
         return gift
-
-    def count_session_gifts(self, gift_type):
-        """Count gifts of a given type this session (collected + pending)."""
-        return sum(1 for g in self._data["gifts"] if g["type"] == gift_type)
 
     def count_gifts_today(self):
         """Gifts Claudy offered today, not counting named stars."""

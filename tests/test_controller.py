@@ -15,26 +15,12 @@ from claudy.core.speech import Speech
 from tests import support
 
 
-def fail_on_logged_errors(test):
-    """Make an exception the controller catches and logs fail `test`.
-
-    tick() logs a failing event and carries on, which keeps the app alive
-    but would let a test pass with every particle broken.
-    """
-    def reraise(*args, **kwargs):
-        raise  # the exception being handled where log.exception was called
-
-    patcher = mock.patch.object(controller.log, "exception", side_effect=reraise)
-    patcher.start()
-    test.addCleanup(patcher.stop)
-
-
 class ControllerTestCase(unittest.TestCase):
 
     def setUp(self):
         support.reset_singletons()
         support.seeded()
-        fail_on_logged_errors(self)
+        support.fail_on_logged_errors(self)
         self.period = support.fixed_period("day")
         self.period.start()
         self.addCleanup(self.period.stop)
@@ -72,7 +58,7 @@ class StartupTests(unittest.TestCase):
 
     def test_claudy_wakes_up_with_a_yawn(self):
         support.reset_singletons()
-        fail_on_logged_errors(self)
+        support.fail_on_logged_errors(self)
         platform = support.FakePlatform()
         ctl = Controller(platform, support.SCREEN_WIDTH, 58)
         said, _ = support.record_speech(ctl)
@@ -363,7 +349,15 @@ class SystemEventTests(ControllerTestCase):
         self.ctl.on_app_launched("com.example.unknown")
         self.assertEqual(self.said(), [])
         self.assertEqual(
-            Memory.shared().get_app_launches_today("com.example.unknown"), 1)
+            Memory.shared().record_app_launch("com.example.unknown"), 2)
+
+    def test_a_smaller_screen_keeps_claudy_in_sight(self):
+        self.ctl.character.x = 2000
+        self.ctl.set_screen_width(1280)
+        ch = self.ctl.character
+        self.assertEqual(ch.screen_width, 1280)
+        self.assertTrue(ch.walk_min_x <= ch.x <= ch.walk_max_x)
+        self.assertLess(ch.walk_max_x, 1280)
 
     def test_sleep_and_wake(self):
         self.ctl.on_system_sleep()

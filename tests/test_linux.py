@@ -323,7 +323,7 @@ class CrabAppTests(unittest.TestCase):
         self.assertEqual(
             (self.crab._monitor_x, self.crab._monitor_width,
              self.crab._base_y), (1080, 2560, 1586))
-        self.assertEqual(self.crab.controller.character.screen_width, 2560)
+        self.crab.controller.set_screen_width.assert_called_once_with(2560)
         # Standing still, Claudy still goes along to the new monitor
         self.crab._move_windows(view)
         self.assertEqual(self.crab.window.move.call_count, 2)

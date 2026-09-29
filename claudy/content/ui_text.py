@@ -4,7 +4,7 @@ Claudy's own speech lives in phrases.py; this module holds the labels of the
 windows and menus around it. Entries are (English, Russian) pairs.
 """
 
-from claudy.content.phrases import get_language
+from claudy.content.phrases import get_language, plural_ru
 
 _LABELS = {
     # Context menu
@@ -146,14 +146,8 @@ def gifts_header(count):
     """'3 gifts collected' / '3 подарка собрано'."""
     if _is_en():
         return f"{count} gift{'s' if count != 1 else ''} collected"
-    if 11 <= count % 100 <= 19:
-        noun = "подарков собрано"
-    elif count % 10 == 1:
-        noun = "подарок собран"
-    elif 2 <= count % 10 <= 4:
-        noun = "подарка собрано"
-    else:
-        noun = "подарков собрано"
+    noun = plural_ru(count, "подарок собран", "подарка собрано",
+                     "подарков собрано")
     return f"{count} {noun}"
 
 

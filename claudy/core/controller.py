@@ -217,6 +217,16 @@ class Controller:
     def is_dragging(self):
         return self.character.state == "dragging"
 
+    def set_screen_width(self, width):
+        """The screen changed size: another monitor, a new resolution."""
+        ch = self.character
+        ch.screen_width = width
+        self._update_walk_bounds()
+        # Inside the screen he walks back to the Dock by himself; off it he
+        # would do that out of sight, so he is put back on the Dock at once
+        if not 0 <= ch.x <= width:
+            ch.x = min(max(ch.x, ch.walk_min_x), ch.walk_max_x)
+
     def _update_walk_bounds(self):
         # Applied every frame so the Dock-icons setting takes effect live
         self.character.update_walk_bounds(

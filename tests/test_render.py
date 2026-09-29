@@ -1,7 +1,6 @@
 """Tests for the shared drawing code (art, scene) with a recording canvas."""
 
 import unittest
-from unittest import mock
 
 from claudy.config import (
     FRIEND_SHADES, OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SHADES, SPRITE_SIZE,
@@ -10,7 +9,6 @@ from claudy.config import (
 from claudy.content.sprites.items import (
     DREAM_ART, DREAM_CLOUD, GIFT_ART, STAR_TWINKLE, TOY,
 )
-from claudy.core import controller
 from claudy.core.controller import Controller
 from claudy.core.settings import STAR_HEIGHT_MIN
 from claudy.render import art
@@ -117,14 +115,7 @@ class SceneTestCase(unittest.TestCase):
     def setUp(self):
         support.reset_singletons()
         support.seeded()
-        # The controller logs and swallows errors so a bad frame can't freeze
-        # Claudy; here they have to fail the test instead
-        def reraise(*args, **kwargs):
-            raise
-        logged = mock.patch.object(controller.log, "exception",
-                                   side_effect=reraise)
-        logged.start()
-        self.addCleanup(logged.stop)
+        support.fail_on_logged_errors(self)
         self.period = support.fixed_period("day")
         self.period.start()
         self.addCleanup(self.period.stop)

@@ -4,7 +4,7 @@ import os
 import random
 from unittest import mock
 
-from claudy.core import memory, settings
+from claudy.core import controller, memory, settings
 from claudy.core.controller import Platform
 from tests import TEST_HOME_PREFIX
 
@@ -45,6 +45,20 @@ def reset_singletons():
     settings.Settings._instance = None
     memory.Memory._instance = None
     settings.Settings.shared().language = "ru"
+
+
+def fail_on_logged_errors(test):
+    """Make an exception the controller catches and logs fail `test`.
+
+    tick() logs a failing event and carries on, which keeps the app alive
+    but would let a test pass with every particle broken.
+    """
+    def reraise(*args, **kwargs):
+        raise  # the exception being handled where log.exception was called
+
+    patcher = mock.patch.object(controller.log, "exception", side_effect=reraise)
+    patcher.start()
+    test.addCleanup(patcher.stop)
 
 
 def attach(mem=None):

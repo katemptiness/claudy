@@ -8,7 +8,9 @@ The GTK tests are skipped where GTK 3 or a display isn't available.
 
 import ctypes
 import ctypes.util
+import os
 import subprocess
+import sys
 import types
 import unittest
 from unittest import mock
@@ -16,6 +18,7 @@ from unittest import mock
 from claudy.content import app_reactions
 from claudy.core.speech import Speech
 from claudy.render.scene import BUBBLE_OVERLAP
+from tests import ROOT
 
 try:
     import gi
@@ -325,6 +328,53 @@ class CrabAppTests(unittest.TestCase):
         self.assertTrue(kwargs["start_new_session"])
         for stream in ("stdin", "stdout", "stderr"):
             self.assertEqual(kwargs[stream], subprocess.DEVNULL)
+
+    def test_icons_are_crisp_and_centered(self):
+        sizes = [icon.get_width() for icon in
+                 (app.claudy_icon(scale) for scale in app.ICON_SCALES)]
+        self.assertEqual(sizes, [16, 32, 48, 64, 96, 128, 256])
+        icon = app.claudy_icon(1)
+        self.assertEqual(icon.get_height(), 16)
+        pixels, stride = icon.get_pixels(), icon.get_rowstride()
+        inked = [y for y in range(16)
+                 if any(pixels[y * stride + x * 4 + 3] for x in range(16))]
+        above, below = inked[0], 15 - inked[-1]
+        self.assertLessEqual(abs(above - below), 1)
+
+
+@needs_gtk
+class GtkStartTests(unittest.TestCase):
+    """How the backend starts GTK, in a fresh process of its own."""
+
+    def start(self, backend=None):
+        """(prgname, application name, display class, GDK_BACKEND) as the
+        backend leaves them, started with GDK_BACKEND=`backend` or unset."""
+        environ = dict(os.environ)
+        environ.pop("GDK_BACKEND", None)
+        if backend:
+            environ["GDK_BACKEND"] = backend
+        self.assertIn("CLAUDY_HOME", environ)   # never the real ~/.claudy
+        probe = ("import os\n"
+                 "import claudy.backends.linux.app\n"
+                 "from gi.repository import Gdk, GLib\n"
+                 "print(GLib.get_prgname(), GLib.get_application_name(),\n"
+                 "      type(Gdk.Display.get_default()).__name__,\n"
+                 "      os.environ.get('GDK_BACKEND'))\n")
+        done = subprocess.run([sys.executable, "-c", probe], cwd=ROOT,
+                              env=environ, capture_output=True, text=True,
+                              timeout=60)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout.split()
+
+    def test_named_claudy_on_x11_without_passing_it_on(self):
+        name, app_name, display, backend = self.start()
+        self.assertEqual((name, app_name), ("claudy", "Claudy"))
+        self.assertEqual(display, "X11Display")
+        # Apps Claudy launches inherit his environment
+        self.assertEqual(backend, "None")
+
+    def test_a_backend_the_user_chose_is_kept(self):
+        self.assertEqual(self.start(backend="x11")[3], "x11")
 
 
 @needs_gtk

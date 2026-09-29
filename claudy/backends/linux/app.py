@@ -9,11 +9,31 @@ import time
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import GLib
+
+# GTK starts up on the first import of Gdk or Gtk, which is the one just
+# below (this module is the backend's entry point), so it is told first what
+# the app is called. Left to itself it takes the name from argv[0], and the
+# Settings and Gifts windows show up in Alt-Tab and the dock as "App.py".
+GLib.set_prgname("claudy")
+GLib.set_application_name("Claudy")
+
+# Claudy puts borderless popups at exact spots on the screen, which native
+# Wayland doesn't let an app do, so his GTK goes through XWayland. Only his
+# own: the variable goes again once GTK is up, or every app Claudy launches
+# would inherit it and run under XWayland too.
+_force_x11 = "GDK_BACKEND" not in os.environ
+if _force_x11:
+    os.environ["GDK_BACKEND"] = "x11"
+from gi.repository import Gtk, Gdk
+if _force_x11:
+    del os.environ["GDK_BACKEND"]
 import cairo
 
 from claudy.backends.linux.bubble import BubbleWindow
-from claudy.backends.linux.canvas import CairoCanvas, clear, new_image_cache
+from claudy.backends.linux.canvas import (
+    CairoCanvas, clear, make_image, new_image_cache,
+)
 from claudy.backends.linux.events import SystemEventHandler
 from claudy.backends.linux.gifts_ui import GiftsWindow
 from claudy.backends.linux.settings_ui import SettingsWindow
@@ -29,6 +49,7 @@ from claudy.content import ui_text
 from claudy.core.controller import Controller, Platform
 from claudy.core.settings import Settings
 from claudy.log import log
+from claudy.render import art
 from claudy.render.scene import Scene, star_offset_x
 
 CLAUDE_DESKTOP_ID = "com.anthropic.Claude"
@@ -36,6 +57,11 @@ CLAUDE_WEB_URL = "https://claude.ai"
 
 # The crab window's bottom edge overlaps the panel by this much
 PANEL_OVERLAP = 15
+# The window icon is Claudy's sprite at each of these whole-pixel scales
+# (16 to 256 px), so whatever size the desktop picks stays a crisp grid
+ICON_SCALES = (1, 2, 3, 4, 6, 8, 16)
+# The About dialog shows him at 128 px
+ABOUT_LOGO_SCALE = 8
 # After the monitors change, look at the screen once more this much later
 SCREEN_SETTLE_S = 2
 
@@ -109,6 +135,23 @@ def get_screen_geometry():
     return geom.x, geom.width, base_y
 
 
+def claudy_icon(scale):
+    """Claudy's idle sprite as a square icon, `scale` pixels per art pixel.
+
+    The sprite stands him on the bottom of his grid; an icon centers him.
+    """
+    rows = art.build(art.sprite_key("idle")).rows
+    inked = [y for y, row in enumerate(rows) if any(row)]
+    body = rows[inked[0]:inked[-1] + 1]
+    side = len(rows[0])
+    top = (side - len(body)) // 2
+    blank = ((None,) * side,)
+    square = blank * top + body + blank * (side - len(body) - top)
+    surface = make_image(art.PixelImage(square, scale))
+    return Gdk.pixbuf_get_from_surface(
+        surface, 0, 0, surface.get_width(), surface.get_height())
+
+
 class LinuxPlatform(Platform):
     """Linux implementations of what the controller needs."""
 
@@ -137,6 +180,8 @@ class LinuxPlatform(Platform):
     def show_about(self):
         dialog = Gtk.AboutDialog()
         dialog.set_program_name("Claudy")
+        # Left to itself the dialog takes the first window icon, the 16 px one
+        dialog.set_logo(claudy_icon(ABOUT_LOGO_SCALE))
         dialog.set_comments(ui_text.about_text("GTK3"))
         dialog.run()
         dialog.destroy()
@@ -160,6 +205,11 @@ class CrabApp:
 
         self._click_timer = None
         self._spots = {}  # window -> where it was last moved to
+
+        # Claudy is every window's icon, so the Settings and Gifts windows
+        # show him in Alt-Tab and the dock
+        Gtk.Window.set_default_icon_list(
+            [claudy_icon(scale) for scale in ICON_SCALES])
 
         # No Dock-tilesize query on Linux; use the default icon pitch.
         self.controller = Controller(

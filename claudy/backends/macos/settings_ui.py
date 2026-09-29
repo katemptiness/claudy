@@ -44,7 +44,10 @@ class SettingsWindow(AppKit.NSObject):
 
     def show(self):
         if self.window and self.window.isVisible():
+            # Bring it forward with focus, not just to the top of an app
+            # that isn't active
             self.window.makeKeyAndOrderFront_(None)
+            AppKit.NSApp.activateIgnoringOtherApps_(True)
             return
 
         lang = self.settings.language

@@ -32,10 +32,8 @@ from claudy.core.settings import Settings
 from claudy.log import log
 from claudy.render.scene import Scene, star_offset_x
 
-# Wait this long after a click to see whether it becomes a double-click
-DOUBLE_CLICK_S = 0.35
-# Two clicks closer together than this count as a double-click
-DOUBLE_CLICK_WINDOW_S = 0.5
+CLAUDE_BUNDLE_ID = "com.anthropic.claudefordesktop"
+CLAUDE_WEB_URL = "https://claude.ai"
 
 # The sprite's rect in the crab view's (unflipped, y-up) coordinates
 SPRITE_RECT = ((SPRITE_X, WINDOW_HEIGHT - SPRITE_Y - SPRITE_SIZE),
@@ -70,9 +68,8 @@ CLAUDE_CODE_SCRIPTS = {
 }
 
 
-def get_dock_top_y():
-    """Get the Y coordinate of the top of the Dock."""
-    screen = AppKit.NSScreen.mainScreen()
+def get_dock_top_y(screen):
+    """Get the Y coordinate of the top of the Dock on `screen`."""
     full = screen.frame()
     visible = screen.visibleFrame()
     dock_height = visible.origin.y - full.origin.y
@@ -99,14 +96,21 @@ def get_dock_tile_pitch():
 
 
 def open_claude():
-    AppKit.NSWorkspace.sharedWorkspace().launchApplication_("Claude")
+    """Open the Claude desktop app, falling back to claude.ai in the browser
+    when it isn't installed (as on Linux)."""
+    workspace = AppKit.NSWorkspace.sharedWorkspace()
+    app_url = workspace.URLForApplicationWithBundleIdentifier_(CLAUDE_BUNDLE_ID)
+    if app_url is None:
+        workspace.openURL_(AppKit.NSURL.URLWithString_(CLAUDE_WEB_URL))
+        return
+    workspace.openApplicationAtURL_configuration_completionHandler_(
+        app_url, AppKit.NSWorkspaceOpenConfiguration.configuration(), None)
 
 
 class MacPlatform(Platform):
     """macOS implementations of what the controller needs."""
 
-    def __init__(self, app):
-        self._app = app
+    def __init__(self):
         self._settings_window = SettingsWindow.alloc().init()
         self._gifts_window = GiftsWindow.alloc().init()
 
@@ -131,6 +135,9 @@ class MacPlatform(Platform):
         alert = AppKit.NSAlert.alloc().init()
         alert.setMessageText_("Claudy")
         alert.setInformativeText_(ui_text.about_text("PyObjC"))
+        # Claudy is rarely the active app when his menu is used, and an
+        # inactive app's alert comes up without focus, maybe behind others
+        AppKit.NSApp.activateIgnoringOtherApps_(True)
         alert.runModal()
 
     def quit(self):
@@ -146,8 +153,8 @@ class CrabView(DrawingView):
         if self is None:
             return None
         self.app = None  # MacApp, set right after creation
-        self._click_count = 0
-        self._last_click_time = 0
+        self._click_timer = None  # waits to tell a click from a double-click
+        self._pressed = False
         self._dragging = False
         self._grab = (0, 0)  # pointer offset from the window origin
         return self
@@ -166,19 +173,22 @@ class CrabView(DrawingView):
         return None
 
     def mouseDown_(self, event):
-        now = time.time()
-        if now - self._last_click_time < DOUBLE_CLICK_WINDOW_S:
-            self._click_count += 1
-        else:
-            self._click_count = 1
-        self._last_click_time = now
-
+        # Control-click is the Mac's other right-click
+        if event.modifierFlags() & AppKit.NSEventModifierFlagControl:
+            self.app.show_menu(event, self)
+            return
+        # A second press means the first one wasn't a single click after all:
+        # it is becoming a double-click or a drag
+        if self._click_timer is not None:
+            self._click_timer.invalidate()
+            self._click_timer = None
+        self._pressed = True
         loc = event.locationInWindow()
         self._grab = (loc.x, loc.y)
         self._dragging = False  # becomes True on mouseDragged
 
     def mouseDragged_(self, event):
-        if self._click_count == 0:
+        if not self._pressed:
             return
         if not self._dragging:
             self._dragging = True
@@ -187,24 +197,29 @@ class CrabView(DrawingView):
         self.app.drag_window_to(mouse.x - self._grab[0], mouse.y - self._grab[1])
 
     def mouseUp_(self, event):
+        if not self._pressed:
+            return  # the press opened the menu instead
+        self._pressed = False
         if self._dragging:
             self._dragging = False
-            self._click_count = 0
             self.app.drop_window()
             return
 
-        if self._click_count == 2:
-            self._click_count = 0
+        # macOS counts the clicks itself, using the double-click speed the
+        # user set in System Settings; a third click of a triple is ignored
+        clicks = event.clickCount()
+        if clicks == 2:
             self.app.controller.on_double_click()
-        elif self._click_count == 1:
-            # Single click — wait to tell it apart from a double-click
-            AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-                DOUBLE_CLICK_S, self, "singleClickFired:", None, False)
+        elif clicks == 1:
+            # Single click — wait as long as a double-click may take to tell
+            # the two apart
+            self._click_timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                AppKit.NSEvent.doubleClickInterval(), self, "singleClickFired:",
+                None, False)
 
     def singleClickFired_(self, timer):
-        if self._click_count == 1:
-            self.app.controller.on_click()
-        self._click_count = 0
+        self._click_timer = None
+        self.app.controller.on_click()
 
     def mouseEntered_(self, event):
         self.app.controller.on_hover(True)
@@ -213,8 +228,7 @@ class CrabView(DrawingView):
         self.app.controller.on_hover(False)
 
     def rightMouseDown_(self, event):
-        menu = self.app.build_menu(self.app.controller.menu())
-        AppKit.NSMenu.popUpContextMenu_withEvent_forView_(menu, event, self)
+        self.app.show_menu(event, self)
 
     def updateTrackingAreas(self):
         for area in self.trackingAreas():
@@ -242,15 +256,21 @@ class MacApp:
     def __init__(self):
         self.settings = Settings.shared()
 
+        # All geometry comes from the screen Claudy starts on, read once:
+        # mainScreen() follows keyboard focus, so asking again later could
+        # measure a different display. The controller works in x relative to
+        # that screen (0..screen_width); screen_x converts.
+        screen = AppKit.NSScreen.mainScreen()
+        self.screen_x = screen.frame().origin.x
+        self.screen_width = screen.frame().size.width
         # dock_base_y is the Dock-top baseline; dock_y adds the user's
         # vertical_offset and is refreshed every tick so the height setting
         # applies live (and previews while dragging the slider).
-        self.dock_base_y = get_dock_top_y()
+        self.dock_base_y = get_dock_top_y(screen)
         self.dock_y = self.dock_base_y + self.settings.vertical_offset
-        screen_width = AppKit.NSScreen.mainScreen().frame().size.width
 
         self.controller = Controller(
-            MacPlatform(self), screen_width, get_dock_tile_pitch())
+            MacPlatform(), self.screen_width, get_dock_tile_pitch())
         self.system_events = SystemEventObserver.alloc().initWithController_(
             self.controller)
 
@@ -263,8 +283,14 @@ class MacApp:
 
         self._create_windows()
         self.last_tick = time.monotonic()
-        AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+        # The frame timer runs in the common run-loop modes, not only the
+        # default one: an open context menu, a slider being dragged and the
+        # About alert each run their own mode, and a default-mode timer would
+        # freeze Claudy (and the height sliders' live preview) until they end
+        self.timer = AppKit.NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_(
             TICK_INTERVAL, AppKit.NSApp.delegate(), "tick:", None, True)
+        AppKit.NSRunLoop.currentRunLoop().addTimer_forMode_(
+            self.timer, AppKit.NSRunLoopCommonModes)
 
     # ---- Windows ----
 
@@ -302,7 +328,7 @@ class MacApp:
     def _move_windows(self, view):
         """The crab window follows Claudy up and down; the overlay stays on
         the ground."""
-        x = view["x"] - WINDOW_WIDTH / 2
+        x = self.screen_x + view["x"] - WINDOW_WIDTH / 2
         self.window.setFrameOrigin_((x, self.dock_y + view["y_offset"]))
         self.ground_window.setFrameOrigin_((x, self.dock_y))
 
@@ -313,9 +339,9 @@ class MacApp:
             if self.star_window.isVisible():
                 self.star_window.orderOut_(None)
             return
-        width = AppKit.NSScreen.mainScreen().frame().size.width
         self.star_window.setFrameOrigin_(
-            (width / 2 + star_offset_x(star["name"]) - STAR_WINDOW / 2,
+            (self.screen_x + self.screen_width / 2
+             + star_offset_x(star["name"]) - STAR_WINDOW / 2,
              self.dock_y + self.settings.star_height))
         if not self.star_window.isVisible():
             self.star_window.orderFront_(None)
@@ -325,7 +351,7 @@ class MacApp:
     def drag_window_to(self, x, y):
         self.window.setFrameOrigin_((x, y))
         self.ground_window.setFrameOrigin_((x, self.dock_y))
-        self.controller.on_drag_move(x + WINDOW_WIDTH / 2)
+        self.controller.on_drag_move(x - self.screen_x + WINDOW_WIDTH / 2)
 
     def drop_window(self):
         """Let go: Claudy falls from where it was dropped back to the Dock."""
@@ -333,6 +359,11 @@ class MacApp:
         self.controller.on_drop(height)
 
     # ---- Context menu ----
+
+    def show_menu(self, event, view):
+        """Pop the context menu up at the click that asked for it."""
+        menu = self.build_menu(self.controller.menu())
+        AppKit.NSMenu.popUpContextMenu_withEvent_forView_(menu, event, view)
 
     def build_menu(self, items):
         """Turn the controller's MenuItems into an NSMenu."""
@@ -373,9 +404,11 @@ class MacApp:
                 self._move_windows(view)
             # The bubble's tail points at the top of the crab window
             crab_top = self.window.frame().origin.y + WINDOW_HEIGHT
-            self.bubble.sync(self.controller.speech, view["x"], crab_top)
+            self.bubble.sync(self.controller.speech,
+                             self.screen_x + view["x"], crab_top)
             # Only redraw what changed: Claudy is still most of the time, and
-            # repainting both windows every frame costs several times the CPU
+            # repainting the transparent windows every frame costs several
+            # times the CPU
             if self.scene.crab_changed():
                 self.crab_view.setNeedsDisplay_(True)
             if self.scene.ground_changed():

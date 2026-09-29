@@ -95,7 +95,7 @@ Claudy doesn't demand attention — but it notices when you're there.
 
 There's an invisible threshold: **5 clicks per day** (resets at midnight and on relaunch). Giving Claudy a gift counts as 2 clicks. Before the threshold, clicks produce sparkles. After it, you unlock:
 
-- **Hearts** instead of sparkles on click
+- **Hearts** along with the sparkles on click
 - **Personal phrases** that use your name ("how's it going, Kate?", "i like spending time with Kate :3")
 - **Sleep/wake greetings** ("falling asleep, Kate... 💤", "that was a nice nap :3")
 - **Gifts from Claudy** — only after attachment will Claudy start leaving gifts on the Dock for you
@@ -149,8 +149,8 @@ look at the Dock at six in the morning.
 #### Your star
 
 Once — and only once — Claudy's telescope finds a star worth naming after you
-(after dark, and only once it's attached to you). The star goes into your
-collection and stays in the sky: a small pixel star hanging above the Dock, in
+(after dark, and only once it's attached to you). The star shows up in this
+session's gift collection, and it stays in the sky for good: a small pixel star hanging above the Dock, in
 a fixed spot of its own, twinkling. It shows between 19:00 and 6:00 and is
 invisible by day, and it is the one thing Claudy remembers across relaunches.
 How high it hangs is a setting.
@@ -274,7 +274,7 @@ The platform-independent core has a unit test suite (standard library only):
 python3 -m unittest discover -s tests -t .
 ```
 
-Run it exactly like this, from the project root: that is what points the tests at a throwaway data directory. Run any other way, the suite refuses to start rather than touch your real `~/.claudy`.
+Run it like this, from the project root. Importing the `tests` package is what points the tests at a throwaway data directory; if Claudy's modules load first (`discover -s tests` without `-t .`, for one), every test that would reset the data files fails instead of touching your real `~/.claudy`.
 
 ## Settings
 
@@ -282,7 +282,7 @@ Right-click → Settings to configure:
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| Claude Code terminal | Terminal / iTerm2 / Warp (macOS), gnome-terminal / kitty / alacritty (Linux) | Terminal (macOS) / gnome-terminal (Linux) |
+| Claude Code terminal | Terminal / iTerm2 / Warp (macOS), gnome-terminal / kitty / alacritty (Linux). Warp only opens a new tab: it has no documented way to run a command in it, so type `claude` yourself | Terminal (macOS) / gnome-terminal (Linux) |
 | Schedule mode | Night Owl / Early Bird | Night Owl |
 | Claudy's height | Slider, -50 to +50 px above the Dock (moves Claudy live while you drag) | 0 |
 | Dock icons | Slider, 1 to 50 — how many icons your Dock has, so Claudy paces across it instead of the whole screen | 13 |

@@ -8,6 +8,8 @@ Claudy is an autonomous desktop companion — a pixel-art crab character that li
 
 **Supported platforms:** macOS (PyObjC/AppKit) and Linux (GTK3/Cairo).
 
+> **On a Mac?** The macOS backend changed on 2026-09-29 without running on a Mac. Read `docs/macos-checklist.md` first.
+
 ## Running
 
 **macOS:**
@@ -45,8 +47,9 @@ imports `claudy` must set `CLAUDY_HOME` to a temp dir before the import.
 Run `python3 app.py` from a terminal to see tracebacks. Exceptions raised inside
 the frame loop are caught and logged as `tick failed` in `~/.claudy/error.log`;
 Claudy keeps running but may freeze, so check the log whenever it looks stuck.
-Uncaught exceptions elsewhere reach the log too (`log.install_excepthook()`),
-except in AppKit callbacks, which catch and log their own. The log is capped
+Uncaught exceptions elsewhere reach the log too (`log.install_excepthook()`).
+AppKit swallows what its callbacks raise, so the macOS callbacks run their
+bodies under `log.reported()`, which logs and prints instead. The log is capped
 in size, and a traceback repeating every frame is written once, then counted.
 Settings → developer mode adds an *Activities* submenu that starts any activity
 on demand and offers a test gift.
@@ -116,7 +119,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - Particles are pixel art, and so are the gifts and the toy (`content/sprites/items.py`). Emoji stay where they are text: in speech bubbles, in the menus and in the gifts window.
 - Gifts and the toy are drawn on Claudy's own pixel grid (`ITEM_SCALE == PIXEL_SCALE`), not the finer particle grid. They are objects in his world, not effects; at particle size they read as icons borrowed from another game. They stand on the ground line and cast a shadow like his; the toy stands behind him, so his claw lies across it. The named star is the one exception (`ITEM_SCALES`, the particle grid): it is far away, and at his scale it would read as an object hanging in mid-air.
 - The dream cloud (`ITEM_ART["dream_cloud"]`) is one fixed picture drawn with one opacity: round lobes, a cool mid-tone edge, a shaded underside, round bubbles trailing to the sleeper. It must never read as speech, so its edge is nowhere near the bubble's dark ink (a test checks). It used to be built from translucent rects around each picture: where they overlapped, the opacity doubled into seams, and cream with no edge vanished on light desktops. Particles go behind it, and no zzz rise while it shows.
-- Claudy dreams only of activities that left a picture in `DREAM_ART`; the rest simply never turn up in a dream. `Memory.log_activity()` collapses runs of the same activity: in deep sleep "sleeping" is the only choice, so every click or hover that wakes him at night, and every system sleep, logs it again, and would crowd everything dreamable out of the log by morning.
+- Claudy dreams only of activities that left a picture in `DREAM_ART`; the rest simply never turn up in a dream. `Memory.log_activity()` collapses runs of the same activity: in deep sleep "sleeping" is the only choice, so every click that wakes him at night, and every system sleep, logs it again, and would crowd everything dreamable out of the log by morning.
 - The named star shows by real clock hours (`schedule.is_dark()`), not by schedule period — in owl mode "deep sleep" runs to 11:00, long after the stars are gone.
 - Claudy names exactly one star, ever, and it outlives the session in `memory.json`. A second would silently replace the first in the sky, and a rebuild would wipe it.
 - The star twinkles by shape, through a few uneven steps (`STAR_TWINKLE`), at full opacity: faded, its gold turned khaki over a dark sky, and a continuous fade would wake an always-on-top window every frame (`Scene.star_changed()` compares drawing calls). Claudy names it only after dark.
@@ -124,6 +127,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 
 ## Reference Files (`docs/`)
 
+- `macos-checklist.md` — what changed in the macOS backend without a Mac to test on, and what is left for one
 - `prototypes/clawd-tamagotchi.jsx` — React prototype with base sprites, particle system, game loop
 - `prototypes/clawd-activities.jsx` — React demo of 4 activities with phased animations
 - `little-claude-spec.md` — full project specification (in Russian)

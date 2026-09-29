@@ -211,11 +211,11 @@ class Memory:
 
         Runs of the same activity count once. Deep sleep itself loops in
         place and is logged once, but "sleeping" is all Claudy can choose
-        then, so every hover or click that wakes him in the night, and every
-        time the computer sleeps and wakes, sends him back to it. Without
-        this, a night of the mouse passing over the Dock would fill the log
-        with "sleeping" and push out everything he could dream of — just
-        when he sleeps long enough to dream.
+        then, so every click that wakes him in the night, and every time the
+        computer sleeps and wakes, sends him back to it. Without this, a
+        night of those would fill the log with "sleeping" and push out
+        everything he could dream of — just when he sleeps long enough to
+        dream.
         """
         log = self._data["activities"]
         if log and log[-1] == name:

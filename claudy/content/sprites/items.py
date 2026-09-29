@@ -249,7 +249,6 @@ TOY = "teddy"
 # twinkles, as (picture, ms) steps. A few uneven steps rather than a smooth
 # cycle, so it reads as a star and not as a status light, and so its window
 # is redrawn only a handful of times per cycle.
-NAMED_STAR = "sky_star"
 STAR_TWINKLE = (("sky_star", 1600), ("sky_star_dim", 500),
                 ("sky_star", 1100), ("sky_star_flash", 250),
                 ("sky_star", 900), ("sky_star_dim", 350))

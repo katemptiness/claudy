@@ -219,8 +219,8 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(len(self.mem.recent_activities()), memory.ACTIVITY_LOG)
 
     def test_a_night_of_waking_up_counts_as_one_sleep(self):
-        """Every hover or click in the night wakes Claudy, and deep sleep
-        offers nothing but "sleeping" again; unchecked, all those returns
+        """Every click in the night wakes Claudy, and deep sleep offers
+        nothing but "sleeping" again; unchecked, all those returns
         to sleep would crowd what he could dream of out of the log."""
         self.mem.log_activity("fishing")
         for _ in range(100):

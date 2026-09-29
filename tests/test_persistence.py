@@ -1,5 +1,6 @@
 """Tests for Settings and Memory persistence."""
 
+import io
 import json
 import logging
 import logging.handlers
@@ -333,6 +334,16 @@ class ErrorLogTests(unittest.TestCase):
         # stacked once more by each test here that installs them.
         self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
         self.addCleanup(setattr, threading, "excepthook", threading.excepthook)
+
+    def test_reported_logs_and_prints_what_a_callback_raises(self):
+        """AppKit swallows what a callback raises; reported() gets it into
+        the log (and the terminal) and lets the app carry on."""
+        with mock.patch.object(log.log, "exception") as logged, \
+                mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            with log.reported("click"):
+                raise ValueError("boom")
+        logged.assert_called_once_with("%s failed", "click")
+        self.assertIn("ValueError: boom", err.getvalue())
 
     def test_a_repeating_error_is_written_once_then_counted(self):
         """A bug hit on every frame logs sixty tracebacks a second; the

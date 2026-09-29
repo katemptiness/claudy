@@ -4,7 +4,7 @@ import AppKit
 import objc
 
 from claudy.content.app_reactions import MACOS_APPS
-from claudy.log import log
+from claudy.log import reported
 
 
 class SystemEventObserver(AppKit.NSObject):
@@ -25,11 +25,16 @@ class SystemEventObserver(AppKit.NSObject):
             AppKit.NSWorkspaceDidLaunchApplicationNotification, None)
         return self
 
+    # AppKit swallows what a notification handler raises, so each runs its
+    # body under reported() to get it into error.log
+
     def handleSleep_(self, notification):
-        self.controller.on_system_sleep()
+        with reported("sleep"):
+            self.controller.on_system_sleep()
 
     def handleWake_(self, notification):
-        self.controller.on_system_wake()
+        with reported("wake"):
+            self.controller.on_system_wake()
 
     def handleAppLaunch_(self, notification):
         info = notification.userInfo()
@@ -39,8 +44,6 @@ class SystemEventObserver(AppKit.NSObject):
             return
         bundle_id = str(bundle_id)
         name = str(app_obj.localizedName() or "")
-        try:
+        with reported(f"reacting to {bundle_id}"):
             self.controller.on_app_launched(
                 bundle_id, MACOS_APPS.get(bundle_id), name)
-        except Exception:
-            log.exception("failed to react to %s", bundle_id)

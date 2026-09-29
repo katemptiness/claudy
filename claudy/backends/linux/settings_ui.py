@@ -33,12 +33,19 @@ class _Choice:
         self.combo = Gtk.ComboBoxText()
         for _, title in options:
             self.combo.append_text(title)
-        self.combo.set_active(
-            self.keys.index(current) if current in self.keys else 0)
+        # A value that isn't one of the options (gifts per day may be any
+        # count, set by hand) shows as the first one, but is kept unless
+        # another option is picked
+        self._kept = current not in self.keys
+        self._shown = 0 if self._kept else self.keys.index(current)
+        self.combo.set_active(self._shown)
 
     def value(self):
+        """The picked option, or None to leave the setting as it is."""
         idx = self.combo.get_active()
-        return self.keys[idx] if idx >= 0 else None
+        if idx < 0 or (self._kept and idx == self._shown):
+            return None
+        return self.keys[idx]
 
 
 class SettingsWindow:

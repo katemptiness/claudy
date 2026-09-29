@@ -6,12 +6,14 @@ inside an except block; the app keeps running. Once `install_excepthook()`
 has run, whatever reaches Python's excepthooks uncaught is logged too.
 """
 
+import contextlib
 import logging
 import logging.handlers
 import os
 import sys
 import threading
 import time
+import traceback
 
 from claudy.config import DATA_DIR
 
@@ -111,7 +113,7 @@ def install_excepthook():
     AppKit callbacks never get here: PyObjC turns an exception in one into
     an NSException, which AppKit reports itself. That includes the macOS
     launch, which runs in applicationDidFinishLaunching_, so those
-    callbacks have to catch and log their own errors.
+    callbacks run their bodies under reported() instead.
     """
     if getattr(sys.excepthook, "_claudy", False) is True:
         return      # already installed; a second one would log twice
@@ -133,6 +135,20 @@ def install_excepthook():
     excepthook._claudy = True
     sys.excepthook = excepthook
     threading.excepthook = thread_excepthook
+
+
+@contextlib.contextmanager
+def reported(what):
+    """Run a callback's body; log what it raises and print it as well.
+
+    For callbacks whose exceptions never reach sys.excepthook (AppKit's,
+    see install_excepthook). The error is swallowed, as AppKit would do.
+    """
+    try:
+        yield
+    except Exception:
+        log.exception("%s failed", what)
+        traceback.print_exc()
 
 
 _configure()

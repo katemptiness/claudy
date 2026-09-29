@@ -258,6 +258,19 @@ class BubbleTests(unittest.TestCase):
 
 
 @needs_gtk
+@needs_gtk
+class ChoiceTests(unittest.TestCase):
+
+    def test_a_value_off_the_list_is_kept_unless_another_is_picked(self):
+        from claudy.backends.linux.settings_ui import _Choice
+        options = [(1, "1"), (3, "3"), (5, "5")]
+        choice = _Choice(options, 7)
+        self.assertIsNone(choice.value(), "saving would overwrite 7")
+        choice.combo.set_active(2)
+        self.assertEqual(choice.value(), 5)
+        self.assertEqual(_Choice(options, 3).value(), 3)
+
+
 class CrabAppTests(unittest.TestCase):
     """CrabApp's own logic, on mock windows (building it would show them)."""
 

@@ -221,6 +221,10 @@ class SettingsWindow(AppKit.NSObject):
         idx = glim_keys.index(self.settings.gift_limit) \
             if self.settings.gift_limit in glim_keys else 1
         self.gift_lim_popup.selectItemAtIndex_(idx)
+        # A count that isn't one of the presets (set by hand) is kept unless
+        # another is picked
+        self._gift_lim_kept = (None if self.settings.gift_limit in glim_keys
+                               else idx)
         y -= 40
 
         # Gift cooldown
@@ -282,8 +286,9 @@ class SettingsWindow(AppKit.NSObject):
             self.gift_dur_popup.indexOfSelectedItem()]
 
         glim_keys = [o[0] for o in GIFT_LIMIT_OPTIONS]
-        self.settings.gift_limit = glim_keys[
-            self.gift_lim_popup.indexOfSelectedItem()]
+        idx = self.gift_lim_popup.indexOfSelectedItem()
+        if idx != getattr(self, "_gift_lim_kept", None):
+            self.settings.gift_limit = glim_keys[idx]
 
         gcd_keys = [o[0] for o in GIFT_COOLDOWN_OPTIONS]
         self.settings.gift_cooldown = gcd_keys[

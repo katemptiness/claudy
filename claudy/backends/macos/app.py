@@ -29,7 +29,7 @@ from claudy.config import (
 from claudy.content import ui_text
 from claudy.core.controller import Controller, Platform
 from claudy.core.settings import Settings
-from claudy.log import log
+from claudy.log import log, reported
 from claudy.render.scene import Scene, star_offset_x
 
 CLAUDE_BUNDLE_ID = "com.anthropic.claudefordesktop"
@@ -172,63 +172,75 @@ class CrabView(DrawingView):
             return objc.super(CrabView, self).hitTest_(point)
         return None
 
+    # Every callback below runs its body under reported(): AppKit swallows
+    # what a callback raises, so it would never reach error.log
+
     def mouseDown_(self, event):
-        # Control-click is the Mac's other right-click
-        if event.modifierFlags() & AppKit.NSEventModifierFlagControl:
-            self.app.show_menu(event, self)
-            return
-        # A second press means the first one wasn't a single click after all:
-        # it is becoming a double-click or a drag
-        if self._click_timer is not None:
-            self._click_timer.invalidate()
-            self._click_timer = None
-        self._pressed = True
-        loc = event.locationInWindow()
-        self._grab = (loc.x, loc.y)
-        self._dragging = False  # becomes True on mouseDragged
+        with reported("mouse down"):
+            # Control-click is the Mac's other right-click
+            if event.modifierFlags() & AppKit.NSEventModifierFlagControl:
+                self.app.show_menu(event, self)
+                return
+            # A second press means the first one wasn't a single click after
+            # all: it is becoming a double-click or a drag
+            if self._click_timer is not None:
+                self._click_timer.invalidate()
+                self._click_timer = None
+            self._pressed = True
+            loc = event.locationInWindow()
+            self._grab = (loc.x, loc.y)
+            self._dragging = False  # becomes True on mouseDragged
 
     def mouseDragged_(self, event):
-        if not self._pressed:
-            return
-        if not self._dragging:
-            self._dragging = True
-            self.app.controller.on_drag_start()
-        mouse = AppKit.NSEvent.mouseLocation()
-        self.app.drag_window_to(mouse.x - self._grab[0], mouse.y - self._grab[1])
+        with reported("drag"):
+            if not self._pressed:
+                return
+            if not self._dragging:
+                self._dragging = True
+                self.app.controller.on_drag_start()
+            mouse = AppKit.NSEvent.mouseLocation()
+            self.app.drag_window_to(mouse.x - self._grab[0],
+                                    mouse.y - self._grab[1])
 
     def mouseUp_(self, event):
-        if not self._pressed:
-            return  # the press opened the menu instead
-        self._pressed = False
-        if self._dragging:
-            self._dragging = False
-            self.app.drop_window()
-            return
+        with reported("mouse up"):
+            if not self._pressed:
+                return  # the press opened the menu instead
+            self._pressed = False
+            if self._dragging:
+                self._dragging = False
+                self.app.drop_window()
+                return
 
-        # macOS counts the clicks itself, using the double-click speed the
-        # user set in System Settings; a third click of a triple is ignored
-        clicks = event.clickCount()
-        if clicks == 2:
-            self.app.controller.on_double_click()
-        elif clicks == 1:
-            # Single click — wait as long as a double-click may take to tell
-            # the two apart
-            self._click_timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
-                AppKit.NSEvent.doubleClickInterval(), self, "singleClickFired:",
-                None, False)
+            # macOS counts the clicks itself, using the double-click speed
+            # the user set in System Settings; a third click of a triple is
+            # ignored
+            clicks = event.clickCount()
+            if clicks == 2:
+                self.app.controller.on_double_click()
+            elif clicks == 1:
+                # Single click — wait as long as a double-click may take to
+                # tell the two apart
+                self._click_timer = AppKit.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+                    AppKit.NSEvent.doubleClickInterval(), self,
+                    "singleClickFired:", None, False)
 
     def singleClickFired_(self, timer):
-        self._click_timer = None
-        self.app.controller.on_click()
+        with reported("click"):
+            self._click_timer = None
+            self.app.controller.on_click()
 
     def mouseEntered_(self, event):
-        self.app.controller.on_hover(True)
+        with reported("hover"):
+            self.app.controller.on_hover(True)
 
     def mouseExited_(self, event):
-        self.app.controller.on_hover(False)
+        with reported("hover"):
+            self.app.controller.on_hover(False)
 
     def rightMouseDown_(self, event):
-        self.app.show_menu(event, self)
+        with reported("menu"):
+            self.app.show_menu(event, self)
 
     def updateTrackingAreas(self):
         for area in self.trackingAreas():
@@ -247,12 +259,8 @@ class MenuTarget(AppKit.NSObject):
     def invoke_(self, sender):
         action = self.actions.get(sender.tag())
         if action:
-            # AppKit reports an exception raised here itself, never to
-            # error.log (see log.install_excepthook)
-            try:
+            with reported("menu action"):
                 action()
-            except Exception:
-                log.exception("menu action failed")
 
 
 class MacApp:
@@ -356,6 +364,10 @@ class MacApp:
     # ---- Dragging ----
 
     def drag_window_to(self, x, y):
+        # Claudy stays on his own screen: dropped past its edge, or on
+        # another display, he would be out of reach of his Dock
+        x = min(max(x, self.screen_x - SPRITE_X),
+                self.screen_x + self.screen_width - SPRITE_X - SPRITE_SIZE)
         self.window.setFrameOrigin_((x, y))
         self.ground_window.setFrameOrigin_((x, self.dock_y))
         # The height lets the shadow on the Dock shrink and fade under a
@@ -372,6 +384,13 @@ class MacApp:
 
     def show_menu(self, event, view):
         """Pop the context menu up at the click that asked for it."""
+        # A click still waiting to be told apart from a double-click happens
+        # now: its timer can't fire while the menu is tracking, and after
+        # the menu it would cut off whatever was picked in it
+        if view._click_timer is not None:
+            view._click_timer.invalidate()
+            view._click_timer = None
+            self.controller.on_click()
         menu = self.build_menu(self.controller.menu())
         AppKit.NSMenu.popUpContextMenu_withEvent_forView_(menu, event, view)
 
@@ -433,12 +452,11 @@ class MacApp:
 class AppDelegate(AppKit.NSObject):
 
     def applicationDidFinishLaunching_(self, notification):
-        # An exception here reaches AppKit, not error.log, and leaves a
-        # process running with no windows at all; log it and quit instead
-        try:
+        self.app = None
+        with reported("startup"):
             self.app = MacApp()
-        except Exception:
-            log.exception("startup failed")
+        if self.app is None:
+            # With no windows at all there'd be nothing left to quit from
             AppKit.NSApp.terminate_(None)
 
     def tick_(self, timer):

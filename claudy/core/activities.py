@@ -41,13 +41,15 @@ READING = ("read_a", "read_b", "read_a", "read_b", "read_turn")
 
 
 def _painting(picture, done_message):
-    """Paint `picture` in three stages, then admire it."""
+    """Paint `picture` in three stages, then admire it (and maybe decide to
+    give it away)."""
     stages = tuple(
         Phase([f"paint_{picture}_{n}_a", f"paint_{picture}_{n}_b"], 400, 7000,
               duration_max_ms=10000, message="рисует..." if n == 1 else None)
         for n in (1, 2, 3))
     return stages + (Phase([f"paint_{picture}_done"], 500, 2500,
-                           message=done_message),)
+                           message=done_message,
+                           special="painting_gift_chance"),)
 
 
 # What Claudy paints; one is picked each time the easel goes up
@@ -56,6 +58,15 @@ PAINTINGS = {
     "flower": _painting("flower", "цветочек!"),
     "heart": _painting("heart", "сердечко!"),
     "friend": _painting("friend", "портрет друга!"),
+}
+
+# The emoji a painting is given under, when Claudy leaves it on the Dock:
+# what is on it. The gifts window adds that it is a painting.
+PAINTING_GIFT_EMOJI = {
+    "landscape": "\U0001F3DE\uFE0F",  # 🏞️
+    "flower": "\U0001F337",           # 🌷
+    "heart": "\u2764\uFE0F",           # ❤️
+    "friend": "\U0001F980",           # 🦀
 }
 
 # Many activities open with still poses (getting the book, the laptop, the
@@ -302,5 +313,6 @@ MAGIC_RESULTS = (
 MAGIC_GIFT_CHANCE = 0.2
 FISH_GIFT_CHANCE = 0.3
 SHELL_GIFT_CHANCE = 0.1
+PAINTING_GIFT_CHANCE = 0.25
 STAR_NAMING_CHANCE = 0.1
 SANDCASTLE_SUCCESS_CHANCE = 0.7

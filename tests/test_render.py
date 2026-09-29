@@ -6,8 +6,12 @@ from claudy.config import (
     FRIEND_SHADES, OVERLAY_HEIGHT, PALETTE, PIXEL_SCALE, SHADES, SPRITE_SIZE,
     SPRITE_X, SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
 )
+from claudy.content.sprites.activities import (
+    CANVAS_COL, CANVAS_ROW, CANVAS_SIZE, PICTURES,
+)
+from claudy.content.sprites.grid import SYMBOLS
 from claudy.content.sprites.items import (
-    DREAM_ART, DREAM_CLOUD, GIFT_ART, STAR_TWINKLE, TOY,
+    DREAM_ART, DREAM_CLOUD, GIFT_ART, PAINTED, STAR_TWINKLE, TOY,
 )
 from claudy.core.controller import Controller
 from claudy.core.settings import STAR_HEIGHT_MIN
@@ -99,6 +103,28 @@ class ArtTests(unittest.TestCase):
         red = art.build(art.particle_key("sparkle", "#FF0000"))
         self.assertEqual(red.rows[0][2], (1.0, 0.0, 0.0, 1.0))
         self.assertNotEqual(plain.rows[0][2], red.rows[0][2])
+
+    def test_a_painting_is_lifted_off_the_easel_frame_and_all(self):
+        """The painting Claudy leaves on the Dock is the canvas he painted:
+        its frame in the easel's wood all round, the finished picture
+        inside, on his own pixel grid."""
+        frame = PALETTE[SYMBOLS["w"]]
+        for name, picture in PAINTED.items():
+            with self.subTest(painting=picture):
+                image = art.build(art.item_key(name))
+                rows = image.rows
+                self.assertEqual(image.scale, PIXEL_SCALE)
+                self.assertEqual(len(rows), CANVAS_SIZE + 2)
+                border = (rows[0] + rows[-1] + tuple(row[0] for row in rows)
+                          + tuple(row[-1] for row in rows))
+                self.assertEqual(set(border), {frame})
+                finished = PICTURES[picture][-1][2].split()
+                self.assertEqual(
+                    [list(row[1:-1]) for row in rows[1:-1]],
+                    [[PALETTE[SYMBOLS[ch]] for ch in line] for line in finished])
+                # ...and it is where it stood on the easel
+                easel = art.build(art.sprite_key(f"paint_{picture}_done")).rows
+                self.assertEqual(rows[1][1], easel[CANVAS_ROW][CANVAS_COL])
 
     def test_image_cache_builds_once(self):
         made = []

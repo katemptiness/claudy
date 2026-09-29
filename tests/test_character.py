@@ -270,6 +270,32 @@ class PaintingTests(CharacterTestCase):
                 self.assertIn(frame, SPRITES)
         self.assertEqual(len(pictures), len(activities.PAINTINGS))
 
+    def _painted_picture(self):
+        done, = [f for phase in self.char.phases for f in phase.frames
+                 if f.endswith("_done")]
+        return done[len("paint_"):-len("_done")]
+
+    def test_the_painting_just_finished_may_be_left_as_a_gift(self):
+        support.attach()
+        for seed in range(8):
+            support.seeded(seed)
+            with mock.patch("claudy.core.character.random.random",
+                            return_value=0.0):
+                self.char.force_activity("painting")
+                picture = self._painted_picture()
+                _, events = support.run_until_idle(self.char)
+            gifts = [data for kind, data in events if kind == "gift"]
+            self.assertEqual(gifts, [{
+                "type": "painting",
+                "emoji": activities.PAINTING_GIFT_EMOJI[picture]}])
+
+    def test_a_painting_is_kept_until_claudy_and_the_user_are_friends(self):
+        with mock.patch("claudy.core.character.random.random",
+                        return_value=0.0):
+            self.char.force_activity("painting")
+            _, events = support.run_until_idle(self.char)
+        self.assertNotIn("gift", _event_types(events))
+
     def test_the_picture_grows_stage_by_stage(self):
         self.char.force_activity("painting")
         canvases = []

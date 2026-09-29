@@ -5,10 +5,14 @@ items are drawn on Claudy's own pixel grid (ITEM_SCALE): a gift is an object
 in his world, not an effect, and on the finer particle grid it reads as an
 icon borrowed from somewhere else.
 
+The pictures Claudy paints are items too (PAINTED), without a grid here:
+each is lifted off his easel.
+
 GIFT_ART maps the emoji a gift is offered under to its picture. DREAM_ART
 maps an activity to what Claudy may dream of having done.
 """
 
+from claudy.content.sprites.activities import PICTURES
 from claudy.content.sprites.particles import PARTICLE_SCALE
 
 ITEM_SCALE = 5      # config.PIXEL_SCALE; a test keeps the two in step
@@ -145,16 +149,6 @@ ITEM_ART = {
         xccccgccccx
         xxxxxxxxxxx
     """,
-    # The landscape Claudy paints on his easel: sun top right, hill below left
-    "canvas": """
-        wwwwwwwww
-        wUUUUyyUw
-        wUUUUyyUw
-        wUUUUUUUw
-        wnnnUUUUw
-        wnnnnnnnw
-        wwwwwwwww
-    """,
     "sandcastle": """
         .....xx....
         .....w.....
@@ -226,6 +220,12 @@ ITEM_ART = {
     """,
 }
 
+# The pictures Claudy paints, by the name each goes by as an item. They have
+# no grid here: art.py lifts each one off his easel, frame and all, out of
+# the finished painting's sprite, so a painting he leaves on the Dock is
+# pixel for pixel the picture he was just seen painting.
+PAINTED = {f"painting_{picture}": picture for picture in PICTURES}
+
 # Pictures not drawn on Claudy's own pixel grid (see SKY_SCALE)
 ITEM_SCALES = {name: SKY_SCALE
                for name in ("sky_star", "sky_star_dim", "sky_star_flash")}
@@ -240,6 +240,10 @@ GIFT_ART = {
     "\U0001F308": "rainbow",    # 🌈
     "\U0001F98B": "butterfly",  # 🦋
     "\U0001F41A": "shell",      # 🐚
+    "\U0001F3DE\uFE0F": "painting_landscape",  # 🏞️
+    "\U0001F337": "painting_flower",           # 🌷
+    "\u2764\uFE0F": "painting_heart",           # ❤️
+    "\U0001F980": "painting_friend",           # 🦀
 }
 
 # What Claudy sleeps with after being given a toy
@@ -265,6 +269,6 @@ DREAM_ART = {
     "shell_collecting": ("shell",),
     "magic": ("flower", "rainbow", "butterfly"),
     "telescope": ("star",),
-    "painting": ("canvas",),
+    "painting": tuple(PAINTED),
     "sandcastle": ("sandcastle",),
 }

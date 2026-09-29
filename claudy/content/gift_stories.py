@@ -991,6 +991,157 @@ SHELL_STORIES = [
 ]
 
 
+# A painting is told about by what is on it, going by the emoji it is given
+# under (activities.PAINTING_GIFT_EMOJI), and shares a few stories about
+# painting itself with the others
+PAINTING_STORIES = {
+    "\U0001F3DE\uFE0F": [   # 🏞️ the landscape
+        {
+            "ru": "это вид с моего дока! ну, почти. холм я добавил от себя — "
+                  "без холма скучно.",
+            "en": "this is the view from my dock! well, almost. i added the "
+                  "hill myself — it's boring without a hill.",
+        },
+        {
+            "ru": "солнце вышло маленьким: жёлтая краска почти закончилась. "
+                  "зато смотри, какое яркое!",
+            "en": "the sun came out small: i was almost out of yellow. "
+                  "but look how bright it is!",
+        },
+        {
+            "ru": "рисовал небо и думал, что {name} тоже иногда смотрит "
+                  "в окно. теперь у тебя есть ещё одно.",
+            "en": "painted the sky and thought that {name} looks out the "
+                  "window sometimes too. now you have one more.",
+        },
+        {
+            "ru": "художники говорят, главное в пейзаже — поймать свет. "
+                  "я поймал. он был тёплый.",
+            "en": "artists say the main thing in a landscape is to catch "
+                  "the light. i caught it. it was warm.",
+        },
+        {
+            "ru": "если долго смотреть на этот холм, слышно, как шуршит "
+                  "трава. ну, мне так кажется.",
+            "en": "if you look at this hill long enough, you can hear the "
+                  "grass rustle. or so it seems to me.",
+        },
+    ],
+    "\U0001F337": [   # 🌷 the flower
+        {
+            "ru": "хотел сорвать цветок для {name}, но стало жалко цветок. "
+                  "поэтому нарисовал!",
+            "en": "wanted to pick a flower for {name}, but felt sorry for "
+                  "the flower. so i painted one!",
+        },
+        {
+            "ru": "этот цветок не завянет никогда. я проверил: нарисованные "
+                  "не вянут!",
+            "en": "this flower will never wilt. i checked: painted ones "
+                  "don't!",
+        },
+        {
+            "ru": "розовая краска — моя любимая. я берёг её для чего-то "
+                  "особенного.",
+            "en": "pink is my favorite paint. i was saving it for something "
+                  "special.",
+        },
+        {
+            "ru": "пчела прилетала проверить, настоящий ли он. улетела "
+                  "разочарованная. значит, похоже!",
+            "en": "a bee came to check whether it was real. left "
+                  "disappointed. so it must look right!",
+        },
+    ],
+    "\u2764\uFE0F": [   # ❤️ the heart
+        {
+            "ru": "рисовал и сам не знал, что получится. получилось сердечко. "
+                  "кажется, клешни знали лучше меня :3",
+            "en": "i painted without knowing what it would be. it turned out "
+                  "a heart. i guess my claws knew better :3",
+        },
+        {
+            "ru": "потратил на него всю красную краску. ни капли не жалко.",
+            "en": "used up all the red paint on it. don't regret a single "
+                  "drop.",
+        },
+        {
+            "ru": "видишь розовую точку? это блик. так рисуют, чтобы было "
+                  "видно: сердечко живое.",
+            "en": "see the pink dot? that's a highlight. you paint one so "
+                  "it's clear the heart is alive.",
+        },
+        {
+            "ru": "сердечко — самое простое, что можно нарисовать. и самое "
+                  "сложное, когда рисуешь его для {name}.",
+            "en": "a heart is the easiest thing to paint. and the hardest, "
+                  "when you're painting it for {name}.",
+        },
+    ],
+    "\U0001F980": [   # 🦀 the friend's portrait
+        {
+            "ru": "это мой друг! он позировал целых пять минут, а потом "
+                  "убежал играть.",
+            "en": "this is my friend! he posed for five whole minutes, and "
+                  "then ran off to play.",
+        },
+        {
+            "ru": "друг говорит, что в жизни он красивее. я говорю, что это "
+                  "искусство. мы до сих пор спорим.",
+            "en": "my friend says he looks better in real life. i say it's "
+                  "art. we're still arguing.",
+        },
+        {
+            "ru": "синий краб на портрете — мой лучший друг. а {name} — мой "
+                  "лучший человек :3",
+            "en": "the blue crab in the portrait is my best friend. and "
+                  "{name} is my best human :3",
+        },
+        {
+            "ru": "глаза получились немного в разные стороны. но у него они "
+                  "правда такие!",
+            "en": "the eyes came out looking slightly different ways. but "
+                  "his really are like that!",
+        },
+    ],
+}
+
+PAINTING_STORIES_ANY = [
+    {
+        "ru": "сам нарисовал! от начала до конца, без подсказок.",
+        "en": "painted it myself! start to finish, no hints.",
+    },
+    {
+        "ru": "краска ещё немного липкая. не трогай пару минут, ладно? :3",
+        "en": "the paint's still a little sticky. don't touch it for a "
+              "couple of minutes, ok? :3",
+    },
+    {
+        "ru": "держать кисточку клешнёй сложно. зато мазки выходят "
+              "уверенные!",
+        "en": "holding a brush in a claw is hard. but the strokes come out "
+              "confident!",
+    },
+    {
+        "ru": "это оригинал. копий нет и не будет. ну, если только я не "
+              "нарисую ещё одну.",
+        "en": "this is an original. there are no copies, and there won't "
+              "be. unless i paint another one.",
+    },
+    {
+        "ru": "подписал в уголке. правда, подпись — просто отпечаток клешни.",
+        "en": "signed it in the corner. well, the signature is just a claw "
+              "print.",
+    },
+    {
+        "ru": "художники дарят картины тем, кто их понимает. поэтому — "
+              "тебе.",
+        "en": "artists give their paintings to those who understand them. "
+              "so — to you.",
+    },
+]
+
+
 _STORIES = {
     "fish": FISH_STORIES,
     "magic": MAGIC_STORIES,
@@ -999,14 +1150,20 @@ _STORIES = {
 }
 
 
-def _get_stories(gift_type):
-    """Return the story list for a gift type (fish stories for test gifts)."""
+def _get_stories(gift_type, emoji=None):
+    """Return the story list for a gift (fish stories for test gifts).
+
+    Most gifts are told about by their type alone; a painting also by its
+    emoji, which says what is on it.
+    """
+    if gift_type == "painting":
+        return PAINTING_STORIES.get(emoji, []) + PAINTING_STORIES_ANY
     return _STORIES.get(gift_type, FISH_STORIES)
 
 
-def random_story_id(gift_type):
-    """Return a random story index for the given gift type."""
-    stories = _get_stories(gift_type)
+def random_story_id(gift_type, emoji=None):
+    """Return a random story index for the given gift."""
+    stories = _get_stories(gift_type, emoji)
     return random.randint(0, len(stories) - 1)
 
 
@@ -1014,7 +1171,7 @@ def _names_the_user(story):
     return "{name}" in story["ru"] or "{name}" in story["en"]
 
 
-def get_story(gift_type, story_id, name=""):
+def get_story(gift_type, story_id, name="", emoji=None):
     """Return the translated story text for a gift.
 
     Without a name, a story that needs one is swapped for one that doesn't.
@@ -1024,7 +1181,7 @@ def get_story(gift_type, story_id, name=""):
     story, and it happens here, when the story is shown, because the user
     can set or clear the name at any time.
     """
-    stories = _get_stories(gift_type)
+    stories = _get_stories(gift_type, emoji)
     story = stories[story_id % len(stories)]
     if not name and _names_the_user(story):
         nameless = [s for s in stories if not _names_the_user(s)]

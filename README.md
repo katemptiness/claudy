@@ -25,7 +25,7 @@ A tiny pixel-art crab companion that lives on your Dock. It reads books, catches
 - Notices when you launch apps and comments on them (remembers how many times you opened the same app today)
 - Sleeps when your machine sleeps, greets you when it wakes up
 - Dreams while it sleeps — a little picture of something it actually did lately floats above it in a thought cloud
-- Gives you gifts — catches a fish? Finds a shell? Might leave a little pixel-art present on the Dock for you
+- Gives you gifts — catches a fish? Finds a shell? Might leave a little pixel-art present on the Dock for you. Finishes a painting? Might give you that very painting
 - Names a star after you — once, ever — and keeps it twinkling above the Dock every night
 - Accepts gifts from you — give Claudy a marshmallow and it'll roast it at the campfire; give a toy and it sleeps with it
 - Gradually notices you — click enough and Claudy starts using your name, showing hearts, and saying personal things
@@ -111,8 +111,9 @@ During some activities, Claudy may find something and leave it on the Dock for y
 | Fishing | Caught fish, pufferfish, diamond, star | ~30% on good catch |
 | Magic | Flower, butterfly, rainbow, star | ~20% on successful spell |
 | Shell collecting | A pretty shell | ~10% per find |
+| Painting | The very picture it just painted: its landscape, flower, heart or its friend's portrait, lifted off the easel frame and all | ~25% per painting |
 
-When a gift appears, Claudy pauses activities and announces it ("look what i found!", "this is for you! :3"). Click Claudy to collect. If you don't collect in time, Claudy keeps it ("ok, keeping it for myself :p"). A gift waits until Claudy has finished showing what it found, and opening an app while the gift waits won't send Claudy off to work over it.
+When a gift appears, Claudy pauses activities and announces it ("look what i found!", "this is for you! :3"; a painting it made rather than found, so that one comes with "this is for you! painted it myself :3"). Click Claudy to collect. If you don't collect in time, Claudy keeps it ("ok, keeping it for myself :p"). A gift waits until Claudy has finished showing what it found, and opening an app while the gift waits won't send Claudy off to work over it.
 
 #### Giving gifts to Claudy
 
@@ -130,7 +131,7 @@ Each gift counts as 2 clicks toward attachment. Cooldown between gifts is config
 
 #### Gift Collection
 
-Right-click → **Gifts** to view what Claudy gave you since it started. Each gift comes with a unique backstory — a cute little tale from Claudy about how the gift was found, caught, or conjured. 160 bilingual stories in total (40 per gift type), randomly assigned at collection time.
+Right-click → **Gifts** to view what Claudy gave you since it started. Each gift comes with a unique backstory — a cute little tale from Claudy about how the gift was found, caught, conjured or painted. 183 bilingual stories in total: 40 per gift type, and 23 for paintings, where each picture has a few about what is on it and they share six about painting itself. A story is picked when the gift is offered. A painting shows up as what is on it, captioned *Painting*: 🏞️ 🌷 ❤️ 🦀.
 
 ### At night
 
@@ -138,7 +139,8 @@ Right-click → **Gifts** to view what Claudy gave you since it started. Each gi
 
 While Claudy sleeps (most often through the night), a small picture sometimes
 surfaces above it for a few seconds and fades away again: the fish it was
-after, the book it was reading, the sandcastle it was building, the shells it looked for.
+after, the book it was reading, the picture it painted, the sandcastle it was building,
+the shells it looked for.
 It floats in a little thought cloud with bubbles trailing down to the sleeper,
 so a dream never looks like something Claudy said out loud. Claudy only dreams
 of things it actually did — it keeps a rolling log of its recent activities,
@@ -205,7 +207,7 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 | Sleeping | Nods off (nap or deep sleep depending on time) | Zzz |
 | Playing | Bounces around happily | Notes |
 | Music | Plays a tune | Notes |
-| Painting | Sets up an easel and paints a picture stage by stage: a landscape, a flower, a heart or a portrait of its friend | — |
+| Painting | Sets up an easel and paints a picture stage by stage: a landscape, a flower, a heart or a portrait of its friend. Sometimes it leaves the picture on the Dock for you | — |
 | Telescope | Pulls out a telescope, gazes at the stars | Stars |
 | Meditating | Sits quietly for a long time | Sparkles |
 | Juggling | Tosses three balls from claw to claw over its head | — |
@@ -243,7 +245,8 @@ claudy/
     phrases.py                # Bilingual phrases (RU/EN)
     ui_text.py                # Bilingual menu / window labels
     app_reactions.py          # What Claudy says when you open an app
-    gift_stories.py           # 160 bilingual gift backstories (40 per type)
+    gift_stories.py           # 183 bilingual gift backstories (40 per type,
+                              #   23 for paintings)
     sprites/                  # 82 pixel-art sprites as text grids, particle
                               #   art, and the gifts, toy, star, dream cloud and dreams
 

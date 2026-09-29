@@ -26,8 +26,9 @@ from claudy.core import schedule
 from claudy.core.activities import (
     ACTIVITIES, CATCHES, FISH_GIFT_CHANCE, FRIEND_ACTIVITY_POOL,
     FRIEND_ANIMATIONS, FRIEND_FRAME_MS, FRIEND_GOODBYE, MAGIC_GIFT_CHANCE,
-    MAGIC_RESULTS, PAINTINGS, REACTION_HEART_INTERVAL_MS, REACTIONS,
-    RECENT_ACTIVITY_BLOCK, SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE,
+    MAGIC_RESULTS, PAINTING_GIFT_CHANCE, PAINTING_GIFT_EMOJI, PAINTINGS,
+    REACTION_HEART_INTERVAL_MS, REACTIONS, RECENT_ACTIVITY_BLOCK,
+    SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE,
     STAR_NAMING_CHANCE, WAKING, Phase,
 )
 from claudy.core.animations import Bounce, Fall, Hop, Juggle, Shake
@@ -120,6 +121,7 @@ class Character:
         # activity ends, so the catch or the spell gets its pose and its
         # line first, and it is forgotten if the activity is interrupted.
         self._gift_offer = None
+        self._painting = None   # what is on the easel, once he picks it
 
         # User gifts to Claudy (session-only)
         self.has_marshmallow = False
@@ -822,7 +824,16 @@ class Character:
 
     def _special_pick_painting(self):
         # Between the easel going up and the final idle
-        self.phases[1:-1] = PAINTINGS[random.choice(list(PAINTINGS))]
+        self._painting = random.choice(list(PAINTINGS))
+        self.phases[1:-1] = PAINTINGS[self._painting]
+
+    def _special_painting_gift_chance(self):
+        # The easel is folded away when he is done, and the canvas is left
+        # standing on the Dock: the very picture he just painted
+        if (random.random() < PAINTING_GIFT_CHANCE
+                and Memory.shared().is_attached()):
+            self._gift_offer = {"type": "painting",
+                                "emoji": PAINTING_GIFT_EMOJI[self._painting]}
 
     def _special_juggle(self):
         self.juggle = Juggle()

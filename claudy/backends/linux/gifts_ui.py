@@ -98,7 +98,8 @@ class GiftsWindow:
         row.pack_start(top, False, False, 0)
 
         # Story text
-        story_text = get_story(gift["type"], gift["story_id"], name=user_name)
+        story_text = get_story(gift["type"], gift["story_id"], name=user_name,
+                               emoji=gift["emoji"])
         story_label = Gtk.Label(label=story_text)
         story_label.set_xalign(0)
         story_label.set_line_wrap(True)

@@ -12,8 +12,11 @@ from claudy.config import (
     FRIEND_PALETTE, FRIEND_SHADES, PALETTE, PIXEL_SCALE, SHADES, hex_rgba,
 )
 from claudy.content.sprites import SPRITES
+from claudy.content.sprites.activities import (
+    CANVAS_COL, CANVAS_ROW, CANVAS_SIZE,
+)
 from claudy.content.sprites.items import (
-    ITEM_ART, ITEM_COLORS, ITEM_SCALE, ITEM_SCALES,
+    ITEM_ART, ITEM_COLORS, ITEM_SCALE, ITEM_SCALES, PAINTED,
 )
 from claudy.content.sprites.particles import (
     PARTICLE_ART, PARTICLE_COLORS, PARTICLE_SCALE,
@@ -82,9 +85,21 @@ def _build_particle(name, tint):
 
 
 def _build_item(name):
+    if name in PAINTED:
+        return _lift_painting(PAINTED[name])
     colors = {sym: hex_rgba(hex_color) for sym, hex_color in ITEM_COLORS.items()}
     return _grid_image(ITEM_ART[name], colors,
                        ITEM_SCALES.get(name, ITEM_SCALE))
+
+
+def _lift_painting(picture):
+    """A finished painting as it stands on Claudy's easel, frame and all:
+    cut out of the sprite of him admiring it, so it can't come out any
+    different from what he painted."""
+    easel = build(sprite_key(f"paint_{picture}_done"))
+    top, left, size = CANVAS_ROW - 1, CANVAS_COL - 1, CANVAS_SIZE + 2
+    rows = tuple(row[left:left + size] for row in easel.rows[top:top + size])
+    return PixelImage(rows, easel.scale)
 
 
 def _build_sprite(name, friend, flip):

@@ -170,7 +170,7 @@ class Memory:
             "emoji": str(emoji),
             "date": date.today().isoformat(),
             "collected": collected,
-            "story_id": random_story_id(gift_type),
+            "story_id": random_story_id(gift_type, emoji),
         }
         if name:
             gift["name"] = name

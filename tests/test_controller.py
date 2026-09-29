@@ -6,7 +6,7 @@ from unittest import mock
 from claudy.config import OVERLAY_HEIGHT, SPRITE_SIZE, WINDOW_WIDTH
 from claudy.content import app_reactions, phrases
 from claudy.content.sprites.items import GIFT_ART
-from claudy.core import controller
+from claudy.core import activities, controller
 from claudy.core.controller import Controller, MenuItem
 from claudy.core.memory import Memory
 from claudy.core.particles import ParticleSystem
@@ -108,6 +108,22 @@ class GiftTests(ControllerTestCase):
         self.ctl.on_click()
         self.offer_gift()
         self.assertIsNone(self.ctl.gift_emoji)
+
+    def test_a_painting_is_given_and_taken_with_words_of_its_own(self):
+        """A painting wasn't found, so "look what i found!" won't do."""
+        emoji = activities.PAINTING_GIFT_EMOJI["friend"]
+        with mock.patch("claudy.core.memory.random_story_id",
+                        return_value=0) as story:
+            self.ctl._offer_gift({"type": "painting", "emoji": emoji})
+        story.assert_called_once_with("painting", emoji)
+        name = Settings.shared().user_name
+        self.assertIn(self.said()[-1],
+                      {phrases.format_phrase(p, name=name)
+                       for p in phrases.PAINTING_ANNOUNCE_PHRASES})
+        self.ctl.on_click()
+        self.assertIn(self.said()[-1],
+                      {phrases.format_phrase(p)
+                       for p in phrases.PAINTING_COLLECT_PHRASES})
 
     def test_activity_gift_events_reach_the_controller(self):
         support.attach()

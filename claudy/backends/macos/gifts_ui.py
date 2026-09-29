@@ -114,7 +114,8 @@ class GiftsWindow(AppKit.NSObject):
         y += 28
 
         # Story text (wrapping)
-        story_text = get_story(gift["type"], gift["story_id"], name=user_name)
+        story_text = get_story(gift["type"], gift["story_id"], name=user_name,
+                               emoji=gift["emoji"])
 
         story_label = _make_label(story_text, 20, y, w - 44, size=12, alpha=0.7)
         # Calculate height needed for wrapping text

@@ -301,6 +301,15 @@ _EN = {
     "это тебе!": "this is for you!",
     "нашёл и подумал о тебе": "found it and thought of you",
 
+    # A painting left as a gift, and taken
+    "это тебе! сам нарисовал :3": "this is for you! painted it myself :3",
+    "картина для {name}!": "a painting for {name}!",
+    "дарю! краска ещё не высохла": "it's yours! the paint's still wet",
+    "нарисовал это для тебя!": "i painted this for you!",
+    "повесишь на стенку? :3": "will you hang it on the wall? :3",
+    "теперь у тебя есть оригинал!": "now you own an original!",
+    "осторожно, краска свежая!": "careful, wet paint!",
+
     # Star naming (telescope gift)
     "назвал звезду в честь {name} ⭐": "named a star after {name} ⭐",
     "эта звезда теперь — {name} ⭐": "that star is now called {name} ⭐",
@@ -481,6 +490,20 @@ GIFT_COLLECT_PHRASES = [
     "тебе понравилось? :3",
     "это тебе!",
     "нашёл и подумал о тебе",
+]
+
+# A painting wasn't found but made, so it is given with words of its own
+PAINTING_ANNOUNCE_PHRASES = [
+    "это тебе! сам нарисовал :3",
+    "картина для {name}!",
+    "дарю! краска ещё не высохла",
+    "нарисовал это для тебя!",
+]
+
+PAINTING_COLLECT_PHRASES = [
+    "повесишь на стенку? :3",
+    "теперь у тебя есть оригинал!",
+    "осторожно, краска свежая!",
 ]
 
 STAR_NAMING_PHRASES = [

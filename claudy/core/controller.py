@@ -308,14 +308,20 @@ class Controller:
 
         duration = self.settings.gift_duration_seconds()
         self._gift_expires_ms = self._clock_ms + duration * 1000
-        self._pin_speech(pick(phrases.GIFT_ANNOUNCE_PHRASES,
-                              name=self.settings.user_name), duration)
+        announce = (phrases.PAINTING_ANNOUNCE_PHRASES
+                    if gift["type"] == "painting"
+                    else phrases.GIFT_ANNOUNCE_PHRASES)
+        self._pin_speech(pick(announce, name=self.settings.user_name),
+                         duration)
 
     def _collect_gift(self):
-        if not self.memory.collect_gift():
+        gift = self.memory.collect_gift()
+        if not gift:
             return
         self._clear_gift()
-        self._say(pick(phrases.GIFT_COLLECT_PHRASES))
+        self._say(pick(phrases.PAINTING_COLLECT_PHRASES
+                       if gift["type"] == "painting"
+                       else phrases.GIFT_COLLECT_PHRASES))
 
     def _expire_gift(self):
         self.memory.discard_pending_gift()

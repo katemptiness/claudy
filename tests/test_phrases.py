@@ -5,6 +5,7 @@ import unittest
 from unittest import mock
 
 from claudy.content import gift_stories, phrases
+from claudy.core import activities
 
 PLACEHOLDER = re.compile(r"\{[^{}]*\}")
 
@@ -137,50 +138,75 @@ class NamelessTests(unittest.TestCase):
 
 class GiftStoryTests(unittest.TestCase):
 
+    GIFTS = [(gift_type, None) for gift_type in ("fish", "magic", "star",
+                                                "shell")]
+    GIFTS += [("painting", emoji)
+              for emoji in activities.PAINTING_GIFT_EMOJI.values()]
+
     def stories(self):
-        for gift_type in ("fish", "magic", "star", "shell"):
-            count = len(gift_stories._get_stories(gift_type))
+        for gift_type, emoji in self.GIFTS:
+            count = len(gift_stories._get_stories(gift_type, emoji))
             for story_id in range(count):
-                yield gift_type, story_id
+                yield gift_type, emoji, story_id
 
     def test_both_languages_agree_on_naming_the_user(self):
-        for stories in gift_stories._STORIES.values():
+        lists = list(gift_stories._STORIES.values())
+        lists += list(gift_stories.PAINTING_STORIES.values())
+        lists.append(gift_stories.PAINTING_STORIES_ANY)
+        for stories in lists:
             for story in stories:
                 self.assertEqual("{name}" in story["ru"],
                                  "{name}" in story["en"], story["en"])
+
+    def test_a_painting_is_told_about_by_what_is_on_it(self):
+        for picture, emoji in activities.PAINTING_GIFT_EMOJI.items():
+            with self.subTest(painting=picture):
+                own = gift_stories.PAINTING_STORIES[emoji]
+                told = gift_stories._get_stories("painting", emoji)
+                self.assertEqual(told[:len(own)], own)
+                # ...and shares the ones about painting itself
+                self.assertEqual(told[len(own):],
+                                 gift_stories.PAINTING_STORIES_ANY)
+        others = [s for emoji, stories in gift_stories.PAINTING_STORIES.items()
+                  for s in stories]
+        self.assertEqual(len(others), len({s["ru"] for s in others}))
 
     def test_without_a_name_a_story_that_needs_one_is_swapped(self):
         """Cutting the name out left "because i knew would be happy"; in
         Russian it would need rewording, so another story is told."""
         def check(lang):
-            for gift_type, story_id in self.stories():
+            for gift_type, emoji, story_id in self.stories():
                 nameless = {s[lang].strip()
-                            for s in gift_stories._get_stories(gift_type)
+                            for s in gift_stories._get_stories(gift_type,
+                                                               emoji)
                             if "{name}" not in s["ru"]}
-                text = gift_stories.get_story(gift_type, story_id)
-                with self.subTest(gift=gift_type, story=story_id):
+                text = gift_stories.get_story(gift_type, story_id,
+                                              emoji=emoji)
+                with self.subTest(gift=gift_type, emoji=emoji,
+                                  story=story_id):
                     # a whole story as written, not one with a word cut out
                     self.assertIn(text, nameless)
                     # the same gift keeps its story each time it is shown
-                    self.assertEqual(
-                        gift_stories.get_story(gift_type, story_id), text)
+                    self.assertEqual(gift_stories.get_story(
+                        gift_type, story_id, emoji=emoji), text)
         in_both_languages(check)
 
     def test_stories_that_need_no_name_stay_as_they_are(self):
-        for gift_type, story_id in self.stories():
-            story = gift_stories._get_stories(gift_type)[story_id]
+        for gift_type, emoji, story_id in self.stories():
+            story = gift_stories._get_stories(gift_type, emoji)[story_id]
             if "{name}" not in story["ru"]:
                 self.assertEqual(
-                    gift_stories.get_story(gift_type, story_id),
-                    gift_stories.get_story(gift_type, story_id, name="Катя"))
+                    gift_stories.get_story(gift_type, story_id, emoji=emoji),
+                    gift_stories.get_story(gift_type, story_id, name="Катя",
+                                           emoji=emoji))
 
     def test_with_a_name_the_story_uses_it(self):
-        named = [(t, i) for t, i in self.stories()
-                 if "{name}" in gift_stories._get_stories(t)[i]["ru"]]
+        named = [(t, e, i) for t, e, i in self.stories()
+                 if "{name}" in gift_stories._get_stories(t, e)[i]["ru"]]
         self.assertTrue(named)
-        for gift_type, story_id in named:
+        for gift_type, emoji, story_id in named:
             self.assertIn("Катя", gift_stories.get_story(
-                gift_type, story_id, name="Катя"))
+                gift_type, story_id, name="Катя", emoji=emoji))
 
     def test_story_ids_out_of_range_wrap_around(self):
         self.assertTrue(gift_stories.get_story("fish", 1000))

@@ -170,27 +170,44 @@ class ItemArtTests(unittest.TestCase):
                 self.assertLessEqual(symbols, set(ITEM_COLORS))
 
     def test_every_gift_claudy_offers_has_a_picture(self):
-        from claudy.content.sprites.items import GIFT_ART, ITEM_ART
+        from claudy.content.sprites.items import GIFT_ART, ITEM_ART, PAINTED
         offered = {c["emoji"] for c in activities.CATCHES if c["good"]}
         offered |= {m["gift_emoji"] for m in activities.MAGIC_RESULTS
                     if m["gift_emoji"]}
         offered |= {"\U0001F41A", "\u2B50"}   # the shell found, the star named
+        offered |= set(activities.PAINTING_GIFT_EMOJI.values())
         for emoji in offered:
             with self.subTest(gift=emoji):
                 self.assertIn(emoji, GIFT_ART)
-                self.assertIn(GIFT_ART[emoji], ITEM_ART)
+                self.assertIn(GIFT_ART[emoji], ITEM_ART.keys() | PAINTED.keys())
+
+    def test_a_painting_given_away_is_the_one_on_the_easel(self):
+        """Each painting has an emoji to be given under, and the picture
+        left on the Dock for it is the one lifted off that painting."""
+        from claudy.content.sprites.activities import PICTURES
+        from claudy.content.sprites.items import GIFT_ART, PAINTED
+        self.assertEqual(set(activities.PAINTING_GIFT_EMOJI),
+                         set(activities.PAINTINGS))
+        self.assertEqual(set(PAINTED.values()), set(PICTURES))
+        for picture, emoji in activities.PAINTING_GIFT_EMOJI.items():
+            with self.subTest(painting=picture):
+                self.assertEqual(PAINTED[GIFT_ART[emoji]], picture)
 
 
 class DreamArtTests(unittest.TestCase):
 
     def test_every_dream_names_a_real_activity_and_a_real_picture(self):
-        from claudy.content.sprites.items import DREAM_ART, ITEM_ART
+        from claudy.content.sprites.items import DREAM_ART, ITEM_ART, PAINTED
         for name, pictures in DREAM_ART.items():
             with self.subTest(activity=name):
                 self.assertIn(name, activities.ACTIVITIES)
                 self.assertTrue(pictures)
                 for picture in pictures:
-                    self.assertIn(picture, ITEM_ART)
+                    self.assertIn(picture, ITEM_ART.keys() | PAINTED.keys())
+
+    def test_claudy_dreams_of_the_pictures_he_paints(self):
+        from claudy.content.sprites.items import DREAM_ART, PAINTED
+        self.assertEqual(set(DREAM_ART["painting"]), set(PAINTED))
 
 
 class ScheduleTests(unittest.TestCase):
@@ -255,6 +272,8 @@ class PhraseTests(unittest.TestCase):
             phrases.PERSONAL_CLICK_PHRASES, phrases.SLEEP_PHRASES,
             phrases.WAKE_PHRASES, phrases.GIFT_ANNOUNCE_PHRASES,
             phrases.GIFT_EXPIRED_PHRASES, phrases.GIFT_COLLECT_PHRASES,
+            phrases.PAINTING_ANNOUNCE_PHRASES,
+            phrases.PAINTING_COLLECT_PHRASES,
             phrases.BOOK_IDLE_PHRASES,
             [c["name"] for c in activities.CATCHES],
             [m["text"] for m in activities.MAGIC_RESULTS],

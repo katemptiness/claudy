@@ -555,8 +555,9 @@ MUSIC_B = sprite("""
 """)
 
 # ── PAINTING (turned three-quarters toward an easel that faces us) ──
-# The canvas is the 5x5 block at rows 3-7, columns 25-29, and the brush
-# tip is drawn as `o`: painting() fills in a picture and its paint.
+# The canvas is the 5x5 block at rows 3-7, columns 25-29, in a one-pixel
+# frame, and the brush tip is drawn as `o`: painting() fills in a picture and
+# its paint.
 
 PAINT_REST = sprite("""
     ................................
@@ -636,6 +637,7 @@ PAINT_DOWN = sprite("""
 
 
 CANVAS_ROW, CANVAS_COL = 3, 25
+CANVAS_SIZE = 5
 
 # Each picture is painted in three stages: (brush position, paint, canvas).
 # The last stage's canvas is the finished picture.
@@ -668,7 +670,7 @@ def painting(base, canvas, paint="c"):
     and `paint` on the brush."""
     rows = [list(row) for row in base]
     for r, line in enumerate(canvas.split()):
-        rows[CANVAS_ROW + r][CANVAS_COL:CANVAS_COL + 5] = sprite(line)[0]
+        rows[CANVAS_ROW + r][CANVAS_COL:CANVAS_COL + CANVAS_SIZE] = sprite(line)[0]
     tip, color = SYMBOLS["o"], SYMBOLS[paint]
     return [[color if v == tip else v for v in row] for row in rows]
 

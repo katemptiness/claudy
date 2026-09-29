@@ -100,6 +100,7 @@ _GIFT_TYPE_NAMES = {
     "magic": ("Magic", "Магия"),
     "star": ("Star", "Звезда"),
     "shell": ("Shell", "Ракушка"),
+    "painting": ("Painting", "Картина"),
     "test": ("Test", "Тест"),
 }
 

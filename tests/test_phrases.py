@@ -154,9 +154,13 @@ class GiftStoryTests(unittest.TestCase):
         Russian it would need rewording, so another story is told."""
         def check(lang):
             for gift_type, story_id in self.stories():
+                nameless = {s[lang].strip()
+                            for s in gift_stories._get_stories(gift_type)
+                            if "{name}" not in s["ru"]}
                 text = gift_stories.get_story(gift_type, story_id)
                 with self.subTest(gift=gift_type, story=story_id):
-                    self.assertNotIn("{name}", text)
+                    # a whole story as written, not one with a word cut out
+                    self.assertIn(text, nameless)
                     # the same gift keeps its story each time it is shown
                     self.assertEqual(
                         gift_stories.get_story(gift_type, story_id), text)

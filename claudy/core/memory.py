@@ -217,10 +217,13 @@ class Memory:
     def log_activity(self, name):
         """Note what Claudy just started, for the things he dreams about.
 
-        Runs of the same activity count once. Through a night of deep sleep
-        Claudy starts "sleeping" again every half minute, and without this
-        the log would hold nothing else by morning — exactly when he is
-        asleep long enough to dream.
+        Runs of the same activity count once. Deep sleep itself loops in
+        place and is logged once, but "sleeping" is all Claudy can choose
+        then, so every hover or click that wakes him in the night, and every
+        time the computer sleeps and wakes, sends him back to it. Without
+        this, a night of the mouse passing over the Dock would fill the log
+        with "sleeping" and push out everything he could dream of — just
+        when he sleeps long enough to dream.
         """
         log = self._data["activities"]
         if log and log[-1] == name:

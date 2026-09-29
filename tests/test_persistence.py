@@ -188,10 +188,22 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(len(self.mem.get_collected_gifts()), 1)
 
     def test_expired_gift_is_discarded(self):
+        """An unclaimed gift is gone, and doesn't use up the day's limit."""
         self.mem.add_gift("shell", "🐚")
         self.mem.discard_pending_gift()
         self.assertIsNone(self.mem.get_pending_gift())
-        self.assertEqual(self.mem.count_session_gifts("shell"), 0)
+        self.assertEqual(self.mem.get_collected_gifts(), [])
+        self.assertEqual(self.mem.count_gifts_today(), 0)
+
+    def test_the_named_star_is_not_one_of_the_days_gifts(self):
+        """The star joins the collection dated today, but naming it must
+        not use up a gift the user could still get: with a limit of one,
+        that would be the day's only gift."""
+        self.mem.add_gift("star", "⭐", name="Kate", collected=True)
+        self.mem.name_star("Kate")
+        self.assertEqual(self.mem.count_gifts_today(), 0)
+        self.mem.add_gift("fish", "🐟")
+        self.assertEqual(self.mem.count_gifts_today(), 1)
 
     def test_collected_gifts_are_newest_first(self):
         for emoji in ("🐟", "🐡"):
@@ -205,9 +217,10 @@ class MemoryTests(unittest.TestCase):
             self.mem.log_activity("reading" if i % 2 else "fishing")
         self.assertEqual(len(self.mem.recent_activities()), memory.ACTIVITY_LOG)
 
-    def test_a_long_sleep_counts_as_one_activity(self):
-        """Claudy restarts "sleeping" every half minute all night; unchecked
-        it would crowd everything else out of the log."""
+    def test_a_night_of_waking_up_counts_as_one_sleep(self):
+        """Every hover or click in the night wakes Claudy, and deep sleep
+        offers nothing but "sleeping" again; unchecked, all those returns
+        to sleep would crowd what he could dream of out of the log."""
         self.mem.log_activity("fishing")
         for _ in range(100):
             self.mem.log_activity("sleeping")
@@ -300,7 +313,7 @@ class MemoryTests(unittest.TestCase):
     def test_app_launches_are_counted(self):
         self.assertEqual(self.mem.record_app_launch("firefox"), 1)
         self.assertEqual(self.mem.record_app_launch("firefox"), 2)
-        self.assertEqual(self.mem.get_app_launches_today("firefox"), 2)
+        self.assertEqual(self.mem.record_app_launch("kitty"), 1)
 
 
 def failing_frame(message="tick failed", value=1):

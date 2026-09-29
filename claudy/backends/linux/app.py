@@ -38,6 +38,8 @@ CLAUDE_WEB_URL = "https://claude.ai"
 PANEL_OVERLAP = 15
 # Wait this long after a click to see whether it becomes a double-click
 DOUBLE_CLICK_MS = 350
+# After the monitors change, look at the screen once more this much later
+SCREEN_SETTLE_S = 2
 
 
 def _find_claude_desktop_entry():
@@ -84,10 +86,13 @@ def get_screen_geometry():
 
     Returns (monitor_x, monitor_width, base_y), where base_y is the absolute
     screen Y Claudy's feet rest on: the top of a bottom panel if there is
-    one, else the bottom of the screen.
+    one, else the bottom of the screen. None if there is no monitor at all,
+    as can happen for a moment while monitors change.
     """
     display = Gdk.Display.get_default()
     monitor = display.get_primary_monitor() or display.get_monitor(0)
+    if monitor is None:
+        return None
     geom = monitor.get_geometry()
     workarea = monitor.get_workarea()
 
@@ -144,6 +149,9 @@ class CrabApp:
         # Screen geometry (absolute screen coords). The controller works in
         # monitor-relative X (0..monitor_w); _abs_x converts.
         self._monitor_x, self._monitor_width, self._base_y = get_screen_geometry()
+        screen = Gdk.Screen.get_default()
+        screen.connect("monitors-changed", self._on_screen_changed)
+        screen.connect("size-changed", self._on_screen_changed)
 
         self._click_timer = None
         self._spots = {}  # window -> where it was last moved to
@@ -256,6 +264,25 @@ class CrabApp:
         self._move(self.ground_window,
                    win_x, self._win_y() + WINDOW_HEIGHT - OVERLAY_HEIGHT)
         self.bubble.sync(self.controller.speech, self._abs_x(view["x"]), win_y)
+
+    def _on_screen_changed(self, screen):
+        """A monitor came, went or changed size: find the panel again.
+
+        The desktop rearranges its panels after that, and the workarea
+        follows them, so look once more a moment later as well.
+        """
+        self._follow_screen()
+        GLib.timeout_add_seconds(SCREEN_SETTLE_S, self._follow_screen)
+
+    def _follow_screen(self):
+        """Re-read the primary monitor; the windows follow on the next tick."""
+        geometry = get_screen_geometry()
+        if geometry is not None:
+            self._monitor_x, self._monitor_width, self._base_y = geometry
+            # Claudy paces the new width from the next frame on, when the
+            # controller works out his walking bounds again
+            self.controller.character.screen_width = self._monitor_width
+        return False  # once, also when run as a timeout
 
     # ---- Drawing ----
 

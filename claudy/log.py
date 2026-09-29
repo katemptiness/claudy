@@ -2,8 +2,8 @@
 
 Claudy runs without a console most of the time, so unexpected errors are
 written to a file instead of vanishing. Callers use `log.exception(...)`
-inside an except block; the app keeps running. Anything that escapes
-uncaught is logged too, once `install_excepthook()` has run.
+inside an except block; the app keeps running. Once `install_excepthook()`
+has run, whatever reaches Python's excepthooks uncaught is logged too.
 """
 
 import logging
@@ -103,10 +103,15 @@ def _configure():
 def install_excepthook():
     """Log exceptions that nothing caught, and still print them as usual.
 
-    Covers a crash while Claudy starts, before any window is up, and
-    errors in GTK callbacks, which PyGObject reports through
+    Covers a backend that fails to import, a crash while the Linux app
+    starts, and errors in GTK callbacks, which PyGObject reports through
     sys.excepthook. Started from the Dock or a login item there is no
     terminal to print to, and without this they would leave no trace.
+
+    AppKit callbacks never get here: PyObjC turns an exception in one into
+    an NSException, which AppKit reports itself. That includes the macOS
+    launch, which runs in applicationDidFinishLaunching_, so those
+    callbacks have to catch and log their own errors.
     """
     if getattr(sys.excepthook, "_claudy", False) is True:
         return      # already installed; a second one would log twice

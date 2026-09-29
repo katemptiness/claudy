@@ -315,6 +315,8 @@ class CrabAppTests(unittest.TestCase):
         timeout_add.assert_called_once_with(250, self.crab._single_click_fired)
 
     def test_follows_the_primary_monitor_when_monitors_change(self):
+        view = {"x": 700, "y_offset": 0}
+        self.crab._move_windows(view)
         with mock.patch.object(app, "get_screen_geometry",
                                return_value=(1080, 2560, 1586)):
             self.assertFalse(self.crab._follow_screen())
@@ -322,6 +324,12 @@ class CrabAppTests(unittest.TestCase):
             (self.crab._monitor_x, self.crab._monitor_width,
              self.crab._base_y), (1080, 2560, 1586))
         self.assertEqual(self.crab.controller.character.screen_width, 2560)
+        # Standing still, Claudy still goes along to the new monitor
+        self.crab._move_windows(view)
+        self.assertEqual(self.crab.window.move.call_count, 2)
+        x, y = self.crab.window.move.call_args[0]
+        self.assertGreaterEqual(x, 1080)
+        self.assertLess(y, 1586)
 
         # For a moment there may be no monitor at all
         with mock.patch.object(app, "get_screen_geometry", return_value=None):

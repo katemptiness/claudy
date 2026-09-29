@@ -435,6 +435,20 @@ class Character:
         if self.state_timer > self.next_state_change and not self.gift_waiting:
             self._pick_next_activity()
 
+    def screen_changed(self):
+        """The walking bounds just moved with the screen. Where he was
+        headed may be off the new screen now, so aim inside it; and if he
+        is off it himself, he would walk back out of sight, so he is put
+        back on the Dock at once."""
+        def inside(x):
+            return min(max(x, self.walk_min_x), self.walk_max_x)
+        if self.state == "walking":
+            self.target_x = inside(self.target_x)
+        if self.friend_walk_target is not None:
+            self.friend_walk_target = inside(self.friend_walk_target)
+        if not 0 <= self.x <= self.screen_width:
+            self.x = inside(self.x)
+
     def _outside_bounds(self):
         """Off the walking bounds by more than a walk leaves him short."""
         return (self.x < self.walk_min_x - WALK_ARRIVE_PX

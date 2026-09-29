@@ -3,7 +3,7 @@
 import unittest
 from unittest import mock
 
-from claudy.config import WINDOW_WIDTH
+from claudy.config import OVERLAY_HEIGHT, SPRITE_SIZE, WINDOW_WIDTH
 from claudy.content import app_reactions, phrases
 from claudy.content.sprites.items import GIFT_ART
 from claudy.core import controller
@@ -351,6 +351,21 @@ class SystemEventTests(ControllerTestCase):
         self.assertEqual(
             Memory.shared().record_app_launch("com.example.unknown"), 2)
 
+    def test_a_high_drop_still_shows_its_surprise(self):
+        """Dropped from high on a Mac, the "!" used to be born above the top
+        of the ground overlay and never seen."""
+        self.ctl.on_drag_start()
+        self.ctl.on_drag_move(self.ctl.character.x, height=400)
+        self.ctl.tick(50)
+        self.ctl.on_drop(400)
+        seen = []
+        for _ in range(100):
+            self.ctl.tick(50)
+            seen += [OVERLAY_HEIGHT - p.y for p in self.ctl.particles.get_active()
+                     if p.image == "exclaim"]
+        self.assertTrue(seen, "no surprise at all")
+        self.assertGreaterEqual(min(seen), 0, "drawn above the overlay")
+
     def test_a_smaller_screen_keeps_claudy_in_sight(self):
         self.ctl.character.x = 2000
         self.ctl.set_screen_width(1280)
@@ -358,6 +373,15 @@ class SystemEventTests(ControllerTestCase):
         self.assertEqual(ch.screen_width, 1280)
         self.assertTrue(ch.walk_min_x <= ch.x <= ch.walk_max_x)
         self.assertLess(ch.walk_max_x, 1280)
+
+    def test_a_walk_under_way_stays_on_a_smaller_screen(self):
+        ch = self.ctl.character
+        ch.x = 1300
+        ch._start_walking(1400)
+        self.ctl.set_screen_width(1000)
+        for _ in range(400):             # 20 s
+            self.ctl.tick(50)
+            self.assertLessEqual(ch.x, 1000 - SPRITE_SIZE / 2)
 
     def test_sleep_and_wake(self):
         self.ctl.on_system_sleep()

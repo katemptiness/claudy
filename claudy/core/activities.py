@@ -122,7 +122,7 @@ ACTIVITIES = {
     ),
     "painting": (
         # pick_painting swaps the landscape for a random picture
-        Phase(["paint_setup"], 500, 1500, message="ставит мольберт...",
+        Phase(["paint_setup"], 500, 1700, message="ставит мольберт...",
               special="pick_painting"),
         *PAINTINGS["landscape"],
         Phase(["idle"], 500, 1000),

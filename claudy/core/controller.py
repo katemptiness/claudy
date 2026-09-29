@@ -11,7 +11,9 @@ import random
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
-from claudy.config import MAX_TICK_MS, PIXEL_SCALE, SPRITE_SIZE, WINDOW_WIDTH
+from claudy.config import (
+    MAX_TICK_MS, OVERLAY_HEIGHT, PIXEL_SCALE, SPRITE_SIZE, WINDOW_WIDTH,
+)
 from claudy.content import phrases, ui_text
 from claudy.content.phrases import pick
 from claudy.content.sprites.items import DREAM_ART, GIFT_ART
@@ -31,6 +33,10 @@ CHATTER_GAP_MS = 3000
 # pixel rows are empty)
 PARTICLE_HEAD_Y = SPRITE_SIZE
 PARTICLE_FEET_Y = 2 * PIXEL_SCALE
+# The ground overlay particles are drawn in is only so tall. Held or falling
+# higher than this (a drag on a Mac), a particle would be born above its top
+# edge and never seen, so it waits until Claudy is back in view.
+PARTICLE_MAX_HEIGHT = OVERLAY_HEIGHT - PARTICLE_HEAD_Y - 30
 # The developer test gift picks from every gift that has a picture
 TEST_GIFT_EMOJIS = tuple(GIFT_ART)
 
@@ -110,6 +116,7 @@ class Controller:
         self._speech_pinned = False
         self._speech_hides_ms = None
         self._last_speech_ms = -CHATTER_GAP_MS
+        self._held_particles = []
         self._dream = None
         self._dream_age_ms = 0.0
         self._dream_out_ms = DREAM_FADE_MS      # how long its fade-out takes
@@ -131,6 +138,11 @@ class Controller:
                 self._handle_event(*event)
             except Exception:
                 log.exception("failed to handle event %r", event)
+        if (self._held_particles
+                and self.view["y_offset"] <= PARTICLE_MAX_HEIGHT):
+            for kind in self._held_particles:
+                self._spawn_particle(kind)
+            self._held_particles.clear()
         if self.gift_emoji and self._clock_ms >= self._gift_expires_ms:
             self._expire_gift()
         if self._speech_hides_ms is not None and self._clock_ms >= self._speech_hides_ms:
@@ -219,13 +231,9 @@ class Controller:
 
     def set_screen_width(self, width):
         """The screen changed size: another monitor, a new resolution."""
-        ch = self.character
-        ch.screen_width = width
+        self.character.screen_width = width
         self._update_walk_bounds()
-        # Inside the screen he walks back to the Dock by himself; off it he
-        # would do that out of sight, so he is put back on the Dock at once
-        if not 0 <= ch.x <= width:
-            ch.x = min(max(ch.x, ch.walk_min_x), ch.walk_max_x)
+        self.character.screen_changed()
 
     def _update_walk_bounds(self):
         # Applied every frame so the Dock-icons setting takes effect live
@@ -238,14 +246,20 @@ class Controller:
         elif kind == "particle":
             if data == "zzz" and self._dream is not None:
                 return      # the dream shows he's asleep; zzz would cross it
-            height = self.view["y_offset"]
-            self.particles.add(data, WINDOW_WIDTH / 2, PARTICLE_HEAD_Y + height,
-                               PARTICLE_FEET_Y + height, self.view["facing_right"])
+            if self.view["y_offset"] > PARTICLE_MAX_HEIGHT:
+                self._held_particles.append(data)
+            else:
+                self._spawn_particle(data)
         elif kind == "gift":
             self._offer_gift(data)
         elif kind == "gift_star":
             self.memory.add_gift("star", "⭐", name=data, collected=True)
             self.memory.name_star(data)
+
+    def _spawn_particle(self, kind):
+        height = self.view["y_offset"]
+        self.particles.add(kind, WINDOW_WIDTH / 2, PARTICLE_HEAD_Y + height,
+                           PARTICLE_FEET_Y + height, self.view["facing_right"])
 
     # ---- Speech ----
 

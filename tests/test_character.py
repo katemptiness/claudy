@@ -155,14 +155,16 @@ class ActivityRunTests(CharacterTestCase):
         self.addCleanup(setattr, Settings.shared(), "language", "ru")
         for name, phases in activities.ACTIVITIES.items():
             for phase in phases:
-                if len(phase.frames) > 1 or phase.special or not phase.message:
-                    break
+                if len(phase.frames) > 1 or not phase.message or phase.shake:
+                    break   # past the still poses: the activity is under way
                 for language in ("ru", "en"):
                     Settings.shared().language = language
                     line = phrases.t(phase.message)
                     with self.subTest(activity=name, line=line):
                         self.assertGreaterEqual(phase.duration_ms,
                                                 Speech.readable_ms(line))
+                if phase.special:
+                    break   # what follows is the special's to decide
 
 
 class WakingTests(CharacterTestCase):

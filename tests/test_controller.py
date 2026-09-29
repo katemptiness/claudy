@@ -3,6 +3,7 @@
 import unittest
 from unittest import mock
 
+from claudy.config import WINDOW_WIDTH
 from claudy.content import app_reactions, phrases
 from claudy.content.sprites.items import GIFT_ART
 from claudy.core import controller
@@ -14,11 +15,26 @@ from claudy.core.speech import Speech
 from tests import support
 
 
+def fail_on_logged_errors(test):
+    """Make an exception the controller catches and logs fail `test`.
+
+    tick() logs a failing event and carries on, which keeps the app alive
+    but would let a test pass with every particle broken.
+    """
+    def reraise(*args, **kwargs):
+        raise  # the exception being handled where log.exception was called
+
+    patcher = mock.patch.object(controller.log, "exception", side_effect=reraise)
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
+
 class ControllerTestCase(unittest.TestCase):
 
     def setUp(self):
         support.reset_singletons()
         support.seeded()
+        fail_on_logged_errors(self)
         self.period = support.fixed_period("day")
         self.period.start()
         self.addCleanup(self.period.stop)
@@ -56,6 +72,7 @@ class StartupTests(unittest.TestCase):
 
     def test_claudy_wakes_up_with_a_yawn(self):
         support.reset_singletons()
+        fail_on_logged_errors(self)
         platform = support.FakePlatform()
         ctl = Controller(platform, support.SCREEN_WIDTH, 58)
         said, _ = support.record_speech(ctl)
@@ -363,6 +380,19 @@ class MenuTests(ControllerTestCase):
         self.assertFalse(toy.enabled)
         self.assertIsInstance(gifts[-1], MenuItem)
         self.assertFalse(gifts[-1].enabled)  # "wait a bit" while cooling down
+
+
+class ParticleEventTests(ControllerTestCase):
+    """Particles Claudy asks for end up around him."""
+
+    def test_particles_spawn_around_claudy(self):
+        self.ctl.on_click()
+        self.ctl.tick(16)
+        sparkles = self.ctl.particles.get_active()
+        self.assertTrue(sparkles)
+        for p in sparkles:
+            self.assertLess(abs(p.x - WINDOW_WIDTH / 2), 16)
+            self.assertGreaterEqual(p.y, controller.PARTICLE_HEAD_Y)
 
 
 class ParticleTests(unittest.TestCase):

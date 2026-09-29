@@ -226,7 +226,9 @@ class IdleAndWalkingTests(CharacterTestCase):
                 self.assertLessEqual(v["x"], self.char.walk_max_x + 1)))
 
     def test_idle_chatter(self):
-        events = support.run(self.char, 80_000)
+        with support.fixed_weights({"idle": 1.0}):
+            events = support.run(self.char, 80_000)
+        self.assertEqual(self.char.state, "idle")
         self.assertIn("message", _event_types(events))
 
 

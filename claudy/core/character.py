@@ -12,6 +12,8 @@ Events are (type, data) tuples:
     ("gift", {type, emoji})   Claudy wants to give the user something (sent
                               when the activity that found it is over)
     ("gift_star", name)       Claudy named a star after the user
+    ("sitter_particle", kind) puff one particle by the friend posing for
+                              his portrait, across the easel
 """
 
 import random
@@ -19,7 +21,7 @@ import time
 from dataclasses import replace
 from datetime import date
 
-from claudy.config import DOCK_EDGE_PADDING, DOCK_WALK_MARGIN, WINDOW_WIDTH
+from claudy.config import DOCK_EDGE_PADDING, DOCK_WALK_MARGIN, SCREEN_EDGE_MARGIN
 from claudy.content import phrases
 from claudy.content.phrases import pick, pick_personal, t
 from claudy.core import schedule
@@ -28,7 +30,9 @@ from claudy.core.activities import (
     FRIEND_ANIMATIONS, FRIEND_FRAME_MS, FRIEND_GOODBYE, MAGIC_GIFT_CHANCE,
     MAGIC_RESULTS, PAINTING_GIFT_CHANCE, PAINTING_GIFT_EMOJI, PAINTINGS,
     REACTION_HEART_INTERVAL_MS, REACTIONS, RECENT_ACTIVITY_BLOCK,
-    SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE,
+    SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE, SITTER_FIDGET_GAP_MS,
+    SITTER_FIDGET_MS, SITTER_FIDGETS, SITTER_HOP_CHANCE, SITTER_NAG_CHANCE,
+    SITTER_NAGS_MAX,
     STAR_NAMING_CHANCE, WAKING, Phase,
 )
 from claudy.core.animations import Bounce, Fall, Hop, Juggle, Shake
@@ -72,10 +76,10 @@ class Character:
         self.next_state_change = random.uniform(*IDLE_MS)
 
         # Horizontal walking bounds (crab-center coords). Default to the full
-        # screen minus a window-width margin; the backend narrows these to the
-        # Dock via update_walk_bounds() so Claudy only paces across the Dock.
-        self.walk_min_x = WINDOW_WIDTH
-        self.walk_max_x = screen_width - WINDOW_WIDTH
+        # screen minus a margin; the backend narrows these to the Dock via
+        # update_walk_bounds() so Claudy only paces across the Dock.
+        self.walk_min_x = SCREEN_EDGE_MARGIN
+        self.walk_max_x = screen_width - SCREEN_EDGE_MARGIN
 
         # Walking
         self.target_x = self.x
@@ -142,6 +146,13 @@ class Character:
         self.friend_frame = 0
         self.friend_frame_timer = 0.0
         self.friend_walk_target = None
+        # ...or the friend posing for his portrait, across the easel
+        self.friend_sitting = False
+        self._sitter_posing = False
+        self._fidget_in = 0.0       # ms until he turns (back) round
+        self._nags = 0              # times he was asked to hold still
+        self._friend_bounce = None  # a hop on the spot, while he fidgets
+        self.friend_y_offset = 0.0  # px he is off the ground
 
         self._events = []
 
@@ -172,6 +183,8 @@ class Character:
             "facing_right": self.facing_right,
             "friend_visible": self.friend_visible,
             "friend_sprite": self.friend_sprite,
+            "friend_sitting": self.friend_sitting,
+            "friend_y_offset": self.friend_y_offset,
             "juggle": tuple(self.juggle.balls()) if self.juggle else (),
             "show_toy": self.has_toy and self.state == "sleeping",
         }
@@ -308,8 +321,8 @@ class Character:
         the full-screen safe range, so a very large count just restores
         roaming the whole screen.
         """
-        full_lo = WINDOW_WIDTH
-        full_hi = self.screen_width - WINDOW_WIDTH
+        full_lo = SCREEN_EDGE_MARGIN
+        full_hi = self.screen_width - SCREEN_EDGE_MARGIN
         dock_width = max(0, dock_icons) * tile_pitch + 2 * DOCK_EDGE_PADDING
         center = self.screen_width / 2
         half = dock_width / 2
@@ -386,8 +399,9 @@ class Character:
     def _say(self, text):
         self._events.append(("message", text))
 
-    def _burst(self, particle, count):
-        self._events.extend([("particle", particle)] * count)
+    def _burst(self, particle, count, by_sitter=False):
+        kind = "sitter_particle" if by_sitter else "particle"
+        self._events.extend([(kind, particle)] * count)
 
     # ---- Idle & walking ----
 
@@ -735,6 +749,8 @@ class Character:
     # ---- Friend ----
 
     def _update_friend(self, dt):
+        if self._sitter_posing:
+            self._update_sitter(dt)
         if not self.friend_animation:
             return
         frames = FRIEND_ANIMATIONS[self.friend_animation]
@@ -760,11 +776,45 @@ class Character:
         self.friend_frame_timer = 0.0
         self.friend_sprite = FRIEND_ANIMATIONS[animation][0]
 
+    def _update_sitter(self, dt):
+        """He poses, but not very still: every so often he turns round to
+        look at us, or hops on the spot, and Claudy may ask him to hold
+        still."""
+        if self._friend_bounce:
+            self.friend_y_offset, done = self._friend_bounce.update(dt)
+            if done:
+                self._friend_bounce = None
+        self._fidget_in -= dt
+        if self._fidget_in > 0:
+            return
+        if self.friend_sprite == "sitter":
+            hops = random.random() < SITTER_HOP_CHANCE
+            if hops:
+                # As Claudy does when clicked
+                self.friend_sprite = "happy"
+                self._friend_bounce = Bounce()
+            else:
+                self.friend_sprite = random.choice(SITTER_FIDGETS)
+            self._fidget_in = SITTER_FIDGET_MS
+            if (self._nags < SITTER_NAGS_MAX
+                    and random.random() < SITTER_NAG_CHANCE):
+                self._nags += 1
+                self._say(pick(phrases.SITTER_HOP_NAG_PHRASES if hops
+                               else phrases.SITTER_NAG_PHRASES))
+        else:
+            self.friend_sprite = "sitter"
+            self._fidget_in = random.uniform(*SITTER_FIDGET_GAP_MS)
+
     def _friend_leaves(self):
+        # In a puff where he stands, beside Claudy or across the easel
+        self._burst("poof", 6, by_sitter=self.friend_sitting)
         self.friend_visible = False
+        self.friend_sitting = False
+        self._sitter_posing = False
+        self._friend_bounce = None
+        self.friend_y_offset = 0.0
         self.friend_sprite = "idle"
         self.friend_animation = None
-        self._burst("poof", 6)
 
     # ---- Phase specials (Phase.special names map to _special_<name>) ----
 
@@ -826,6 +876,30 @@ class Character:
         # Between the easel going up and the final idle
         self._painting = random.choice(list(PAINTINGS))
         self.phases[1:-1] = PAINTINGS[self._painting]
+
+    def _special_sitter_arrives(self):
+        self.friend_visible = True
+        self.friend_sitting = True
+        self._sitter_posing = True
+        self.friend_sprite = "sitter"
+        self._fidget_in = random.uniform(*SITTER_FIDGET_GAP_MS)
+        self._nags = 0
+        self._burst("poof", 6, by_sitter=True)
+
+    def _special_portrait_done(self):
+        # He stops posing (landing, if he was mid-hop), and he is delighted
+        self._sitter_posing = False
+        self._friend_bounce = None
+        self.friend_y_offset = 0.0
+        self.friend_sprite = "love"
+        self._burst("heart", 3, by_sitter=True)
+        self._special_painting_gift_chance()
+
+    def _special_sitter_thanks(self):
+        self.friend_sprite = "wave"
+
+    def _special_sitter_leaves(self):
+        self._friend_leaves()
 
     def _special_painting_gift_chance(self):
         # The easel is folded away when he is done, and the canvas is left

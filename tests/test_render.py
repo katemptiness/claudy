@@ -13,6 +13,7 @@ from claudy.content.sprites.grid import SYMBOLS
 from claudy.content.sprites.items import (
     DREAM_ART, DREAM_CLOUD, GIFT_ART, PAINTED, STAR_TWINKLE, TOY,
 )
+from claudy.core import activities
 from claudy.core.controller import Controller
 from claudy.core.settings import STAR_HEIGHT_MIN
 from claudy.render import art
@@ -324,6 +325,89 @@ class DreamTests(SceneTestCase):
         canvas = RecordingCanvas()
         self.scene.paint_ground(canvas)
         self.assertEqual(canvas.of("image"), [])
+
+
+class SitterTests(SceneTestCase):
+    """The friend posing for his portrait, across the easel from Claudy."""
+
+    def pose(self, facing_right, sprite="sitter", height=0.0):
+        char = self.ctl.character
+        char.force_activity("painting")
+        char._painting = "friend"
+        char.phases[1:-1] = activities.PAINTINGS["friend"]
+        char.facing_right = facing_right
+        for _ in range(140):            # through the call and his arrival
+            self.ctl.tick(50)
+        self.assertTrue(char.friend_sitting)
+        char.friend_sprite = sprite
+        char.friend_y_offset = height
+        self.ctl.view = char.view()
+        canvas = RecordingCanvas()
+        self.scene.paint_crab(canvas)
+        friend, claudy = canvas.of("image")
+        return friend, claudy
+
+    @staticmethod
+    def drawn(call):
+        """Left and right edges of the pixels an image call puts down."""
+        _, key, x, _ = call
+        image = art.build(key)
+        cols = [c for c in range(len(image.rows[0]))
+                if any(row[c] is not None for row in image.rows)]
+        return x + cols[0] * image.scale, x + (cols[-1] + 1) * image.scale
+
+    def test_he_stands_across_the_easel_facing_claudy(self):
+        for facing_right in (True, False):
+            with self.subTest(facing_right=facing_right):
+                friend, claudy = self.pose(facing_right)
+                self.assertEqual(friend[1], art.sprite_key(
+                    "sitter", friend=True, flip=facing_right))
+                f_left, f_right = self.drawn(friend)
+                c_left, c_right = self.drawn(claudy)   # Claudy and his easel
+                gap = f_left - c_right if facing_right else c_left - f_right
+                self.assertEqual(gap, 3 * PIXEL_SCALE)
+
+    def test_all_of_him_fits_the_window_whichever_way_he_turns(self):
+        """Turned to us he is wider than in his pose: both claws show."""
+        sprites = ("sitter", "love", "wave") + activities.SITTER_FIDGETS
+        for facing_right in (True, False):
+            for sprite in sprites:
+                with self.subTest(facing_right=facing_right, sprite=sprite):
+                    friend, _ = self.pose(facing_right, sprite)
+                    left, right = self.drawn(friend)
+                    self.assertGreaterEqual(left, 0)
+                    self.assertLessEqual(right, WINDOW_WIDTH)
+
+    def test_hopping_he_stays_in_the_window_and_his_shadow_shrinks(self):
+        from claudy.core.animations import Bounce
+        friend, _ = self.pose(True, "happy")
+        canvas = RecordingCanvas()
+        self.scene.paint_ground(canvas)
+        grounded = self._shadow_width(canvas, friend)
+        friend, _ = self.pose(True, "happy", height=Bounce().height)
+        image = art.build(friend[1])
+        top = min(r for r, row in enumerate(image.rows)
+                  if any(c is not None for c in row))
+        self.assertGreaterEqual(friend[3] + top * image.scale, 0)
+        canvas = RecordingCanvas()
+        self.scene.paint_ground(canvas)
+        self.assertLess(self._shadow_width(canvas, friend), grounded)
+
+    def _shadow_width(self, canvas, friend):
+        left, right = self.drawn(friend)
+        return max(c[3] for c in canvas.of("rect") if c[2] == SHADOW_Y
+                   and left <= c[1] and c[1] + c[3] <= right)
+
+    def test_his_shadow_lies_under_him(self):
+        for facing_right in (True, False):
+            with self.subTest(facing_right=facing_right):
+                friend, _ = self.pose(facing_right)
+                f_left, f_right = self.drawn(friend)
+                canvas = RecordingCanvas()
+                self.scene.paint_ground(canvas)
+                under = [c for c in canvas.of("rect") if c[2] == SHADOW_Y
+                         and f_left <= c[1] and c[1] + c[3] <= f_right]
+                self.assertEqual(max(c[3] for c in under), 10 * PIXEL_SCALE)
 
 
 class StarTests(SceneTestCase):

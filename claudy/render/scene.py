@@ -11,8 +11,9 @@ import zlib
 from dataclasses import dataclass
 
 from claudy.config import (
-    FRIEND_OFFSET_X, OVERLAY_HEIGHT, PIXEL_SCALE, SPRITE_SIZE, SPRITE_X,
-    SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT, WINDOW_WIDTH,
+    FRIEND_OFFSET_X, OVERLAY_HEIGHT, PIXEL_SCALE, SITTER_OFFSET_X,
+    SPRITE_SIZE, SPRITE_X, SPRITE_Y, STAR_SPREAD, STAR_WINDOW, WINDOW_HEIGHT,
+    WINDOW_WIDTH,
 )
 from claudy.content.sprites.items import (
     DREAM_CLOUD, GIFT_ART, STAR_TWINKLE, TOY,
@@ -146,11 +147,24 @@ class Scene:
 
     # ---- Crab window ----
 
+    @staticmethod
+    def _friend_spot(view):
+        """(x offset from Claudy, mirrored?) for the friend: just behind
+        Claudy on a visit, or across the easel, facing him, while he poses
+        for his portrait."""
+        if not view["friend_sitting"]:
+            return FRIEND_OFFSET_X, False
+        side = 1 if view["facing_right"] else -1
+        return side * SITTER_OFFSET_X, side > 0
+
     def paint_crab(self, canvas):
         view = self.ctl.view
         if view["friend_visible"]:
-            canvas.image(art.sprite_key(view["friend_sprite"], friend=True),
-                         SPRITE_X + FRIEND_OFFSET_X, SPRITE_Y)
+            dx, flip = self._friend_spot(view)
+            canvas.image(art.sprite_key(view["friend_sprite"], friend=True,
+                                        flip=flip),
+                         SPRITE_X + dx,
+                         SPRITE_Y - round(view["friend_y_offset"]))
         # Juggled balls fly behind Claudy, never across its face
         center = WINDOW_WIDTH / 2 + view["shake_dx"]
         side = 1 if view["facing_right"] else -1
@@ -173,7 +187,9 @@ class Scene:
         view = self.ctl.view
         height = max(0.0, view["y_offset"])
         if view["friend_visible"]:
-            self._shadow(canvas, WINDOW_WIDTH / 2 + FRIEND_OFFSET_X, height)
+            dx, _ = self._friend_spot(view)
+            self._shadow(canvas, WINDOW_WIDTH / 2 + dx,
+                         height + view["friend_y_offset"])
         self._shadow(canvas, WINDOW_WIDTH / 2, height)
         if view["show_toy"]:
             self._item_shadow(canvas, TOY_X, art.build(art.item_key(TOY)))

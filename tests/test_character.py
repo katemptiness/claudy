@@ -7,7 +7,7 @@ from unittest import mock
 from claudy.content import phrases
 from claudy.content.sprites import SPRITES
 from claudy.core import activities
-from claudy.core.animations import Juggle
+from claudy.core.animations import Bounce, Juggle
 from claudy.core.character import Character
 from claudy.core.settings import Settings
 from claudy.core.speech import Speech
@@ -271,8 +271,8 @@ class PaintingTests(CharacterTestCase):
         self.assertEqual(len(pictures), len(activities.PAINTINGS))
 
     def _painted_picture(self):
-        done, = [f for phase in self.char.phases for f in phase.frames
-                 if f.endswith("_done")]
+        done, = {f for phase in self.char.phases for f in phase.frames
+                 if f.endswith("_done")}
         return done[len("paint_"):-len("_done")]
 
     def test_the_painting_just_finished_may_be_left_as_a_gift(self):
@@ -295,6 +295,86 @@ class PaintingTests(CharacterTestCase):
             self.char.force_activity("painting")
             _, events = support.run_until_idle(self.char)
         self.assertNotIn("gift", _event_types(events))
+
+    def _paint_portrait(self):
+        self.char.force_activity("painting")
+        self.char._painting = "friend"
+        self.char.phases[1:-1] = activities.PAINTINGS["friend"]
+
+    def test_the_friend_comes_to_pose_for_his_portrait(self):
+        self._paint_portrait()
+        seen = []
+        _, events = support.run_until_idle(self.char, on_tick=seen.append)
+        # He is there from the first stroke to the finished picture
+        for view in seen:
+            if view["sprite"].startswith("paint_friend_") \
+                    and not view["sprite"].endswith("_done"):
+                self.assertTrue(view["friend_visible"])
+                self.assertTrue(view["friend_sitting"])
+        posing = {v["friend_sprite"] for v in seen if v["friend_sitting"]}
+        self.assertLessEqual(posing, set(SPRITES))
+        self.assertIn("sitter", posing)
+        # ...not very still
+        self.assertTrue(posing & set(activities.SITTER_FIDGETS))
+        # ...delighted with it, and waving goodbye
+        self.assertLessEqual({"love", "wave"}, posing)
+        # ...and gone before the easel is folded away
+        self.assertFalse(seen[-1]["friend_visible"])
+        self.assertFalse(seen[-1]["friend_sitting"])
+        # His arrival and his goodbye puff where he stands
+        self.assertEqual(events.count(("sitter_particle", "poof")), 12)
+        self.assertNotIn(("particle", "poof"), events)
+        nags = {phrases.t(p) for p in phrases.SITTER_NAG_PHRASES
+                + phrases.SITTER_HOP_NAG_PHRASES}
+        said = [text for kind, text in events if kind == "message"]
+        self.assertLessEqual(len([t for t in said if t in nags]),
+                             activities.SITTER_NAGS_MAX)
+
+    def test_the_sitter_turns_round_or_hops_on_the_spot(self):
+        turned = hopped = False
+        for seed in range(6):
+            support.seeded(seed)
+            self._paint_portrait()
+            seen = []
+            support.run_until_idle(self.char, on_tick=seen.append)
+            for view in seen:
+                height = view["friend_y_offset"]
+                self.assertLessEqual(height, Bounce().height)
+                if height:
+                    hopped = True
+                    self.assertEqual(view["friend_sprite"], "happy")
+                    self.assertTrue(view["friend_sitting"])
+                elif view["friend_sprite"] in activities.SITTER_FIDGETS:
+                    turned = turned or view["friend_sitting"]
+                if view["friend_sprite"] in ("love", "wave"):
+                    self.assertEqual(height, 0)   # on the ground by then
+        self.assertTrue(turned)
+        self.assertTrue(hopped)
+
+    def test_only_the_portrait_is_painted_from_life(self):
+        for picture in ("landscape", "flower", "heart"):
+            with self.subTest(painting=picture):
+                self.char.force_activity("painting")
+                self.char.phases[1:-1] = activities.PAINTINGS[picture]
+                seen = []
+                support.run_until_idle(self.char, on_tick=seen.append)
+                self.assertFalse(any(v["friend_visible"] for v in seen))
+
+    def test_a_sitter_interrupted_leaves_where_he_stood(self):
+        self._paint_portrait()
+        support.run(self.char, 6000)    # called over, and posing
+        self.assertTrue(self.char.friend_sitting)
+        self.char.start_drag()
+        events = self.char.take_events()
+        self.assertFalse(self.char.friend_visible)
+        self.assertFalse(self.char.friend_sitting)
+        self.assertIn(("sitter_particle", "poof"), events)
+        self.assertNotIn(("particle", "poof"), events)
+        # Nothing of the portrait lingers into the next visit
+        self.char.force_activity("summoning")
+        support.run(self.char, 5000)
+        self.assertTrue(self.char.friend_visible)
+        self.assertFalse(self.char.friend_sitting)
 
     def test_the_picture_grows_stage_by_stage(self):
         self.char.force_activity("painting")
@@ -387,11 +467,11 @@ class WalkBoundsTests(CharacterTestCase):
         self.assertLess(self.char.walk_min_x, center)
 
     def test_huge_dock_is_clamped_to_screen(self):
-        from claudy.config import WINDOW_WIDTH
+        from claudy.config import SCREEN_EDGE_MARGIN
         self.char.update_walk_bounds(500, 58)
-        self.assertEqual(self.char.walk_min_x, WINDOW_WIDTH)
+        self.assertEqual(self.char.walk_min_x, SCREEN_EDGE_MARGIN)
         self.assertEqual(self.char.walk_max_x,
-                         support.SCREEN_WIDTH - WINDOW_WIDTH)
+                         support.SCREEN_WIDTH - SCREEN_EDGE_MARGIN)
 
     def test_tiny_dock_collapses_to_center(self):
         self.char.update_walk_bounds(0, 58)

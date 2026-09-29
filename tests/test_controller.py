@@ -3,7 +3,9 @@
 import unittest
 from unittest import mock
 
-from claudy.config import OVERLAY_HEIGHT, SPRITE_SIZE, WINDOW_WIDTH
+from claudy.config import (
+    OVERLAY_HEIGHT, SITTER_OFFSET_X, SPRITE_SIZE, WINDOW_WIDTH,
+)
 from claudy.content import app_reactions, phrases
 from claudy.content.sprites.items import GIFT_ART
 from claudy.core import activities, controller
@@ -463,6 +465,16 @@ class MenuTests(ControllerTestCase):
 
 class ParticleEventTests(ControllerTestCase):
     """Particles Claudy asks for end up around him."""
+
+    def test_the_sitters_particles_rise_across_the_easel(self):
+        for facing_right, side in ((True, 1), (False, -1)):
+            with self.subTest(facing_right=facing_right):
+                self.ctl.particles = ParticleSystem()
+                self.ctl.view = dict(self.ctl.view, facing_right=facing_right)
+                self.ctl._handle_event("sitter_particle", "heart")
+                heart, = self.ctl.particles.get_active()
+                self.assertLess(abs(heart.x - (WINDOW_WIDTH / 2
+                                               + side * SITTER_OFFSET_X)), 16)
 
     def test_particles_spawn_around_claudy(self):
         self.ctl.on_click()

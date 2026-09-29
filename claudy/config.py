@@ -14,8 +14,11 @@ SPRITE_SIZE = GRID * PIXEL_SCALE  # 80
 # Claudy uses two windows of the same width, bottom edges aligned at rest:
 # the small crab window (takes clicks, rises when Claudy hops) and a taller
 # click-through overlay that stays on the Dock (shadows, gift, particles).
-# Drawing coordinates have their origin at a window's top-left.
-WINDOW_WIDTH = 200
+# Drawing coordinates have their origin at a window's top-left. They are as
+# wide as the friend posing across the easel needs (SITTER_OFFSET_X), on
+# whichever side the easel stands and turned whichever way he fidgets to;
+# only Claudy himself takes clicks.
+WINDOW_WIDTH = 320
 WINDOW_HEIGHT = SPRITE_SIZE + 10  # 90, just the sprite + small margin
 OVERLAY_HEIGHT = 300
 # The sprite is centered horizontally, at the bottom of the crab window
@@ -33,6 +36,12 @@ STAR_SPREAD = 180       # px each side of the screen center it may hang
 
 # The friend crab stands this far to the left of Claudy
 FRIEND_OFFSET_X = -50
+# ...except while he poses for his portrait: then he stands across the easel,
+# this far from Claudy on the easel's side, three art pixels clear of it
+SITTER_OFFSET_X = 125
+
+# Roaming the whole screen, Claudy's center keeps this far from its edges
+SCREEN_EDGE_MARGIN = 200
 
 # Vertical offset to align crab feet with dock top
 DOCK_Y_ADJUST = -15

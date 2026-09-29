@@ -301,6 +301,15 @@ _EN = {
     "это тебе!": "this is for you!",
     "нашёл и подумал о тебе": "found it and thought of you",
 
+    # The friend posing for his portrait
+    "позову друга позировать!": "i'll ask my friend to pose!",
+    "встань вот тут :3": "stand right there :3",
+    "не вертись!": "stop fidgeting!",
+    "не прыгай, ты позируешь!": "no hopping, you're posing!",
+    "стой смирно, пожалуйста!": "hold still, please!",
+    "ещё чуть-чуть!": "just a little longer!",
+    "спасибо, что попозировал!": "thanks for posing!",
+
     # A painting left as a gift, and taken
     "это тебе! сам нарисовал :3": "this is for you! painted it myself :3",
     "картина для {name}!": "a painting for {name}!",
@@ -490,6 +499,20 @@ GIFT_COLLECT_PHRASES = [
     "тебе понравилось? :3",
     "это тебе!",
     "нашёл и подумал о тебе",
+]
+
+# Said to the friend when he won't hold still for his portrait: when he
+# turns round, and when he hops
+SITTER_NAG_PHRASES = [
+    "не вертись!",
+    "стой смирно, пожалуйста!",
+    "ещё чуть-чуть!",
+]
+
+SITTER_HOP_NAG_PHRASES = [
+    "не прыгай, ты позируешь!",
+    "стой смирно, пожалуйста!",
+    "ещё чуть-чуть!",
 ]
 
 # A painting wasn't found but made, so it is given with words of its own

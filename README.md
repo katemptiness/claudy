@@ -207,7 +207,7 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 | Sleeping | Nods off (nap or deep sleep depending on time) | Zzz |
 | Playing | Bounces around happily | Notes |
 | Music | Plays a tune | Notes |
-| Painting | Sets up an easel and paints a picture stage by stage: a landscape, a flower, a heart or a portrait of its friend. Sometimes it leaves the picture on the Dock for you | — |
+| Painting | Sets up an easel and paints a picture stage by stage: a landscape, a flower, a heart or a portrait of its friend. The portrait is painted from life: the blue friend is called over to pose across the easel, doesn't quite hold still, turning round or hopping on the spot ("stop fidgeting!", "no hopping, you're posing!"), loves the result and waves goodbye. Sometimes Claudy leaves the picture on the Dock for you | Poof, hearts |
 | Telescope | Pulls out a telescope, gazes at the stars | Stars |
 | Meditating | Sits quietly for a long time | Sparkles |
 | Juggling | Tosses three balls from claw to claw over its head | — |

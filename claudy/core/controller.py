@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from claudy.config import (
-    MAX_TICK_MS, OVERLAY_HEIGHT, PIXEL_SCALE, SPRITE_SIZE, WINDOW_WIDTH,
+    MAX_TICK_MS, OVERLAY_HEIGHT, PIXEL_SCALE, SITTER_OFFSET_X, SPRITE_SIZE,
+    WINDOW_WIDTH,
 )
 from claudy.content import phrases, ui_text
 from claudy.content.phrases import pick
@@ -250,15 +251,20 @@ class Controller:
                 self._held_particles.append(data)
             else:
                 self._spawn_particle(data)
+        elif kind == "sitter_particle":
+            # By the friend posing across the easel, who stands on the ground
+            side = 1 if self.view["facing_right"] else -1
+            self._spawn_particle(data, dx=side * SITTER_OFFSET_X)
         elif kind == "gift":
             self._offer_gift(data)
         elif kind == "gift_star":
             self.memory.add_gift("star", "⭐", name=data, collected=True)
             self.memory.name_star(data)
 
-    def _spawn_particle(self, kind):
+    def _spawn_particle(self, kind, dx=0):
         height = self.view["y_offset"]
-        self.particles.add(kind, WINDOW_WIDTH / 2, PARTICLE_HEAD_Y + height,
+        self.particles.add(kind, WINDOW_WIDTH / 2 + dx,
+                           PARTICLE_HEAD_Y + height,
                            PARTICLE_FEET_Y + height, self.view["facing_right"])
 
     # ---- Speech ----

@@ -2,7 +2,7 @@
 
 import unittest
 
-from claudy.config import GRID, PALETTE
+from claudy.config import GRID, PALETTE, PIXEL_SCALE, WINDOW_WIDTH
 from claudy.content import app_reactions, phrases, ui_text
 from claudy.content.sprites import SPRITES
 from claudy.core import activities, schedule
@@ -37,10 +37,10 @@ class SpriteTests(unittest.TestCase):
                 self.assertEqual(len(grid), GRID)
                 width = len(grid[0])
                 # Wider sprites grow evenly on both sides of Claudy and
-                # must fit the 200 px crab window
+                # must fit the crab window
                 self.assertGreaterEqual(width, GRID)
                 self.assertEqual(width % 2, 0)
-                self.assertLessEqual(width, 40)
+                self.assertLessEqual(width * PIXEL_SCALE, WINDOW_WIDTH)
                 for row in grid:
                     self.assertEqual(len(row), width)
                     for value in row:
@@ -273,7 +273,8 @@ class PhraseTests(unittest.TestCase):
             phrases.WAKE_PHRASES, phrases.GIFT_ANNOUNCE_PHRASES,
             phrases.GIFT_EXPIRED_PHRASES, phrases.GIFT_COLLECT_PHRASES,
             phrases.PAINTING_ANNOUNCE_PHRASES,
-            phrases.PAINTING_COLLECT_PHRASES,
+            phrases.PAINTING_COLLECT_PHRASES, phrases.SITTER_NAG_PHRASES,
+            phrases.SITTER_HOP_NAG_PHRASES,
             phrases.BOOK_IDLE_PHRASES,
             [c["name"] for c in activities.CATCHES],
             [m["text"] for m in activities.MAGIC_RESULTS],

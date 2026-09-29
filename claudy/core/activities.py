@@ -6,7 +6,7 @@ marshmallow, which games to play with a friend) never leak into the next run.
 """
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from claudy.core.animations import Juggle
@@ -52,13 +52,40 @@ def _painting(picture, done_message):
                            special="painting_gift_chance"),)
 
 
+def _portrait():
+    """The friend's portrait is painted from life: Claudy calls him over, he
+    poses across the easel (not very still), and once it is done he is
+    thanked and goes."""
+    *stages, done = _painting("friend", "портрет друга!")
+    return (
+        Phase(["paint_setup"], 500, 2200, message="позову друга позировать!"),
+        Phase(["paint_setup"], 500, 2200, message="встань вот тут :3",
+              special="sitter_arrives"),
+        *stages,
+        replace(done, special="portrait_done"),
+        Phase(["paint_friend_done"], 500, 2500,
+              message="спасибо, что попозировал!", special="sitter_thanks"),
+        Phase(["paint_friend_done"], 500, 800, special="sitter_leaves"),
+    )
+
+
 # What Claudy paints; one is picked each time the easel goes up
 PAINTINGS = {
     "landscape": _painting("landscape", "хмм... неплохо!"),
     "flower": _painting("flower", "цветочек!"),
     "heart": _painting("heart", "сердечко!"),
-    "friend": _painting("friend", "портрет друга!"),
+    "friend": _portrait(),
 }
+
+# The friend fidgets while he poses: every so often he turns to look at us
+# for a moment, or hops on the spot as Claudy does when clicked, and now and
+# then Claudy asks him to hold still
+SITTER_FIDGET_GAP_MS = (4000, 8000)
+SITTER_FIDGET_MS = 1400
+SITTER_FIDGETS = ("idle", "happy", "blink")
+SITTER_HOP_CHANCE = 0.5
+SITTER_NAG_CHANCE = 0.5
+SITTER_NAGS_MAX = 2
 
 # The emoji a painting is given under, when Claudy leaves it on the Dock:
 # what is on it. The gifts window adds that it is a painting.

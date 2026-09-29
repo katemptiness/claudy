@@ -351,7 +351,10 @@ class MacApp:
     def drag_window_to(self, x, y):
         self.window.setFrameOrigin_((x, y))
         self.ground_window.setFrameOrigin_((x, self.dock_y))
-        self.controller.on_drag_move(x - self.screen_x + WINDOW_WIDTH / 2)
+        # The height lets the shadow on the Dock shrink and fade under a
+        # Claudy held up in the air, as it does while he falls
+        self.controller.on_drag_move(x - self.screen_x + WINDOW_WIDTH / 2,
+                                     height=y - self.dock_y)
 
     def drop_window(self):
         """Let go: Claudy falls from where it was dropped back to the Dock."""

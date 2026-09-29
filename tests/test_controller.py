@@ -306,6 +306,25 @@ class SystemEventTests(ControllerTestCase):
         self.assertEqual(self.ctl.character.state, "waking")
 
 
+class InputTests(ControllerTestCase):
+
+    def test_a_dragged_claudy_is_as_high_as_he_is_held(self):
+        """His shadow on the Dock goes by it, and so does the fall."""
+        self.ctl.on_drag_start()
+        self.ctl.on_drag_move(500, height=150)
+        self.ctl.tick(16)
+        self.assertEqual(self.ctl.view["y_offset"], 150)
+        self.ctl.on_drop(150)
+        self.ctl.tick(16)
+        self.assertGreater(self.ctl.view["y_offset"], 140)
+
+    def test_a_drag_without_a_height_stays_on_the_ground(self):
+        self.ctl.on_drag_start()
+        self.ctl.on_drag_move(500)
+        self.ctl.tick(16)
+        self.assertEqual(self.ctl.view["y_offset"], 0)
+
+
 class MenuTests(ControllerTestCase):
 
     def _find(self, items, label):

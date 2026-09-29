@@ -262,10 +262,41 @@ class MotionTests(CharacterTestCase):
         self.assertAlmostEqual(top, Juggle.PEAK, delta=1)
         self.assertLess(abs(dx), 4)          # right over Claudy's head
 
-    def test_balls_are_put_away_after_juggling(self):
+    def test_balls_in_the_air_come_down_before_they_are_put_away(self):
         self.char.force_activity("juggling")
-        support.run(self.char, 4500)
+        shown, falling_after_the_last_throw = {}, False
+        while self.char.state == "juggling":
+            view = self.char.update(5)
+            balls = {index: height for _, height, index in view["juggle"]}
+            if self.char.phase_index > 0 and balls:
+                falling_after_the_last_throw = True
+            for index, height in shown.items():
+                if index not in balls:
+                    self.assertLess(height, 2, "a ball vanished in mid-air")
+            shown = balls
+        self.assertTrue(falling_after_the_last_throw)
         self.assertEqual(self.char.view()["juggle"], ())
+
+    def test_playing_ends_with_a_landing(self):
+        self.char.force_activity("playing")
+        heights, events = [0.0], []
+        while self.char.phase_index == 0:
+            heights.append(self.char.update(16)["y_offset"])
+            events += self.char.take_events()
+        drops = [a - b for a, b in zip(heights, heights[1:])]
+        self.assertLess(max(drops), 2)       # no snapping down to the ground
+        self.assertEqual(events[-1], ("particle", "dust"))
+
+    def test_hopping_or_wandering_off_the_dock_never_jumps_back(self):
+        self.char.update_walk_bounds(10, 58)
+        for name in ("playing", "shell_collecting"):
+            with self.subTest(activity=name):
+                self.char.x = self.char.walk_min_x - 200
+                self.char.force_activity(name)
+                xs = [self.char.x]
+                while self.char.state == name:
+                    xs.append(self.char.update(50)["x"])
+                self.assertLess(max(abs(b - a) for a, b in zip(xs, xs[1:])), 5)
 
     def test_walking_eases_in(self):
         self.char.update_walk_bounds(40, 58)
@@ -302,6 +333,26 @@ class WalkBoundsTests(CharacterTestCase):
         self.char.update_walk_bounds(0, 58)
         self.assertEqual(self.char.walk_min_x, self.char.walk_max_x)
 
+    def test_claudy_walks_back_onto_the_dock(self):
+        self.char.update_walk_bounds(10, 58)
+        self.char.x = self.char.walk_min_x - 200
+        xs = [self.char.x]
+        with support.fixed_weights({"idle": 1.0}):
+            self.char.update(50)
+            self.assertEqual(self.char.state, "walking")
+            for _ in range(200):
+                xs.append(self.char.update(50)["x"])
+        self.assertEqual(self.char.state, "idle")
+        self.assertGreaterEqual(self.char.x, self.char.walk_min_x - 2)
+        self.assertLess(max(abs(b - a) for a, b in zip(xs, xs[1:])), 5)
+
+    def test_claudy_waits_by_a_gift_even_off_the_dock(self):
+        self.char.update_walk_bounds(10, 58)
+        self.char.x = self.char.walk_min_x - 200
+        self.char.wait_for_gift(True)
+        support.run(self.char, 1000)
+        self.assertEqual(self.char.state, "idle")
+
 
 class ReactionTests(CharacterTestCase):
 
@@ -333,6 +384,26 @@ class ReactionTests(CharacterTestCase):
         self.char.hover(False)
         self.assertEqual(self.char.state, "idle")
 
+    def test_hover_leaves_a_busy_claudy_to_it(self):
+        """The pointer crosses Claudy on its way to the Dock."""
+        for name in ("reading", "sleeping"):
+            with self.subTest(activity=name):
+                self.char.force_activity(name)
+                support.run(self.char, 2000)
+                self.char.hover(True)
+                self.assertNotEqual(self.char.sprite_name(), "wave")
+                self.char.hover(False)
+                support.run(self.char, 100)
+                self.assertEqual(self.char.state, name)
+
+    def test_hover_does_not_send_a_friend_home(self):
+        self.char.trigger_activity("summoning")
+        support.run(self.char, 4000)
+        self.assertTrue(self.char.friend_visible)
+        self.char.hover(True)
+        self.char.hover(False)
+        self.assertTrue(self.char.friend_visible)
+
     def test_drag_and_drop(self):
         self.char.start_drag()
         self.char.drag_to(300)
@@ -342,6 +413,18 @@ class ReactionTests(CharacterTestCase):
         self.assertEqual(self.char.x, 300)
         self.assertGreater(heights[0], 100)
         self.assertEqual(heights[-1], 0)
+
+    def test_held_up_high_and_let_go_from_there(self):
+        """The height Claudy is held at is what his shadow goes by."""
+        self.char.start_drag()
+        self.char.drag_to(300, 120)
+        self.assertEqual(self.char.update(16)["y_offset"], 120)
+        self.char.drag_to(310)
+        self.assertEqual(self.char.update(16)["y_offset"], 0)
+        self.char.drag_to(320, 120)
+        self.char.update(16)
+        self.char.drop(120)
+        self.assertGreater(self.char.update(16)["y_offset"], 115)
 
 
 class GiftReceivingTests(CharacterTestCase):

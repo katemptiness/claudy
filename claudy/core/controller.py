@@ -302,8 +302,11 @@ class Controller:
     def on_drag_start(self):
         self.character.start_drag()
 
-    def on_drag_move(self, x):
-        self.character.drag_to(x)
+    def on_drag_move(self, x, height=0.0):
+        """The pointer holds Claudy at `x`, `height` px above his resting
+        line (the height only moves his shadow; leave it out to keep him
+        on the ground)."""
+        self.character.drag_to(x, height)
 
     def on_drop(self, height):
         """Released `height` px above Claudy's resting line."""

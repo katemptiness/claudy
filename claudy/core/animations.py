@@ -46,6 +46,11 @@ class Hop:
         self.duration = duration
         self.timer = 0.0
 
+    @property
+    def airborne(self):
+        """True between taking off and landing (each hop starts on the ground)."""
+        return self.timer > 0
+
     def update(self, dt):
         """Returns (height, landed) — landed is True once per hop."""
         self.timer += dt
@@ -75,16 +80,40 @@ class Juggle:
 
     def __init__(self):
         self.timer = 0.0
+        self.stopped_at = None  # the timer when the throwing stopped
 
     def update(self, dt):
         self.timer += dt
+
+    def finish(self):
+        """Stop throwing. A ball in the air still comes down into the left
+        claw; the ones in a claw or going back behind Claudy are put away
+        at once, since he is not throwing them again."""
+        if self.stopped_at is None:
+            self.stopped_at = self.timer
+
+    @property
+    def done(self):
+        """True once the throwing has stopped and every ball is down."""
+        return self.stopped_at is not None and next(self.balls(), None) is None
 
     def balls(self):
         """(dx, height, index) per ball: dx toward the right claw, height of
         the ball's bottom above the claws."""
         for i in range(3):
-            u = (self.timer / self.BEAT_MS - i) / 3 % 1  # ball i flies on beat i
+            u = self._progress(i, self.timer)
+            if self.stopped_at is not None:
+                # Carry on from where the ball was when the throwing stopped,
+                # without wrapping round into another throw
+                start = self._progress(i, self.stopped_at)
+                u = start + (self.timer - self.stopped_at) / (3 * self.BEAT_MS)
+                if start >= self.FLIGHT or u >= self.FLIGHT:
+                    continue
             yield (*self._position(u), i)
+
+    def _progress(self, i, timer):
+        """How far ball i is through its round, 0..1; it flies on beat i."""
+        return (timer / self.BEAT_MS - i) / 3 % 1
 
     def _position(self, u):
         if u < self.FLIGHT:

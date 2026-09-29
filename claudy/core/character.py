@@ -38,6 +38,7 @@ from claudy.core.speech import Speech
 WALK_SPEED = 0.04          # px/ms at full stride
 WALK_ACCEL_MS = 350        # time to reach full stride
 WALK_BRAKE_PX = 24         # starts slowing down this close to the target
+WALK_ARRIVE_PX = 2         # a walk ends this close to its target
 WANDER_SPEED = 0.03        # px/ms while looking for shells
 HOP_SPEED = 0.05           # px/ms sideways while playing
 WALK_FRAME_MS = 200
@@ -104,6 +105,7 @@ class Character:
         self.juggle = None   # Juggle, while juggling
         self.wander_direction = 0  # nonzero while searching for shells
         self.fall = None     # Fall, after being dropped
+        self.drag_height = 0.0  # how high the pointer holds Claudy up
 
         # Gift pause — stops activity transitions while waiting for user
         self.gift_waiting = False
@@ -226,9 +228,14 @@ class Character:
             self._burst("sparkle", 4)
 
     def hover(self, inside):
-        """The pointer entered or left Claudy."""
+        """The pointer entered or left Claudy.
+
+        He waves only when he has nothing else on. The pointer crosses him
+        on its way to the Dock, and that shouldn't cost him his book, his
+        nap or a friend's visit.
+        """
         if inside:
-            if self.state != "dragging" and not self.is_reacting:
+            if not self.is_busy:
                 self.react("wave")
                 if random.random() < HOVER_PHRASE_CHANCE:
                     self._say(pick(phrases.HOVER_PHRASES))
@@ -237,11 +244,17 @@ class Character:
 
     def start_drag(self):
         self._stop_current()
+        self.fall = None
         self.state = "dragging"
         self.state_timer = 0.0
+        self.drag_height = 0.0
 
-    def drag_to(self, x):
+    def drag_to(self, x, height=0.0):
+        """The pointer holds Claudy at `x`, `height` px above the resting
+        line. The backend moves the dragged window itself; the height only
+        tells the shadow how far below him the ground is."""
         self.x = x
+        self.drag_height = max(0.0, height)
 
     def drop(self, height):
         """Released `height` px above the resting line: fall back down."""
@@ -395,6 +408,13 @@ class Character:
         return pick(phrases.IDLE_PHRASES)
 
     def _update_idle(self, dt):
+        if not self.gift_waiting and self._outside_bounds():
+            # Dropped off the Dock, or the Dock-icons setting just narrowed
+            # it: walk back before doing anything else out there
+            self._start_walking(min(max(self.x, self.walk_min_x),
+                                    self.walk_max_x))
+            return
+
         self.state_timer += dt
 
         self.idle_phrase_timer += dt
@@ -406,9 +426,14 @@ class Character:
         if self.state_timer > self.next_state_change and not self.gift_waiting:
             self._pick_next_activity()
 
+    def _outside_bounds(self):
+        """Off the walking bounds by more than a walk leaves him short."""
+        return (self.x < self.walk_min_x - WALK_ARRIVE_PX
+                or self.x > self.walk_max_x + WALK_ARRIVE_PX)
+
     def _update_walking(self, dt):
         dx = self.target_x - self.x
-        if abs(dx) < 2:
+        if abs(dx) < WALK_ARRIVE_PX:
             self._enter_idle()
             return
 
@@ -458,11 +483,14 @@ class Character:
             name = Settings.shared().user_name
             self._say(pick(phrases.WAKE_PHRASES, name=name))
 
-    def _start_walking(self):
+    def _start_walking(self, target_x=None):
+        """Walk to `target_x`, or somewhere random within the bounds."""
         self._stop_current()
         self.state = "walking"
         self.state_timer = 0.0
-        self.target_x = random.uniform(self.walk_min_x, self.walk_max_x)
+        if target_x is None:
+            target_x = random.uniform(self.walk_min_x, self.walk_max_x)
+        self.target_x = target_x
         self.walk_time = 0.0
         self.walk_frame_index = 0
         self.walk_frame_timer = 0.0
@@ -546,7 +574,9 @@ class Character:
         self.friend_walk_target = None
         self.wander_direction = 0
         self.hop = None
-        self.juggle = None
+        if self.juggle:
+            # No more throws, but the balls in the air still come down
+            self.juggle.finish()
 
         if phase.message:
             self._say(t(phase.message))
@@ -575,7 +605,10 @@ class Character:
         self._update_friend(dt)
 
         self.phase_timer += dt
-        if self.phase_timer >= self.phase_duration:
+        # A hop that has taken off is finished first, so Claudy lands (and
+        # puffs his dust) instead of dropping to the ground in one frame
+        if (self.phase_timer >= self.phase_duration
+                and not (self.hop and self.hop.airborne)):
             self._advance_phase()
 
     def _advance_phase(self):
@@ -599,20 +632,20 @@ class Character:
             self._wander(dt)
         if self.juggle:
             self.juggle.update(dt)
+            if self.juggle.done:
+                self.juggle = None
 
-        if self.hop:
+        if self.state == "dragging":
+            self.y_offset = self.drag_height
+        elif self.hop:
             height, landed = self.hop.update(dt)
             self.y_offset = height
             if landed:
                 self._turn_hop(-self.hop_direction)
                 self._burst("dust", 2)
-            self.x += self.hop_direction * HOP_SPEED * dt
-            if self.x < self.walk_min_x:
-                self.x = self.walk_min_x
-                self._turn_hop(1)
-            elif self.x > self.walk_max_x:
-                self.x = self.walk_max_x
-                self._turn_hop(-1)
+            direction = self._pace(self.hop_direction, HOP_SPEED * dt)
+            if direction != self.hop_direction:
+                self._turn_hop(direction)
         elif self.fall:
             self.y_offset, done = self.fall.update(dt)
             if self.fall.landed:
@@ -634,14 +667,25 @@ class Character:
             self.shake_dx = 0.0
 
     def _wander(self, dt):
-        self.x += self.wander_direction * WANDER_SPEED * dt
-        if self.x < self.walk_min_x:
-            self.x = self.walk_min_x
-            self.wander_direction = 1
-        elif self.x > self.walk_max_x:
-            self.x = self.walk_max_x
-            self.wander_direction = -1
+        self.wander_direction = self._pace(self.wander_direction,
+                                           WANDER_SPEED * dt)
         self.facing_right = self.wander_direction > 0
+
+    def _pace(self, direction, distance):
+        """Move `distance` px in `direction` (±1), turning back at the edges
+        of the walking bounds; returns the direction to go on in.
+
+        Stepping onto an edge is fine, but from outside the bounds (dropped
+        off the Dock, or the Dock-icons setting just narrowed them) Claudy
+        heads back in rather than jumping to the edge.
+        """
+        x = self.x + direction * distance
+        if direction < 0 and x < self.walk_min_x:
+            x, direction = max(x, min(self.x, self.walk_min_x)), 1
+        elif direction > 0 and x > self.walk_max_x:
+            x, direction = min(x, max(self.x, self.walk_max_x)), -1
+        self.x = x
+        return direction
 
     def _turn_hop(self, direction):
         self.hop_direction = direction

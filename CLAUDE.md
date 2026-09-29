@@ -8,8 +8,6 @@ Claudy is an autonomous desktop companion — a pixel-art crab character that li
 
 **Supported platforms:** macOS (PyObjC/AppKit) and Linux (GTK3/Cairo).
 
-> **On a Mac?** The macOS backend changed on 2026-09-29 without running on a Mac. Read `docs/macos-checklist.md` first.
-
 ## Running
 
 **macOS:**
@@ -96,9 +94,9 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 
 ### Backends (`claudy/backends/`)
 Each backend creates the windows, forwards input, runs the frame loop and implements a Canvas.
-- `macos/app.py` — `MacApp` (windows, frame loop) + thin ObjC subclasses (`AppDelegate`, `CrabView`, `MenuTarget`)
+- `macos/app.py` — `MacApp` (windows, frame loop) + thin ObjC subclasses (`AppDelegate`, `CrabView`, `MenuTarget`). The crab window is a non-activating `NSPanel` that listens to the mouse only while the pointer is on Claudy (`MacApp._follow_pointer`, which also tells hover). A display change reaches `AppDelegate.applicationDidChangeScreenParameters_`, and the geometry is read again then and once more after the Dock settles.
 - `macos/canvas.py` (Quartz canvas), `views.py` (`DrawingView`, overlay windows), `bubble.py`, `events.py` (NSWorkspace), `settings_ui.py`, `gifts_ui.py`
-  - AppKit is y-up and the views stay unflipped, so hit testing, tracking areas and mouse locations use AppKit's usual coordinates (`SPRITE_RECT` is y-up). The Scene paints top-left down; `QuartzCanvas._flip` converts, and `canvas.make_image` flips its bitmap so row 0 of the art ends up on top.
+  - AppKit is y-up and the views stay unflipped, so hit testing and mouse locations use AppKit's usual coordinates (`SPRITE_RECT` is y-up). The Scene paints top-left down; `QuartzCanvas._flip` converts, and `canvas.make_image` flips its bitmap so row 0 of the art ends up on top.
 - `linux/app.py` — `CrabApp` (GTK windows, GLib loop) + `LinuxPlatform`. GTK is started on X11 (XWayland under Wayland, which doesn't let an app place its windows); `GDK_BACKEND` is set only for that and removed again, so apps Claudy launches don't inherit it. The windows follow monitor changes.
 - `linux/windows.py` (the transparent, click-through overlay window factory; click-through is set on the `Gtk.Window`, because GTK resets a `GdkWindow`'s input shape when it is realized), `canvas.py` (Cairo/Pango canvas), `bubble.py`, `events.py` (logind D-Bus, whose connection must stay referenced, + process polling matched against whole process names), `settings_ui.py`, `gifts_ui.py`
 
@@ -107,7 +105,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - **Sprite symbols**: `.` transparent, `#` body (#D77757), `e` eyes (#2D2D2D), `b` blush, `w` brown, `c` cream, `u` blue, `p` purple, `g` gray, `y` gold, `s`/`S` sand, `o` flame orange, `r` red, `n` green, `k` shell pink, `d`/`l` dark/light metal, `+` Claudy's side face in three-quarter poses — mapped to palette indices 0–18 in `config.PALETTE` (see `content/sprites/grid.py`). Sprites are 16 rows tall and 16 columns wide, or wider in steps of two when a prop needs room; Claudy stays centered. Only `#` pixels get the body shading, so props should use other colors. Working, reading and painting turn Claudy three-quarters toward the prop, like Clawd in the Claude app: a 2-column `+` side face away from the prop, eyes shifted toward it. Painting pictures are composed from stages (`PICTURES` / `painting_sprites()` in `sprites/activities.py`); `Character._special_pick_painting` picks one per run.
 - **Phased activities**: each activity is a tuple of `Phase` objects with frames, interval, duration, optional message/particle/effects/special. The Character copies the phases when an activity starts; per-run changes (catch reaction, marshmallow, friend visit) modify only that copy. `Phase.special = "x"` runs `Character._special_x()` on entry.
 - **State machine**: idle/walking + 16 activities + reactions + `waking` (launch / system wake) + `dragging`. Weighted random transitions via `schedule.get_weights()`, avoiding the last two activities.
-- **Windows**: the small crab window (takes clicks, moves up when Claudy hops), a taller click-through ground overlay (200x300) that stays on the Dock, the speech bubble, and a small square window for the named star. A single tall interactive window blocked clicks on macOS, hence the split. The star needs its own window because both of the others follow Claudy along the Dock, and a star that slid across the screen with him would not read as a star; its height is `settings.star_height` and its horizontal spot comes from the user's name, so it never moves.
+- **Windows**: the small crab window (takes clicks on Claudy only, moves up when Claudy hops), a taller click-through ground overlay (200x300) that stays on the Dock, the speech bubble, and a small square window for the named star. A single tall interactive window blocked clicks on macOS, hence the split. The star needs its own window because both of the others follow Claudy along the Dock, and a star that slid across the screen with him would not read as a star; its height is `settings.star_height` and its horizontal spot comes from the user's name, so it never moves.
 - **Redrawing**: a view is marked dirty only when `Scene.crab_changed()` / `ground_changed()` / `star_changed()` says its drawing calls differ from the last frame. Claudy holds still most of the time, and repainting transparent always-on-top windows at 60 FPS costs several times the CPU. Both backends ask before redrawing, and the Linux backend moves a window only when its spot changes. The speech bubble redraws when its text, typing or fade changes on Linux, and every frame while shown on macOS.
 - **PyObjC gotcha**: in `NSObject` subclasses, a method name without an inner underscore (e.g. `_draw(self, view)`, `show(self, text)`) becomes an ObjC selector and must take exactly as many args as its colons → `BadPrototypeError` otherwise. Keep logic in plain Python classes (like `MacApp`) or use names like `_draw_crab`.
 
@@ -123,11 +121,13 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - The named star shows by real clock hours (`schedule.is_dark()`), not by schedule period — in owl mode "deep sleep" runs to 11:00, long after the stars are gone.
 - Claudy names exactly one star, ever, and it outlives the session in `memory.json`. A second would silently replace the first in the sky, and a rebuild would wipe it.
 - The star twinkles by shape, through a few uneven steps (`STAR_TWINKLE`), at full opacity: faded, its gold turned khaki over a dark sky, and a continuous fade would wake an always-on-top window every frame (`Scene.star_changed()` compares drawing calls). Claudy names it only after dark.
+- On macOS the crab window ignores the mouse except while the pointer is over the sprite, flipped from the frame loop. A window that takes the mouse takes it across its whole frame (a `hitTest_` that finds nothing stops the click rather than passing it on), which left a dead strip around Claudy. For the same reason hover comes from the frame loop and not from a tracking area: a window that ignores the mouse gets no `mouseEntered`. Nothing flips while a mouse button is held, so a drag that outruns the window keeps it.
+- The macOS crab window is a non-activating panel, so clicking Claudy leaves the keyboard with the app the user was typing in. Windows opened from his menu (Settings, Gifts, About) activate the app themselves.
 - The macOS windows use `FullScreenAuxiliary | Stationary` and deliberately not `CanJoinAllSpaces`. Claudy was checked on macOS 26.7: it stays visible across Spaces and over full-screen apps as it is.
 
 ## Reference Files (`docs/`)
 
-- `macos-checklist.md` — what changed in the macOS backend without a Mac to test on, and what is left for one
+- `macos-checklist.md` — what is still left to do in the macOS backend
 - `prototypes/clawd-tamagotchi.jsx` — React prototype with base sprites, particle system, game loop
 - `prototypes/clawd-activities.jsx` — React demo of 4 activities with phased animations
 - `little-claude-spec.md` — full project specification (in Russian)

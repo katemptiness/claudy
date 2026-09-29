@@ -7,14 +7,30 @@ import objc
 from claudy.backends.macos.canvas import QuartzCanvas
 
 
-def make_overlay_window(width, height):
-    """A borderless, transparent window above everything, on every Space."""
-    window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-        ((0, 0), (width, height)),
-        AppKit.NSWindowStyleMaskBorderless,
-        AppKit.NSBackingStoreBuffered,
-        False,
-    )
+def make_overlay_window(width, height, panel=False):
+    """A borderless, transparent window above everything, on every Space.
+
+    With `panel` it is a non-activating panel instead, for a window that
+    takes clicks: clicking it doesn't make Claudy the active app, so
+    whatever the user was typing in keeps the keyboard.
+    """
+    if panel:
+        window = AppKit.NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(
+            ((0, 0), (width, height)),
+            AppKit.NSWindowStyleMaskBorderless
+            | AppKit.NSWindowStyleMaskNonactivatingPanel,
+            AppKit.NSBackingStoreBuffered,
+            False,
+        )
+        # A panel hides whenever its app isn't active, and Claudy rarely is
+        window.setHidesOnDeactivate_(False)
+    else:
+        window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+            ((0, 0), (width, height)),
+            AppKit.NSWindowStyleMaskBorderless,
+            AppKit.NSBackingStoreBuffered,
+            False,
+        )
     window.setBackgroundColor_(AppKit.NSColor.clearColor())
     window.setOpaque_(False)
     window.setHasShadow_(False)

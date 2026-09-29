@@ -35,9 +35,19 @@ from claudy.render.scene import Scene, star_offset_x
 CLAUDE_BUNDLE_ID = "com.anthropic.claudefordesktop"
 CLAUDE_WEB_URL = "https://claude.ai"
 
+# After a display change the Dock settles on its screen a moment later, and
+# the visible frame (which gives the Dock line) only follows then
+SCREEN_SETTLE_S = 2
+
 # The sprite's rect in the crab view's (unflipped, y-up) coordinates
 SPRITE_RECT = ((SPRITE_X, WINDOW_HEIGHT - SPRITE_Y - SPRITE_SIZE),
                (SPRITE_SIZE, SPRITE_SIZE))
+
+
+def _in_sprite(x, y):
+    """Whether a point in the crab window's coordinates is on Claudy."""
+    (sx, sy), (sw, sh) = SPRITE_RECT
+    return sx <= x <= sx + sw and sy <= y <= sy + sh
 
 CLAUDE_CODE_SCRIPTS = {
     "iTerm2": (
@@ -166,9 +176,10 @@ class CrabView(DrawingView):
         return True
 
     def hitTest_(self, point):
-        """Only the sprite takes clicks; the rest of the window passes through."""
-        (sx, sy), (sw, sh) = SPRITE_RECT
-        if sx <= point.x <= sx + sw and sy <= point.y <= sy + sh:
+        """Only the sprite takes clicks. The window itself only listens while
+        the pointer is over the sprite (MacApp._follow_pointer); this covers
+        the frame it takes to notice the pointer has left."""
+        if _in_sprite(point.x, point.y):
             return objc.super(CrabView, self).hitTest_(point)
         return None
 
@@ -230,27 +241,9 @@ class CrabView(DrawingView):
             self._click_timer = None
             self.app.controller.on_click()
 
-    def mouseEntered_(self, event):
-        with reported("hover"):
-            self.app.controller.on_hover(True)
-
-    def mouseExited_(self, event):
-        with reported("hover"):
-            self.app.controller.on_hover(False)
-
     def rightMouseDown_(self, event):
         with reported("menu"):
             self.app.show_menu(event, self)
-
-    def updateTrackingAreas(self):
-        for area in self.trackingAreas():
-            self.removeTrackingArea_(area)
-        area = AppKit.NSTrackingArea.alloc().initWithRect_options_owner_userInfo_(
-            SPRITE_RECT,
-            AppKit.NSTrackingMouseEnteredAndExited | AppKit.NSTrackingActiveAlways,
-            self, None)
-        self.addTrackingArea_(area)
-        objc.super(CrabView, self).updateTrackingAreas()
 
 
 class MenuTarget(AppKit.NSObject):
@@ -269,20 +262,13 @@ class MacApp:
     def __init__(self):
         self.settings = Settings.shared()
 
-        # All geometry comes from the primary display, the one with the menu
-        # bar, where the Dock lives unless the user moves it, read once; Linux
-        # uses its primary monitor the same way. mainScreen() would be the
-        # display with keyboard focus, so Claudy's home would depend on which
-        # window happened to be focused when he started. The controller works
-        # in x relative to that screen (0..screen_width); screen_x converts.
-        screen = AppKit.NSScreen.screens()[0]
-        self.screen_x = screen.frame().origin.x
-        self.screen_width = screen.frame().size.width
-        # dock_base_y is the Dock-top baseline; dock_y adds the user's
-        # vertical_offset and is refreshed every tick so the height setting
-        # applies live (and previews while dragging the slider).
-        self.dock_base_y = get_dock_top_y(screen)
+        self._read_screen()
+        # dock_y adds the user's vertical_offset to the Dock line and is
+        # refreshed every tick, so the height setting applies live (and
+        # previews while dragging the slider)
         self.dock_y = self.dock_base_y + self.settings.vertical_offset
+        self._screen_settles_at = None  # when to look at the screen again
+        self._pointer_on_claudy = False
 
         self.controller = Controller(
             MacPlatform(), self.screen_width, get_dock_tile_pitch())
@@ -307,11 +293,48 @@ class MacApp:
         AppKit.NSRunLoop.currentRunLoop().addTimer_forMode_(
             self.timer, AppKit.NSRunLoopCommonModes)
 
+    # ---- Screen ----
+
+    def _read_screen(self):
+        """Find the primary display and the Dock line on it.
+
+        All geometry comes from the primary display, the one with the menu
+        bar, where the Dock lives unless the user moves it; Linux uses its
+        primary monitor the same way. mainScreen() would be the display with
+        keyboard focus, so Claudy's home would depend on which window happened
+        to be focused. The controller works in x relative to that screen
+        (0..screen_width); screen_x converts. Returns False while there is no
+        screen at all, as can happen for a moment mid-change.
+        """
+        screens = AppKit.NSScreen.screens()
+        if not screens:
+            return False
+        screen = screens[0]
+        self.screen_x = screen.frame().origin.x
+        self.screen_width = screen.frame().size.width
+        self.dock_base_y = get_dock_top_y(screen)
+        return True
+
+    def screen_changed(self):
+        """A display came, went or changed resolution: find the Dock again,
+        now and once more when it has settled."""
+        self._follow_screen()
+        self._screen_settles_at = time.monotonic() + SCREEN_SETTLE_S
+
+    def _follow_screen(self):
+        # The windows follow on the next tick
+        if self._read_screen():
+            self.controller.set_screen_width(self.screen_width)
+
     # ---- Windows ----
 
     def _create_windows(self):
-        self.window = make_overlay_window(WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.window.setIgnoresMouseEvents_(False)
+        # A panel, so a click on Claudy leaves the keyboard where it was. It
+        # starts out ignoring the mouse; _follow_pointer lets it listen only
+        # while the pointer is on Claudy
+        self.window = make_overlay_window(WINDOW_WIDTH, WINDOW_HEIGHT,
+                                          panel=True)
+        self.window.setIgnoresMouseEvents_(True)
         self.crab_view = add_drawing_view(
             self.window, WINDOW_WIDTH, WINDOW_HEIGHT, self.scene.paint_crab,
             self.images, view_class=CrabView)
@@ -337,7 +360,7 @@ class MacApp:
         self._place_star()
         # Ground overlay behind, the crab in front
         self.ground_window.orderFront_(None)
-        self.window.makeKeyAndOrderFront_(None)
+        self.window.orderFront_(None)
         AppKit.NSApp.setActivationPolicy_(AppKit.NSApplicationActivationPolicyAccessory)
 
     def _move_windows(self, view):
@@ -360,6 +383,32 @@ class MacApp:
              self.dock_y + self.settings.star_height))
         if not self.star_window.isVisible():
             self.star_window.orderFront_(None)
+
+    # ---- Pointer ----
+
+    def _follow_pointer(self):
+        """Let the crab window take the mouse only while it is on Claudy.
+
+        A macOS window that takes the mouse takes it across its whole frame:
+        there is no input shape as on Linux, and a hitTest_ that finds
+        nothing stops a click at the window rather than passing it on. That
+        left a dead strip around Claudy where nothing below could be clicked.
+        So the window ignores the mouse unless the pointer is over the
+        sprite, and hover is told here too: a window that ignores the mouse
+        gets no mouseEntered or mouseExited either.
+        """
+        # While a button is held, things stay as they were: a drag of Claudy
+        # that outruns his window keeps it, and a drag from another app
+        # passes over him
+        if AppKit.NSEvent.pressedMouseButtons():
+            return
+        mouse = AppKit.NSEvent.mouseLocation()
+        origin = self.window.frame().origin
+        inside = _in_sprite(mouse.x - origin.x, mouse.y - origin.y)
+        if inside != self._pointer_on_claudy:
+            self._pointer_on_claudy = inside
+            self.window.setIgnoresMouseEvents_(not inside)
+            self.controller.on_hover(inside)
 
     # ---- Dragging ----
 
@@ -427,10 +476,15 @@ class MacApp:
         dt = (now - self.last_tick) * 1000
         self.last_tick = now
         try:
+            if (self._screen_settles_at is not None
+                    and now >= self._screen_settles_at):
+                self._screen_settles_at = None
+                self._follow_screen()
             self.dock_y = self.dock_base_y + self.settings.vertical_offset
             view = self.controller.tick(dt)
             if not self.controller.is_dragging:
                 self._move_windows(view)
+            self._follow_pointer()
             # The bubble's tail points at the top of the crab window
             crab_top = self.window.frame().origin.y + WINDOW_HEIGHT
             self.bubble.sync(self.controller.speech,
@@ -461,6 +515,13 @@ class AppDelegate(AppKit.NSObject):
 
     def tick_(self, timer):
         self.app.tick()
+
+    def applicationDidChangeScreenParameters_(self, notification):
+        with reported("screen change"):
+            # It can come before launch has finished, or after it failed
+            app = getattr(self, "app", None)
+            if app is not None:
+                app.screen_changed()
 
 
 def main():

@@ -28,7 +28,7 @@ from claudy.core.activities import (
     FRIEND_ANIMATIONS, FRIEND_FRAME_MS, FRIEND_GOODBYE, MAGIC_GIFT_CHANCE,
     MAGIC_RESULTS, PAINTINGS, REACTION_HEART_INTERVAL_MS, REACTIONS,
     RECENT_ACTIVITY_BLOCK, SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE,
-    STAR_NAMING_CHANCE, WAKING,
+    STAR_NAMING_CHANCE, WAKING, Phase,
 )
 from claudy.core.animations import Bounce, Fall, Hop, Juggle, Shake
 from claudy.core.memory import Memory
@@ -754,7 +754,10 @@ class Character:
 
     def _special_cast_magic(self):
         result = random.choice(MAGIC_RESULTS)
-        self._say(t(result["text"]))
+        # The result is announced by the next phase, once "✨ ВЗМАХ!" has
+        # been seen; said here it would replace that line in the same frame
+        after = self.phase_index + 1
+        self.phases[after] = replace(self.phases[after], message=result["text"])
         self._burst(result["particles"], 8)
         if (result["gift_emoji"] and random.random() < MAGIC_GIFT_CHANCE
                 and Memory.shared().is_attached()):
@@ -819,12 +822,14 @@ class Character:
         self.friend_sprite = "idle"
         self.facing_right = False  # face toward the friend
         self._burst("poof", 6)
-        self._say(pick(phrases.FRIEND_PHRASES))
-        # Plan the visit: 2-3 random together-activities, then goodbye
+        # Plan the visit: a hello once "✨ ПРИЗЫВ!" has been seen, 2-3 random
+        # together-activities, then goodbye
+        hello = Phase(["idle"], 500, 2500,
+                      message=random.choice(phrases.FRIEND_PHRASES))
         chosen = random.sample(list(FRIEND_ACTIVITY_POOL), k=random.randint(2, 3))
         visit = [p for key in chosen for p in FRIEND_ACTIVITY_POOL[key]]
         self.phases = (self.phases[:self.phase_index + 1]
-                       + visit + list(FRIEND_GOODBYE))
+                       + [hello] + visit + list(FRIEND_GOODBYE))
 
     def _special_friend_walk_start(self):
         self._animate_friend("walk")

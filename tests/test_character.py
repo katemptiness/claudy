@@ -82,6 +82,25 @@ class ActivityRunTests(CharacterTestCase):
         self.assertTrue(any(visible))
         self.assertFalse(self.char.friend_visible)
 
+    def test_the_spell_is_seen_before_its_result(self):
+        """The result used to replace "✨ ВЗМАХ!" / "✨ ПРИЗЫВ!" in the very
+        frame the spell was cast, so the spell line was never seen."""
+        for name, spell in (("magic", "✨ ВЗМАХ!"), ("summoning", "✨ ПРИЗЫВ!")):
+            with self.subTest(activity=name):
+                self.char.force_activity(name)
+                said, elapsed = [], 0
+                while self.char.state == name and elapsed < 20_000:
+                    self.char.update(50)
+                    elapsed += 50
+                    said += [(elapsed, text) for kind, text
+                             in self.char.take_events() if kind == "message"]
+                texts = [text for _, text in said]
+                self.assertIn(spell, texts)
+                at = texts.index(spell)
+                self.assertGreater(len(texts), at + 1, "no result after it")
+                shown_ms = said[at + 1][0] - said[at][0]
+                self.assertGreaterEqual(shown_ms, Speech.typing_ms(spell))
+
     def test_interrupted_visit_sends_the_friend_home(self):
         self.char.trigger_activity("summoning")
         support.run(self.char, 4000)

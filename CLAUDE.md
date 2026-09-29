@@ -18,37 +18,45 @@ python3 app.py
 
 **Build the macOS app:**
 ```bash
-pip install py2app pillow
+pip install py2app
 tools/build_app.sh          # build, install to /Applications, relaunch
 ```
-`assets/claudy.icns` is the app icon, drawn from the sprites by `tools/make_icon.py`;
-it is committed, so it only needs regenerating when the icon changes.
+`assets/claudy.icns` is the app icon, drawn from the sprites by `tools/make_icon.py`
+(needs Pillow, and `iconutil` from macOS); it is committed, so it only needs
+regenerating when the icon changes.
 
 **Linux (Ubuntu 24.04+):**
 ```bash
 # GTK3, PyGObject, and Cairo are typically pre-installed on Ubuntu
-# If not: sudo apt install python3-gi python3-cairo gir1.2-gtk-3.0
+# If not: sudo apt install python3-gi python3-gi-cairo python3-cairo gir1.2-gtk-3.0
 python3 app.py    # or /usr/bin/python3 if using system Python
 ```
 
-**Tests** (core only, standard library `unittest`):
+**Tests** (standard library `unittest`; core, content, render and the Linux backend's logic):
 ```bash
 python3 -m unittest discover -s tests -t .
 ```
-Tests set `CLAUDY_HOME` to a temp dir so they never touch the real `~/.claudy`.
+Run exactly this, from the project root. Importing the `tests` package points
+`CLAUDY_HOME` at a temp dir; run any other way, Claudy's modules would resolve
+the real `~/.claudy`, so `tests/support.py` refuses to reset anything outside
+that temp dir (it once deleted the user's memory). Any ad-hoc script that
+imports `claudy` must set `CLAUDY_HOME` to a temp dir before the import.
 
 Run `python3 app.py` from a terminal to see tracebacks. Exceptions raised inside
 the frame loop are caught and logged as `tick failed` in `~/.claudy/error.log`;
 Claudy keeps running but may freeze, so check the log whenever it looks stuck.
+Uncaught exceptions elsewhere reach the log too (`log.install_excepthook()`),
+except in AppKit callbacks, which catch and log their own. The log is capped
+in size, and a traceback repeating every frame is written once, then counted.
 Settings → developer mode adds an *Activities* submenu that starts any activity
 on demand and offers a test gift.
 
 ## Tech Stack
 
 - **Shared core**: Python 3, pure-logic state machine, pixel-art sprites
-- **macOS backend**: PyObjC, AppKit, Quartz (CALayer, CGContext)
+- **macOS backend**: PyObjC, AppKit, Quartz (CGContext drawing in NSViews)
 - **Linux backend**: GTK3, PyGObject, Cairo
-- Sprites: 16x16 pixel grids rendered via platform-specific backends, displayed at 5x scale (80x80)
+- Sprites: 16-row pixel grids, 16 columns wide (24 or 32 with a prop), drawn at 5x (a 16x16 sprite is 80x80)
 - Window: borderless transparent always-on-top on both platforms
 - Pyright will report false positives on all PyObjC dynamic attributes — these are expected
 
@@ -59,23 +67,27 @@ Everything lives in the `claudy` package; `app.py` is only the entry point.
 ### Core (`claudy/core/`, platform-independent)
 - `controller.py` — `Controller`: the app logic shared by both backends. Owns the Character, particles, the Speech state, the gift Claudy offers and the dreams that surface while he sleeps; handles character events, speech timing (idle-chatter rate limit, pinned gift announcements), clicks/hover/drag, system sleep/wake, app launches, and builds the context menu as `MenuItem`s. Talks to the backend through the small `Platform` interface (open apps/windows, quit).
 - `speech.py` — `Speech`: bubble state (typewriter text, fade in/out alpha)
-- `character.py` — `Character` state machine and phased animation engine. Emits events (`message`, `particle`, `gift`, `gift_star`) collected with `take_events()`; `update(dt)` returns a view dict (sprite, x, y_offset, shake_dx, facing, friend, toy).
+- `character.py` — `Character` state machine and phased animation engine. Emits events (`message`, `particle`, `gift`, `gift_star`) collected with `take_events()`; `update(dt)` returns a view dict (sprite, x, y_offset, shake_dx, facing, friend, toy, juggle). A gift Claudy finds is offered when the activity ends, so the catch or spell it came from is seen first.
 - `activities.py` — immutable activity scripts (`Phase` dataclasses), reactions, friend-visit pool, random outcomes (catches, magic results) and gift chances
 - `animations.py` — Bounce, Shake, Hop, Fall, Juggle (ball arcs; the scene draws the balls behind Claudy)
 - `particles.py` — 15 particle kinds (`Kind`: images, velocity, gravity, drag, sway, spawn at head/feet), `ParticleSystem` (dt-based, fades in/out)
-- `schedule.py` — time-of-day weights (night owl / early bird modes)
-- `settings.py` — settings persistence (JSON) via typed descriptors, cooldown/duration maps
-- `memory.py` — relationship tracking, gift storage, click/day counters
+- `schedule.py` — time-of-day weights (night owl / early bird modes), and `is_dark()` (19:00–6:00) for the named star
+- `settings.py` — settings persistence (JSON, written atomically) via typed descriptors that validate every value in one place, cooldown/duration maps
+- `memory.py` — per-session relationship state: clicks, app launches, the days counter, gifts, and the activity log dreams come from. All of it starts fresh on each launch, except the named star (which is also migrated from older builds, where it lived only as a gift) and the first launch date. An unreadable file is set aside as `memory.json.bad`, never silently overwritten.
+
+### Top level (`claudy/`)
+- `config.py` — palette, sizes, timing, and `DATA_DIR` (`~/.claudy`, or `CLAUDY_HOME`)
+- `log.py` — the error log: size-capped, repeated tracebacks throttled, `install_excepthook()` (called first thing in `app.py`)
 
 ### Content (`claudy/content/`)
 - `phrases.py` — Claudy's speech (Russian keys, English translations via `t()`), phrase pools, `pick()` helpers
 - `ui_text.py` — bilingual labels for menus, settings and gifts windows
 - `app_reactions.py` — app categories → phrases/activities; macOS bundle IDs and Linux process names
 - `gift_stories.py` — backstories for collected gifts
-- `sprites/` — sprites as text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors; `items.py` holds the gifts Claudy leaves, the toy he sleeps with, the named star and the things he dreams about, plus `GIFT_ART` (stored gift emoji → picture) and `DREAM_ART` (activity → pictures)
+- `sprites/` — sprites as text grids (`grid.py` documents the symbols); `SPRITES` dict; `particles.py` holds particle pixel art with its own colors; `items.py` holds the gifts Claudy leaves, the toy he sleeps with, the named star and how it twinkles (`STAR_TWINKLE`), the dream cloud and the things he dreams about, plus `GIFT_ART` (offered gift emoji → picture) and `DREAM_ART` (activity → pictures)
 
 ### Rendering (`claudy/render/`, platform-independent)
-- `scene.py` — `Scene`: paints all four windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles, dreams), star window (the named star, `star_offset_x()` places it), speech bubble (`bubble_layout()` wraps and sizes it)
+- `scene.py` — `Scene`: paints all four windows through a Canvas — crab window (Claudy, friend, toy), ground overlay (shadows, gift, particles, dreams), star window (the named star, `star_offset_x()` places it), speech bubble (`bubble_layout()` wraps and sizes it). `FEET_Y` / `GROUND_Y` is the ground line: sprites leave their last two rows empty, and everything standing beside Claudy stands on it.
 - `canvas.py` — the `Canvas` interface backends implement (`image`, `rect`, `text`, `measure`; top-left origin) and `ImageCache`
 - `art.py` — pixel art as `PixelImage`s, identified by hashable keys (`sprite_key(name, friend, flip)`, `particle_key(name, tint)`, `item_key(name)`). Applies the shading pass (highlight/shadow/eye glint).
 
@@ -84,8 +96,8 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - `macos/app.py` — `MacApp` (windows, frame loop) + thin ObjC subclasses (`AppDelegate`, `CrabView`, `MenuTarget`)
 - `macos/canvas.py` (Quartz canvas), `views.py` (`DrawingView`, overlay windows), `bubble.py`, `events.py` (NSWorkspace), `settings_ui.py`, `gifts_ui.py`
   - AppKit is y-up and the views stay unflipped, so hit testing, tracking areas and mouse locations use AppKit's usual coordinates (`SPRITE_RECT` is y-up). The Scene paints top-left down; `QuartzCanvas._flip` converts, and `canvas.make_image` flips its bitmap so row 0 of the art ends up on top.
-- `linux/app.py` — `CrabApp` (GTK windows, GLib loop) + `LinuxPlatform`
-- `linux/canvas.py` (Cairo/Pango canvas), `bubble.py`, `events.py` (logind D-Bus + process polling), `settings_ui.py`, `gifts_ui.py`
+- `linux/app.py` — `CrabApp` (GTK windows, GLib loop) + `LinuxPlatform`. GTK is started on X11 (XWayland under Wayland, which doesn't let an app place its windows); `GDK_BACKEND` is set only for that and removed again, so apps Claudy launches don't inherit it. The windows follow monitor changes.
+- `linux/windows.py` (the transparent, click-through overlay window factory; click-through is set on the `Gtk.Window`, because GTK resets a `GdkWindow`'s input shape when it is realized), `canvas.py` (Cairo/Pango canvas), `bubble.py`, `events.py` (logind D-Bus, whose connection must stay referenced, + process polling matched against whole process names), `settings_ui.py`, `gifts_ui.py`
 
 ## Key Concepts
 
@@ -93,7 +105,7 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - **Phased activities**: each activity is a tuple of `Phase` objects with frames, interval, duration, optional message/particle/effects/special. The Character copies the phases when an activity starts; per-run changes (catch reaction, marshmallow, friend visit) modify only that copy. `Phase.special = "x"` runs `Character._special_x()` on entry.
 - **State machine**: idle/walking + 16 activities + reactions + `waking` (launch / system wake) + `dragging`. Weighted random transitions via `schedule.get_weights()`, avoiding the last two activities.
 - **Windows**: the small crab window (takes clicks, moves up when Claudy hops), a taller click-through ground overlay (200x300) that stays on the Dock, the speech bubble, and a small square window for the named star. A single tall interactive window blocked clicks on macOS, hence the split. The star needs its own window because both of the others follow Claudy along the Dock, and a star that slid across the screen with him would not read as a star; its height is `settings.star_height` and its horizontal spot comes from the user's name, so it never moves.
-- **Redrawing**: a view is marked dirty only when `Scene.crab_changed()` / `ground_changed()` says its drawing calls differ from the last frame. Claudy holds still most of the time, and repainting two transparent always-on-top windows at 60 FPS costs several times the CPU. Both backends ask before redrawing; the speech bubble still redraws every frame while it is shown.
+- **Redrawing**: a view is marked dirty only when `Scene.crab_changed()` / `ground_changed()` / `star_changed()` says its drawing calls differ from the last frame. Claudy holds still most of the time, and repainting transparent always-on-top windows at 60 FPS costs several times the CPU. Both backends ask before redrawing, and the Linux backend moves a window only when its spot changes. The speech bubble redraws when its text, typing or fade changes on Linux, and every frame while shown on macOS.
 - **PyObjC gotcha**: in `NSObject` subclasses, a method name without an inner underscore (e.g. `_draw(self, view)`, `show(self, text)`) becomes an ObjC selector and must take exactly as many args as its colons → `BadPrototypeError` otherwise. Keep logic in plain Python classes (like `MacApp`) or use names like `_draw_crab`.
 
 ## Deliberate choices, don't "fix" these
@@ -102,12 +114,12 @@ Each backend creates the windows, forwards input, runs the frame loop and implem
 - There is no squash/stretch and no breathing. It was tried and the user disliked it: cutting a body row made the head look clipped.
 - Juggling balls are drawn by the scene behind Claudy, not as part of the sprite.
 - Particles are pixel art, and so are the gifts and the toy (`content/sprites/items.py`). Emoji stay where they are text: in speech bubbles, in the menus and in the gifts window.
-- Gifts and the toy are drawn on Claudy's own pixel grid (`ITEM_SCALE == PIXEL_SCALE`), not the finer particle grid. They are objects in his world, not effects; at particle size they read as icons borrowed from another game. The named star is the one exception (`ITEM_SCALES`): it is far away, and its points need a grid finer than the particles' to taper at all.
-- A dream's cloud (`Scene._cloud`) is deliberately unlike the speech bubble: bumpy instead of stepped, translucent, and with no dark outline. It is built from the picture's own size, so every dream gets a cloud that fits it.
-- Claudy dreams only of activities that left a picture in `DREAM_ART`; the rest simply never turn up in a dream. `Memory.log_activity()` collapses runs of the same activity, because through a night of deep sleep he restarts "sleeping" every half minute and would otherwise have nothing else in the log by morning — exactly when he sleeps long enough to dream.
+- Gifts and the toy are drawn on Claudy's own pixel grid (`ITEM_SCALE == PIXEL_SCALE`), not the finer particle grid. They are objects in his world, not effects; at particle size they read as icons borrowed from another game. They stand on the ground line and cast a shadow like his; the toy stands behind him, so his claw lies across it. The named star is the one exception (`ITEM_SCALES`, the particle grid): it is far away, and at his scale it would read as an object hanging in mid-air.
+- The dream cloud (`ITEM_ART["dream_cloud"]`) is one fixed picture drawn with one opacity: round lobes, a cool mid-tone edge, a shaded underside, round bubbles trailing to the sleeper. It must never read as speech, so its edge is nowhere near the bubble's dark ink (a test checks). It used to be built from translucent rects around each picture: where they overlapped, the opacity doubled into seams, and cream with no edge vanished on light desktops. Particles go behind it, and no zzz rise while it shows.
+- Claudy dreams only of activities that left a picture in `DREAM_ART`; the rest simply never turn up in a dream. `Memory.log_activity()` collapses runs of the same activity: in deep sleep "sleeping" is the only choice, so every click or hover that wakes him at night, and every system sleep, logs it again, and would crowd everything dreamable out of the log by morning.
 - The named star shows by real clock hours (`schedule.is_dark()`), not by schedule period — in owl mode "deep sleep" runs to 11:00, long after the stars are gone.
 - Claudy names exactly one star, ever, and it outlives the session in `memory.json`. A second would silently replace the first in the sky, and a rebuild would wipe it.
-- The star twinkles through a few discrete opacities (`STAR_ALPHAS`), not a smooth curve: `Scene.star_changed()` compares drawing calls, so a continuous fade would wake an always-on-top window every frame.
+- The star twinkles by shape, through a few uneven steps (`STAR_TWINKLE`), at full opacity: faded, its gold turned khaki over a dark sky, and a continuous fade would wake an always-on-top window every frame (`Scene.star_changed()` compares drawing calls). Claudy names it only after dark.
 - The macOS windows use `FullScreenAuxiliary | Stationary` and deliberately not `CanJoinAllSpaces`. Claudy was checked on macOS 26.7: it stays visible across Spaces and over full-screen apps as it is.
 
 ## Reference Files (`docs/`)

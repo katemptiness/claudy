@@ -20,15 +20,17 @@ A tiny pixel-art crab companion that lives on your Dock. It reads books, catches
 
 - Wanders along the Dock, performing 16 different activities: reading, fishing, magic, coding, sleeping, playing, painting, stargazing, meditating, juggling, listening to music, summoning a friend, campfire, sandcastle building, shell collecting, and candle
 - Follows a configurable schedule — night owl (default) or early bird mode
-- Reacts to clicks (sparkles → hearts!), hover (waves hello), and drag-and-drop (macOS: surprise + gravity bounce)
+- Reacts to clicks (sparkles → hearts!), hover (waves hello when it isn't busy), and drag-and-drop (macOS: surprise + gravity bounce)
 - Mirrors your activity — open a terminal or code editor and the crab starts coding; open Spotify and it listens to music
 - Notices when you launch apps and comments on them (remembers how many times you opened the same app today)
 - Sleeps when your machine sleeps, greets you when it wakes up
-- Dreams while it sleeps — a little picture of something it actually did that day floats above it
-- Gives you gifts — catches a fish? Finds a shell? Might leave it on the Dock for you
+- Dreams while it sleeps — a little picture of something it actually did lately floats above it in a thought cloud
+- Gives you gifts — catches a fish? Finds a shell? Might leave a little pixel-art present on the Dock for you
+- Names a star after you — once, ever — and keeps it twinkling above the Dock every night
 - Accepts gifts from you — give Claudy a marshmallow and it'll roast it at the campfire; give a toy and it sleeps with it
 - Gradually notices you — click enough and Claudy starts using your name, showing hearts, and saying personal things
-- Remembers how many days you've been together and occasionally mentions it
+- Counts the days you've been together while it keeps running, and occasionally mentions it
+- Sometimes quotes claude.ai headlines ("golden hour thinking", "ready when you are, Kate")
 - Says things in cute speech bubbles — in Russian or English (configurable)
 - All rendered as pixel art: 82 hand-drawn sprites, 16 rows tall and 16 to 32 columns wide, scaled up 5x
 
@@ -57,7 +59,7 @@ works on its own and leaves the bundle in `dist/`.
 
 To start Claudy with the system, add it in **System Settings → General → Login
 Items**. The app icon is generated from Claudy's own sprites — run
-`python3 tools/make_icon.py` (needs Pillow) after changing it.
+`python3 tools/make_icon.py` (needs Pillow, on a Mac) after changing it.
 
 Requires macOS with Python 3.10+ and the Dock positioned at the bottom of the screen.
 
@@ -72,18 +74,18 @@ cd claudy
 python3 app.py    # or /usr/bin/python3 if using system Python
 ```
 
-Requires Python 3.10+, GTK3, and a bottom panel/dock. Tested on Ubuntu 24.04 LTS (GNOME/Wayland + X11).
+Requires Python 3.10+ and GTK3. Claudy stands on a bottom panel if there is one, otherwise on the bottom edge of the screen. Tested on Ubuntu 24.04 LTS (GNOME on X11). Wayland doesn't let an app place its own windows, so under a Wayland session Claudy runs through XWayland; that hasn't been tried on a real Wayland session yet.
 
 ## Interactions
 
 | Action | What happens |
 |--------|-------------|
-| Hover | Waves hello |
+| Hover | Waves hello — unless it's busy or asleep; it won't drop what it's doing |
 | Click | Happy bounce + sparkles (before attachment) or hearts (after) |
 | Click (with gift) | Collects the gift — Claudy reacts happily |
-| Double-click | Opens the Claude desktop app (on Linux, falls back to claude.ai if it isn't installed) |
+| Double-click | Opens the Claude desktop app, or claude.ai if it isn't installed |
 | Drag & drop | Surprised face, falls back to Dock with gravity (macOS only) |
-| Right-click | Context menu (Open Claude, Open Claude Code, Give a gift, Gifts, Settings, About Claudy, Quit) |
+| Right-click (or Control-click on a Mac) | Context menu (Open Claude, Open Claude Code, Give a gift, Gifts, Settings, About Claudy, Quit) |
 
 ## Relationships
 
@@ -91,7 +93,7 @@ Claudy doesn't demand attention — but it notices when you're there.
 
 ### Attachment
 
-There's an invisible threshold: **5 clicks per day** (resets each session). Giving Claudy a gift counts as 2 clicks. Before the threshold, clicks produce sparkles. After it, you unlock:
+There's an invisible threshold: **5 clicks per day** (resets at midnight and on relaunch). Giving Claudy a gift counts as 2 clicks. Before the threshold, clicks produce sparkles. After it, you unlock:
 
 - **Hearts** instead of sparkles on click
 - **Personal phrases** that use your name ("how's it going, Kate?", "i like spending time with Kate :3")
@@ -107,30 +109,10 @@ During some activities, Claudy may find something and leave it on the Dock for y
 | Activity | Gift | Chance |
 |----------|------|--------|
 | Fishing | Caught fish, pufferfish, diamond, star | ~30% on good catch |
-| Magic | Flower, butterfly, rainbow | ~20% on successful spell |
-| Telescope | Names a star after you | ~10%, once ever |
+| Magic | Flower, butterfly, rainbow, star | ~20% on successful spell |
 | Shell collecting | A pretty shell | ~10% per find |
 
-#### Dreams
-
-While Claudy is deeply asleep, a small picture sometimes surfaces above it for
-a few seconds and fades away again: the fish it caught, the book it was
-reading, the sandcastle it built, the shell it found. It floats in a
-see-through thought cloud with bubbles trailing down to the sleeper, so a
-dream never looks like something Claudy said out loud. Claudy only dreams of
-things it actually did — it keeps a rolling log of its recent activities, and a
-dream is drawn from that. Nothing is asked of you; it is just there if you
-happen to look at the Dock at six in the morning.
-
-#### Your star
-
-Once — and only once — Claudy's telescope finds a star worth naming after you.
-From then on it stays: a small pixel star hanging in the night sky above the
-Dock, in a fixed spot of its own, twinkling slowly. It shows between 19:00 and
-6:00 and is invisible by day, and it is the one thing Claudy remembers across
-relaunches. How high it hangs is a setting.
-
-When a gift appears, Claudy pauses activities and announces it ("look what i found!", "this is for you! :3"). Click Claudy to collect. If you don't collect in time, Claudy keeps it ("ok, keeping it for myself :p").
+When a gift appears, Claudy pauses activities and announces it ("look what i found!", "this is for you! :3"). Click Claudy to collect. If you don't collect in time, Claudy keeps it ("ok, keeping it for myself :p"). A gift waits until Claudy has finished showing what it found, and opening an app while the gift waits won't send Claudy off to work over it.
 
 #### Giving gifts to Claudy
 
@@ -148,18 +130,41 @@ Each gift counts as 2 clicks toward attachment. Cooldown between gifts is config
 
 #### Gift Collection
 
-Right-click → **Gifts** to view your collection. Each gift comes with a unique backstory — a cute little tale from Claudy about how the gift was found, caught, or conjured. 160 bilingual stories in total (40 per gift type), randomly assigned at collection time.
+Right-click → **Gifts** to view what Claudy gave you since it started. Each gift comes with a unique backstory — a cute little tale from Claudy about how the gift was found, caught, or conjured. 160 bilingual stories in total (40 per gift type), randomly assigned at collection time.
+
+### At night
+
+#### Dreams
+
+While Claudy sleeps (most often through the night), a small picture sometimes
+surfaces above it for a few seconds and fades away again: the fish it was
+after, the book it was reading, the sandcastle it was building, the shells it looked for.
+It floats in a little thought cloud with bubbles trailing down to the sleeper,
+so a dream never looks like something Claudy said out loud. Claudy only dreams
+of things it actually did — it keeps a rolling log of its recent activities,
+and a dream is drawn from that. Wake it, or let it say something, and the
+dream fades away. Nothing is asked of you; it is just there if you happen to
+look at the Dock at six in the morning.
+
+#### Your star
+
+Once — and only once — Claudy's telescope finds a star worth naming after you
+(after dark, and only once it's attached to you). The star goes into your
+collection and stays in the sky: a small pixel star hanging above the Dock, in
+a fixed spot of its own, twinkling. It shows between 19:00 and 6:00 and is
+invisible by day, and it is the one thing Claudy remembers across relaunches.
+How high it hangs is a setting.
 
 ### Memory
 
-Claudy remembers things in `~/.claudy/memory.json`:
+Claudy keeps its memory in `~/.claudy/memory.json`. Almost all of it lasts only while Claudy is running — each launch starts fresh:
 
 - **Recent activities** — a rolling log of what Claudy has been up to, which is where its dreams come from
-- **Your star** — the one thing that outlives a session: the star Claudy named after you, and where it hangs
-- **Days together** — occasionally says "we've been together for 47 days" (special phrases for milestones: 10, 50, 100...)
+- **Days together** — starts at 1 and grows with every midnight Claudy stays up for; it occasionally says "we've been together for 3 days" (special phrases for milestones: 10, 25, 50, 100...)
 - **App launches** — "Spotify for the 3rd time today :)"
-- **Gifts** — keeps a history of all gifts given and collected
-- **Claude.ai easter eggs** — sometimes quotes claude.ai headlines ("golden hour thinking", "ready when you are, Kate")
+- **Gifts** — what Claudy gave you this session
+
+The one exception is **your star**: the star Claudy named after you outlives every relaunch.
 
 ## Schedule & Activities
 
@@ -194,9 +199,9 @@ Each activity is a **phased animation** — a sequence of sprites, particles, an
 | Activity | What happens | Particles |
 |----------|-------------|-----------|
 | Reading | Opens a big book on the ground, reads line by line, turns pages, gets excited | Exclaims |
-| Working | Turns to a glowing laptop, types furiously, thinks, ships code | Code snippets, sparkles |
-| Fishing | Casts a line, waits, pulls — catches fish, boots, or diamonds | Exclaims, sparkles |
-| Magic | Waves a wand — conjures flowers, rainbows, butterflies, or poof | Varies by result |
+| Working | Turns to a glowing laptop, types furiously, thinks, ships code | Code snippets, question marks, sparkles |
+| Fishing | Casts a line, waits, pulls — catches a fish, a diamond, a star… or a boot, a sock | Zzz, exclaims, then by catch |
+| Magic | Waves a wand — conjures flowers, rainbows, butterflies, a starfall, or poof | Varies by result |
 | Sleeping | Nods off (nap or deep sleep depending on time) | Zzz |
 | Playing | Bounces around happily | Notes |
 | Music | Plays a tune | Notes |
@@ -227,11 +232,12 @@ claudy/
     speech.py                 # Speech bubble state (typing, fading)
     character.py              # State machine and phased animation engine
     activities.py             # Activity scripts, reactions, random outcomes
-    animations.py             # Bounce, shake, hop, gravity fall
+    animations.py             # Bounce, shake, hop, juggle, gravity fall
     particles.py              # 15 pixel-art particle kinds (hearts, notes, zzz, dust...)
-    schedule.py               # Owl/lark time-of-day behavior weights
+    schedule.py               # Owl/lark time-of-day weights; when it's dark enough for the star
     settings.py               # Settings persistence (JSON)
-    memory.py                 # Relationship memory (clicks, days, gifts, app launches)
+    memory.py                 # Per-session memory (clicks, days, gifts, app launches,
+                              #   the activity log for dreams) and the named star
 
   content/                    # Words and pictures
     phrases.py                # Bilingual phrases (RU/EN)
@@ -239,7 +245,7 @@ claudy/
     app_reactions.py          # What Claudy says when you open an app
     gift_stories.py           # 160 bilingual gift backstories (40 per type)
     sprites/                  # 82 pixel-art sprites as text grids, particle
-                              #   art, and the gifts, toy, star and dreams
+                              #   art, and the gifts, toy, star, dream cloud and dreams
 
   render/                     # Platform-independent drawing
     scene.py                  # What each window shows (crab, ground, star, bubble)
@@ -252,11 +258,11 @@ claudy/
       canvas.py, views.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
     linux/                    # GTK3 / PyGObject / Cairo
       app.py                  # Windows, input, frame loop
-      canvas.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
+      windows.py, canvas.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
 
 assets/                       # App icon (claudy.icns)
 tools/                        # make_icon.py, build_app.sh
-tests/                        # Unit tests for the core
+tests/                        # Unit tests (core, content, render, Linux backend logic)
 docs/                         # Original spec, v2 spec, React prototypes, screenshots
 ```
 
@@ -267,6 +273,8 @@ The platform-independent core has a unit test suite (standard library only):
 ```bash
 python3 -m unittest discover -s tests -t .
 ```
+
+Run it exactly like this, from the project root: that is what points the tests at a throwaway data directory. Run any other way, the suite refuses to start rather than touch your real `~/.claudy`.
 
 ## Settings
 
@@ -289,7 +297,7 @@ Right-click → Settings to configure:
 
 Settings UI is fully localized — labels and options appear in the selected language.
 
-Settings are saved to `~/.claudy/settings.json`. Relationship memory is saved to `~/.claudy/memory.json`.
+Settings are saved to `~/.claudy/settings.json`. Relationship memory is saved to `~/.claudy/memory.json`, and errors go to `~/.claudy/error.log` (kept small).
 
 Developer mode enables an Activities submenu for previewing animations and testing gifts.
 

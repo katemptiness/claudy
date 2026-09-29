@@ -167,6 +167,21 @@ class WakingTests(CharacterTestCase):
         self.assertEqual(self.char.state, "sleeping")
 
 
+class StarNamingTests(CharacterTestCase):
+
+    def test_a_star_is_named_only_after_dark(self):
+        """In daylight it wouldn't show until the evening."""
+        support.attach()
+        with mock.patch("claudy.core.character.random.random", return_value=0.0):
+            with support.dark_sky(False):
+                self.char._special_star_gaze()
+                self.assertNotIn("gift_star",
+                                 _event_types(self.char.take_events()))
+            with support.dark_sky(True):
+                self.char._special_star_gaze()
+                self.assertIn("gift_star", _event_types(self.char.take_events()))
+
+
 class IdleAndWalkingTests(CharacterTestCase):
 
     def test_idle_eventually_picks_something_else(self):

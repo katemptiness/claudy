@@ -142,11 +142,14 @@ class StarNamingTests(ControllerTestCase):
         """The star stays in the sky from then on, so a second one would
         quietly replace the first."""
         support.attach(self.ctl.memory)
-        with mock.patch("claudy.core.character.random.random", return_value=0.0):
+        with support.dark_sky(), mock.patch(
+                "claudy.core.character.random.random", return_value=0.0):
             for _ in range(3):
                 self.ctl.character._special_star_gaze()
                 self.advance(100)
-        self.assertEqual(self.ctl.memory.count_session_gifts("star"), 1)
+        stars = [gift for gift in self.ctl.memory.get_collected_gifts()
+                 if gift["type"] == "star"]
+        self.assertEqual(len(stars), 1)
         self.assertIsNotNone(self.ctl.memory.get_star())
 
 

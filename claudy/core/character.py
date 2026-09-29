@@ -763,10 +763,11 @@ class Character:
 
     def _special_star_gaze(self):
         # Rarely name a star after the user, and only ever one: it stays
-        # in the sky from then on, so a second would replace the first
+        # in the sky from then on, so a second would replace the first.
+        # Only after dark, when the star shows up as soon as it is named.
         mem = Memory.shared()
         if (random.random() < STAR_NAMING_CHANCE and mem.is_attached()
-                and mem.get_star() is None):
+                and mem.get_star() is None and schedule.is_dark()):
             name = Settings.shared().user_name
             self._say(pick_personal(phrases.STAR_NAMING_PHRASES,
                                     phrases.STAR_NAMING_PHRASES_NAMELESS, name))

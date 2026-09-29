@@ -220,10 +220,12 @@ class Controller:
     # ---- Speech ----
 
     def _say(self, text, chatter=False):
-        """Show a line. Idle chatter is dropped if Claudy just spoke."""
+        """Show a line. Idle chatter never talks over a line still on
+        screen, and waits a moment after one that has just gone."""
         if self._speech_pinned:
             return
-        if chatter and self._clock_ms - self._last_speech_ms < CHATTER_GAP_MS:
+        if chatter and (self._speech_hides_ms is not None
+                        or self._clock_ms - self._last_speech_ms < CHATTER_GAP_MS):
             return
         self._show_speech(text, reading_time(text))
 
@@ -323,10 +325,14 @@ class Controller:
             phrase = pick(phrases.APP_COUNT_PHRASES, app=display_name, n=count)
         elif app:
             phrase = pick(app.phrases)
+        # When Claudy joins in, the phrase is the activity's opening line:
+        # said on its own, the activity's first line would replace it a
+        # frame later.
+        if app and app.activity and self.character.trigger_activity(
+                app.activity, opening=phrase):
+            return
         if phrase and not self.character.is_reacting:
             self._say(phrase)
-        if app and app.activity:
-            self.character.trigger_activity(app.activity)
 
     # ---- Context menu ----
 

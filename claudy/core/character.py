@@ -9,7 +9,8 @@ the controller to pick up with take_events().
 Events are (type, data) tuples:
     ("message", text)         say something
     ("particle", kind)        puff one particle
-    ("gift", {type, emoji})   Claudy wants to give the user something
+    ("gift", {type, emoji})   Claudy wants to give the user something (sent
+                              when the activity that found it is over)
     ("gift_star", name)       Claudy named a star after the user
 """
 
@@ -32,6 +33,7 @@ from claudy.core.activities import (
 from claudy.core.animations import Bounce, Fall, Hop, Juggle, Shake
 from claudy.core.memory import Memory
 from claudy.core.settings import Settings
+from claudy.core.speech import Speech
 
 WALK_SPEED = 0.04          # px/ms at full stride
 WALK_ACCEL_MS = 350        # time to reach full stride
@@ -105,6 +107,10 @@ class Character:
 
         # Gift pause — stops activity transitions while waiting for user
         self.gift_waiting = False
+        # A gift found during an activity. It is handed over when the
+        # activity ends, so the catch or the spell gets its pose and its
+        # line first, and it is forgotten if the activity is interrupted.
+        self._gift_offer = None
 
         # User gifts to Claudy (session-only)
         self.has_marshmallow = False
@@ -175,10 +181,17 @@ class Character:
     def has_book(self):
         return self._book_date == date.today().isoformat()
 
-    def trigger_activity(self, name):
-        """Start an activity if Claudy is free (e.g. the user opened an app)."""
-        if name in ACTIVITIES and not self.is_busy:
-            self._start_activity(name)
+    def trigger_activity(self, name, opening=None):
+        """Start an activity if Claudy is free (e.g. the user opened an app).
+
+        Waiting next to a gift doesn't count as free: the props of some
+        activities (the laptop) would cover it. `opening` replaces the first
+        phase's line. Returns True if the activity started.
+        """
+        if name not in ACTIVITIES or self.is_busy or self.gift_waiting:
+            return False
+        self._start_activity(name, opening)
+        return True
 
     def force_activity(self, name):
         """Start an activity right now, whatever is going on (dev menu)."""
@@ -257,7 +270,10 @@ class Character:
     def wait_for_gift(self, waiting):
         """Stay put next to an offered gift until it's taken (or expires)."""
         self.gift_waiting = waiting
-        if waiting:
+        if waiting or self.state == "idle":
+            # Afterwards too: the idle timer ran on through the wait, and
+            # without a fresh one Claudy would start something on the very
+            # next frame, talking over the line that saw the gift off
             self._enter_idle()
 
     def update_walk_bounds(self, dock_icons, tile_pitch):
@@ -463,6 +479,7 @@ class Character:
         self.juggle = None
         self.wander_direction = 0
         self.bounce = None
+        self._gift_offer = None
 
     # ---- Reactions ----
 
@@ -478,7 +495,7 @@ class Character:
 
     # ---- Activities ----
 
-    def _start_activity(self, name):
+    def _start_activity(self, name, opening=None):
         self.recent_activities.append(name)
         if len(self.recent_activities) > RECENT_ACTIVITY_BLOCK:
             self.recent_activities.pop(0)
@@ -487,6 +504,13 @@ class Character:
 
         phases = list(ACTIVITIES[name])
         user_name = Settings.shared().user_name
+
+        if opening:
+            # Held until it has been read: the next phase's line would
+            # replace it, and it can be longer than the line it stands for
+            first = phases[0]
+            phases[0] = replace(first, message=opening, duration_ms=max(
+                first.duration_ms, Speech.readable_ms(opening)))
 
         if name == "sleeping" and Memory.shared().is_attached():
             self._say(pick(phrases.SLEEP_PHRASES, name=user_name))
@@ -561,7 +585,10 @@ class Character:
             if self.state == "sleeping" and schedule.get_period() == "deep_sleep":
                 index = len(self.phases) - 1
             else:
+                offer = self._gift_offer
                 self._enter_idle(woke_up=(self.state == "sleeping"))
+                if offer:
+                    self._events.append(("gift", offer))
                 return
         self._enter_phase(index)
 
@@ -676,8 +703,7 @@ class Character:
         self._burst(result["particles"], 8)
         if (result["gift_emoji"] and random.random() < MAGIC_GIFT_CHANCE
                 and Memory.shared().is_attached()):
-            self._events.append(
-                ("gift", {"type": "magic", "emoji": result["gift_emoji"]}))
+            self._gift_offer = {"type": "magic", "emoji": result["gift_emoji"]}
 
     def _special_fish_reveal(self):
         catch = random.choice(CATCHES)
@@ -685,8 +711,7 @@ class Character:
         self._burst(catch["particles"], 5)
         if (catch["good"] and random.random() < FISH_GIFT_CHANCE
                 and Memory.shared().is_attached()):
-            self._events.append(
-                ("gift", {"type": "fish", "emoji": catch["emoji"]}))
+            self._gift_offer = {"type": "fish", "emoji": catch["emoji"]}
         if not catch["good"]:
             phase = self.phases[self.phase_index]
             self.phases[self.phase_index] = replace(
@@ -720,7 +745,7 @@ class Character:
 
     def _special_shell_gift_chance(self):
         if random.random() < SHELL_GIFT_CHANCE and Memory.shared().is_attached():
-            self._events.append(("gift", {"type": "shell", "emoji": "🐚"}))
+            self._gift_offer = {"type": "shell", "emoji": "🐚"}
 
     def _special_pick_painting(self):
         # Between the easel going up and the final idle

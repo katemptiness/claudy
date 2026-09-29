@@ -1,11 +1,16 @@
 """Behavioral tests for the Character state machine."""
 
+import contextlib
 import unittest
+from unittest import mock
 
+from claudy.content import phrases
 from claudy.content.sprites import SPRITES
 from claudy.core import activities
 from claudy.core.animations import Juggle
 from claudy.core.character import Character
+from claudy.core.settings import Settings
+from claudy.core.speech import Speech
 from tests import support
 
 
@@ -109,6 +114,37 @@ class ActivityRunTests(CharacterTestCase):
         self.char.trigger_activity("skydiving")
         self.assertEqual(self.char.state, "idle")
 
+    def test_nothing_starts_while_claudy_waits_by_a_gift(self):
+        """Some props (the laptop) would be drawn over the gift."""
+        self.char.wait_for_gift(True)
+        self.assertFalse(self.char.trigger_activity("working"))
+        self.assertEqual(self.char.state, "idle")
+
+    def test_an_opening_line_replaces_the_first_and_stays_until_read(self):
+        line = "о, опять этот редактор? ну давай поработаем!"
+        self.assertTrue(self.char.trigger_activity("working", opening=line))
+        said = [text for kind, text in self.char.take_events()
+                if kind == "message"]
+        self.assertEqual(said, [line])
+        events = support.run(self.char, Speech.readable_ms(line) - 50)
+        self.assertNotIn("message", _event_types(events))
+        self.assertEqual(self.char.sprite_name(), "work_closed")
+
+    def test_opening_lines_can_be_read_before_the_next_one(self):
+        """The still poses an activity opens with (getting the book or the
+        wand out) last until their line is typed out and read."""
+        self.addCleanup(setattr, Settings.shared(), "language", "ru")
+        for name, phases in activities.ACTIVITIES.items():
+            for phase in phases:
+                if len(phase.frames) > 1 or phase.special or not phase.message:
+                    break
+                for language in ("ru", "en"):
+                    Settings.shared().language = language
+                    line = phrases.t(phase.message)
+                    with self.subTest(activity=name, line=line):
+                        self.assertGreaterEqual(phase.duration_ms,
+                                                Speech.readable_ms(line))
+
 
 class WakingTests(CharacterTestCase):
 
@@ -154,6 +190,16 @@ class IdleAndWalkingTests(CharacterTestCase):
         self.char.wait_for_gift(True)
         self.assertEqual(self.char.state, "idle")
         support.run(self.char, 60_000)
+        self.assertEqual(self.char.state, "idle")
+
+    def test_claudy_lingers_after_a_gift_is_gone(self):
+        """Or whatever he started next would talk over the line that saw
+        the gift off."""
+        with support.fixed_weights({"reading": 1.0}):
+            self.char.wait_for_gift(True)
+            support.run(self.char, 60_000)
+            self.char.wait_for_gift(False)
+            support.run(self.char, 5000)
         self.assertEqual(self.char.state, "idle")
 
     def test_walking_stays_in_bounds_and_ends_idle(self):
@@ -332,6 +378,58 @@ class GiftReceivingTests(CharacterTestCase):
         self.assertFalse(self.char.update(16)["show_toy"])
         self.char.trigger_activity("sleeping")
         self.assertTrue(self.char.update(16)["show_toy"])
+
+
+class GiftOfferTests(CharacterTestCase):
+    """Gifts Claudy finds while fishing, casting spells or beachcombing."""
+
+    # The phase special that finds each activity's gift
+    FINDS = {"fishing": "fish_reveal", "magic": "cast_magic",
+             "shell_collecting": "shell_gift_chance"}
+
+    def setUp(self):
+        super().setUp()
+        support.attach()
+        # Win every chance and take the first of every choice: a fish, a
+        # bouquet, a shell
+        luck = contextlib.ExitStack()
+        luck.enter_context(mock.patch(
+            "claudy.core.character.random.random", return_value=0.0))
+        luck.enter_context(mock.patch(
+            "claudy.core.character.random.choice", side_effect=lambda s: s[0]))
+        self.addCleanup(luck.close)
+
+    def _run_until_found(self, name):
+        """Start `name` and run it into the phase that finds the gift."""
+        self.char.force_activity(name)
+        events = []
+        while self.char.phases[self.char.phase_index].special != self.FINDS[name]:
+            self.char.update(50)
+            events += self.char.take_events()
+        return events
+
+    def test_the_find_has_its_moment_before_it_is_offered(self):
+        """The gift comes once the activity is over, so the catch or the
+        spell keeps its pose and its line until then."""
+        for name in self.FINDS:
+            with self.subTest(activity=name):
+                events = self._run_until_found(name)
+                pose_ms, elapsed = self.char.phase_duration, 0
+                while "gift" not in _event_types(events) and elapsed < 60_000:
+                    events = support.run(self.char, 50)
+                    elapsed += 50
+                self.assertIn("gift", _event_types(events))
+                self.assertEqual(self.char.state, "idle")
+                self.assertGreaterEqual(elapsed, pose_ms)
+
+    def test_an_interrupted_find_is_not_offered(self):
+        """Not then, and not at the end of whatever comes next either."""
+        self._run_until_found("shell_collecting")
+        self.char.greet(attached=True)
+        _, events = support.run_until_idle(self.char)
+        self.char.trigger_activity("playing")
+        events += support.run_until_idle(self.char)[1]
+        self.assertNotIn("gift", _event_types(events))
 
 
 if __name__ == "__main__":

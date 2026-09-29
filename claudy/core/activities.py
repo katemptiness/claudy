@@ -58,9 +58,13 @@ PAINTINGS = {
     "friend": _painting("friend", "портрет друга!"),
 }
 
+# An activity opens with still poses (getting the book, the laptop, the
+# wand out) that each come with a line. They last long enough to type the
+# line out and read it (Speech.readable_ms) in either language: cut
+# shorter, the next pose's line replaced it as soon as it was typed.
 ACTIVITIES = {
     "reading": (
-        Phase(["read_closed"], 500, 800, message="берёт книжку..."),
+        Phase(["read_closed"], 500, 1600, message="берёт книжку..."),
         Phase(READING, 600, 60000, duration_max_ms=120000,
               message="читает..."),
         Phase(["read_react"], 200, 1200, message="о! интересно!",
@@ -75,15 +79,15 @@ ACTIVITIES = {
               particle="zzz", particle_interval_ms=2000),
     ),
     "magic": (
-        Phase(["magic_hold"], 500, 1000, message="достаёт палочку..."),
-        Phase(["magic_raise"], 300, 1200, message="замахивается...", bounce=True),
+        Phase(["magic_hold"], 500, 1600, message="достаёт палочку..."),
+        Phase(["magic_raise"], 300, 1500, message="замахивается...", bounce=True),
         Phase(["magic_cast"], 150, 800, message="✨ ВЗМАХ!",
               shake=True, special="cast_magic"),
         Phase(["magic_done"], 500, 2500),
         Phase(["idle"], 500, 1000),
     ),
     "working": (
-        Phase(["work_closed"], 400, 800, message="открывает ноутбук..."),
+        Phase(["work_closed"], 400, 1600, message="открывает ноутбук..."),
         Phase(["work_a", "work_b"], 180, 60000, duration_max_ms=100000,
               message="тук-тук-тук...", particle="code", particle_interval_ms=1500),
         Phase(["work_think"], 500, 5000, duration_max_ms=15000,
@@ -96,7 +100,7 @@ ACTIVITIES = {
         Phase(["idle"], 500, 1000),
     ),
     "fishing": (
-        Phase(["fish_wait"], 500, 800, message="забрасывает удочку..."),
+        Phase(["fish_wait"], 500, 1700, message="забрасывает удочку..."),
         Phase(["fish_wait", "fish_wait_b"], 800, 3500, message="ждёт...",
               particle="zzz", particle_interval_ms=1500),
         Phase(["fish_bite"], 120, 1000, message="❗ клюёт!!",
@@ -124,7 +128,7 @@ ACTIVITIES = {
         Phase(["idle"], 500, 1000),
     ),
     "telescope": (
-        Phase(["telescope_a"], 500, 1000, message="достаёт телескоп..."),
+        Phase(["telescope_a"], 500, 1700, message="достаёт телескоп..."),
         Phase(["telescope_a", "telescope_b"], 600, 4000, message="космос...",
               particle="star", particle_interval_ms=1500),
         Phase(["idle"], 500, 1000, special="star_gaze"),
@@ -141,8 +145,8 @@ ACTIVITIES = {
         Phase(["idle"], 500, 1000),
     ),
     "summoning": (
-        Phase(["magic_hold"], 500, 1000, message="достаёт палочку..."),
-        Phase(["magic_raise"], 300, 1200, message="кого бы призвать...",
+        Phase(["magic_hold"], 500, 1600, message="достаёт палочку..."),
+        Phase(["magic_raise"], 300, 1700, message="кого бы призвать...",
               bounce=True),
         # summon_friend appends the hangout (FRIEND_ACTIVITY_POOL) and goodbye
         Phase(["magic_cast"], 150, 800, message="✨ ПРИЗЫВ!",

@@ -8,6 +8,9 @@ line replaces the old one immediately. Backends just draw the current state
 TYPE_MS_PER_CHAR = 30
 FADE_IN_MS = 150
 FADE_OUT_MS = 300
+# Once a line is typed out, a moment to take it in before another may
+# replace it
+GLANCE_MS = 1000
 
 
 class Speech:
@@ -22,6 +25,11 @@ class Speech:
     @staticmethod
     def typing_ms(text):
         return len(text) * TYPE_MS_PER_CHAR
+
+    @staticmethod
+    def readable_ms(text):
+        """The least time a line needs on screen to be typed out and read."""
+        return Speech.typing_ms(text) + GLANCE_MS
 
     def say(self, text):
         self.text = text

@@ -3,12 +3,13 @@
 import unittest
 from unittest import mock
 
-from claudy.content import app_reactions
+from claudy.content import app_reactions, phrases
 from claudy.core import controller
 from claudy.core.controller import Controller, MenuItem
 from claudy.core.memory import Memory
 from claudy.core.particles import ParticleSystem
 from claudy.core.settings import Settings
+from claudy.core.speech import Speech
 from tests import support
 
 
@@ -31,6 +32,16 @@ class ControllerTestCase(unittest.TestCase):
 
     def said(self):
         return self._said
+
+    def lines_over(self, ms, step=10):
+        """Advance `ms`; return (ms since now, text) for each line said."""
+        lines, elapsed, seen = [], 0, len(self._said)
+        while elapsed < ms:
+            self.ctl.tick(step)
+            elapsed += step
+            lines += [(elapsed, text) for text in self._said[seen:]]
+            seen = len(self._said)
+        return lines
 
     @property
     def hidden(self):
@@ -100,6 +111,29 @@ class GiftTests(ControllerTestCase):
             self.ctl.character.force_activity("shell_collecting")
             self.advance(30_000)
         self.assertEqual(self.ctl.gift_emoji, "🐚")
+
+    def test_the_find_is_admired_before_the_gift_is_announced(self):
+        support.attach()
+        with mock.patch("claudy.core.character.random.random", return_value=0.0):
+            self.ctl.character.force_activity("shell_collecting")
+            lines = self.lines_over(30_000)
+        texts = [text for _, text in lines]
+        admired = texts.index("какая красивая ракушка!")
+        name = Settings.shared().user_name
+        self.assertIn(texts[admired + 1],
+                      {phrases.format_phrase(p, name=name)
+                       for p in phrases.GIFT_ANNOUNCE_PHRASES})
+        shown_ms = lines[admired + 1][0] - lines[admired][0]
+        self.assertGreaterEqual(shown_ms, Speech.readable_ms(texts[admired]))
+
+    def test_the_line_seeing_a_gift_off_is_not_talked_over(self):
+        with support.fixed_weights({"reading": 1.0}):
+            self.offer_gift()
+            self.advance(Settings.shared().gift_duration_seconds() * 1000 - 100)
+            lines = self.lines_over(3100)
+        self.assertIsNone(self.ctl.gift_emoji)
+        self.assertEqual(len(lines), 1)     # just the goodbye to the gift
+        self.assertEqual(self.ctl.character.state, "idle")
 
 
 class StarNamingTests(ControllerTestCase):
@@ -191,6 +225,18 @@ class SpeechTests(ControllerTestCase):
         self.ctl._say("три", chatter=True)
         self.assertEqual(self.said()[-1], "три")
 
+    def test_idle_chatter_never_talks_over_a_line(self):
+        line = "это длинная фраза, и её надо успеть дочитать"
+        with support.fixed_weights({"idle": 1.0}):
+            self.ctl._say(line)
+            self.advance(controller.CHATTER_GAP_MS + 100)
+            self.ctl._say("болтовня", chatter=True)
+            self.assertEqual(self.said(), [line])
+            self.advance(Speech.typing_ms(line)
+                         + controller.reading_time(line) * 1000)
+            self.ctl._say("болтовня", chatter=True)
+        self.assertEqual(self.said()[-1], "болтовня")
+
     def test_speech_hides_after_reading_time(self):
         self.ctl._say("привет")
         typing = len("привет") * 30
@@ -223,7 +269,29 @@ class SystemEventTests(ControllerTestCase):
         app = app_reactions.LINUX_APPS["gnome-terminal"]
         self.ctl.on_app_launched("gnome-terminal", app, "gnome-terminal")
         self.assertEqual(self.ctl.character.state, "working")
+        self.ctl.tick(16)
         self.assertTrue(self.said())
+
+    def test_the_app_phrase_opens_the_activity_and_can_be_read(self):
+        for app_id in ("gnome-terminal", "spotify"):
+            with self.subTest(app=app_id):
+                self.ctl.character.force_activity("playing")
+                self.advance(6000)              # free again
+                app = app_reactions.LINUX_APPS[app_id]
+                self.ctl.on_app_launched(app_id, app, app_id)
+                self.ctl.tick(10)
+                phrase = self.ctl.speech.text
+                self.assertIn(phrase, app.phrases)
+                self.advance(Speech.readable_ms(phrase) - 20, step=10)
+                self.assertEqual(self.ctl.speech.text, phrase)
+
+    def test_opening_a_terminal_next_to_a_gift_starts_nothing(self):
+        self.offer_gift()
+        app = app_reactions.LINUX_APPS["gnome-terminal"]
+        self.ctl.on_app_launched("gnome-terminal", app, "gnome-terminal")
+        self.advance(1000)
+        self.assertEqual(self.ctl.character.state, "idle")
+        self.assertEqual(self.ctl.gift_emoji, "🐟")
 
     def test_unknown_app_is_only_counted(self):
         self.ctl.on_app_launched("com.example.unknown")

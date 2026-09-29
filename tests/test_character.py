@@ -466,6 +466,21 @@ class GiftReceivingTests(CharacterTestCase):
         self.assertTrue(self.char.has_marshmallow)
         self.char.trigger_activity("campfire")
         self.assertFalse(self.char.has_marshmallow)
+        # The roasting and the tasting phases talk about it, and only they
+        name = Settings.shared().user_name
+        lines = {
+            frame: {phrases.format_phrase(p, name=name)
+                    for p in named + nameless}
+            for frame, named, nameless in (
+                ("campfire_roast", phrases.CAMPFIRE_MARSHMALLOW_ROAST_PHRASES,
+                 phrases.CAMPFIRE_MARSHMALLOW_ROAST_PHRASES_NAMELESS),
+                ("campfire_done", phrases.CAMPFIRE_MARSHMALLOW_DONE_PHRASES,
+                 phrases.CAMPFIRE_MARSHMALLOW_DONE_PHRASES_NAMELESS))}
+        for phase in self.char.phases:
+            if phase.frames[0] in lines:
+                self.assertIn(phase.message, lines[phase.frames[0]])
+            else:
+                self.assertNotIn(phase.message, set().union(*lines.values()))
         _, events = support.run_until_idle(self.char)
         messages = [text for kind, text in events if kind == "message"]
         self.assertNotIn("жарит зефирку!", messages)

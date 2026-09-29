@@ -4,6 +4,7 @@ import unittest
 from unittest import mock
 
 from claudy.content import app_reactions, phrases
+from claudy.content.sprites.items import GIFT_ART
 from claudy.core import controller
 from claudy.core.controller import Controller, MenuItem
 from claudy.core.memory import Memory
@@ -349,6 +350,9 @@ class MenuTests(ControllerTestCase):
         dev = self._find(self.ctl.menu(), "Активности")
         self._find(dev.submenu, "Fishing").action()
         self.assertEqual(self.ctl.character.state, "fishing")
+
+    def test_the_dev_test_gift_can_be_any_gift_picture(self):
+        self.assertEqual(set(controller.TEST_GIFT_EMOJIS), set(GIFT_ART))
 
     def test_giving_a_toy_marks_it_owned(self):
         gifts = self._find(self.ctl.menu(), "Подарить подарок").submenu

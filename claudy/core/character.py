@@ -48,6 +48,13 @@ BLINK_GAP_MS = (2000, 6000)
 HOVER_PHRASE_CHANCE = 0.3  # waving at the pointer only sometimes comes with words
 
 
+def _phase_showing(phases, frame):
+    """Index of the phase that shows only `frame`, for per-run tweaks that
+    must not depend on where in the activity that phase sits."""
+    return next(i for i, phase in enumerate(phases)
+                if phase.frames == (frame,))
+
+
 class Character:
     """The crab's brain — state machine + animation engine."""
 
@@ -120,9 +127,11 @@ class Character:
         self._book_date = None  # the book is read for the rest of that day
         self.last_gift_received_time = 0.0
 
-        # Last few activity names, used to avoid immediate repeats. Idle and
-        # walking never get added (they don't go through _start_activity).
-        self.recent_activities = []
+        # The last RECENT_ACTIVITY_BLOCK activities started, which the next
+        # random pick skips. Idle and walking never get added (they don't go
+        # through _start_activity). Not to be confused with Memory's activity
+        # log, which is the longer history Claudy dreams from.
+        self.repeat_block = []
 
         # Summoned friend
         self.friend_visible = False
@@ -462,7 +471,7 @@ class Character:
         # available as rest fallbacks. If filtering empties the pool (e.g.
         # deep_sleep has only "sleeping" and it just ran), don't filter.
         fresh = {n: w for n, w in weights.items()
-                 if n not in self.recent_activities}
+                 if n not in self.repeat_block}
         if fresh:
             weights = fresh
 
@@ -524,9 +533,9 @@ class Character:
     # ---- Activities ----
 
     def _start_activity(self, name, opening=None):
-        self.recent_activities.append(name)
-        if len(self.recent_activities) > RECENT_ACTIVITY_BLOCK:
-            self.recent_activities.pop(0)
+        self.repeat_block.append(name)
+        if len(self.repeat_block) > RECENT_ACTIVITY_BLOCK:
+            self.repeat_block.pop(0)
 
         Memory.shared().log_activity(name)
 
@@ -546,10 +555,12 @@ class Character:
         if name == "campfire" and self.has_marshmallow:
             # Roast the user's marshmallow with special phrases
             self.has_marshmallow = False
-            phases[3] = replace(phases[3], message=pick_personal(
+            roast = _phase_showing(phases, "campfire_roast")
+            phases[roast] = replace(phases[roast], message=pick_personal(
                 phrases.CAMPFIRE_MARSHMALLOW_ROAST_PHRASES,
                 phrases.CAMPFIRE_MARSHMALLOW_ROAST_PHRASES_NAMELESS, user_name))
-            phases[4] = replace(phases[4], message=pick_personal(
+            done = _phase_showing(phases, "campfire_done")
+            phases[done] = replace(phases[done], message=pick_personal(
                 phrases.CAMPFIRE_MARSHMALLOW_DONE_PHRASES,
                 phrases.CAMPFIRE_MARSHMALLOW_DONE_PHRASES_NAMELESS, user_name))
 

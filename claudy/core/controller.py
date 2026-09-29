@@ -14,7 +14,7 @@ from typing import Callable, List, Optional
 from claudy.config import MAX_TICK_MS, PIXEL_SCALE, SPRITE_SIZE, WINDOW_WIDTH
 from claudy.content import phrases, ui_text
 from claudy.content.phrases import pick
-from claudy.content.sprites.items import DREAM_ART
+from claudy.content.sprites.items import DREAM_ART, GIFT_ART
 from claudy.core.activities import ACTIVITIES
 from claudy.core.character import Character
 from claudy.core.memory import Memory
@@ -31,7 +31,8 @@ CHATTER_GAP_MS = 3000
 # pixel rows are empty)
 PARTICLE_HEAD_Y = SPRITE_SIZE
 PARTICLE_FEET_Y = 2 * PIXEL_SCALE
-TEST_GIFT_EMOJIS = ["🐟", "🐡", "💎", "⭐", "🌸", "🦋"]
+# The developer test gift picks from every gift that has a picture
+TEST_GIFT_EMOJIS = tuple(GIFT_ART)
 
 # Claudy dreams while he sleeps, and rarely: minutes apart, so that catching
 # one feels like catching it, not like watching a slide show. A dream fades

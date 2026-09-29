@@ -14,6 +14,17 @@ from claudy.core.settings import (
 )
 
 
+def _wheel_scrolls_form(widget, event):
+    """Pass the mouse wheel over a drop-down or slider on to the form.
+
+    GTK3 would spend it on whichever control happens to be under the
+    pointer, so scrolling the form on a small screen (where it doesn't fit)
+    would quietly change the settings it passes over.
+    """
+    widget.stop_emission_by_name("scroll-event")
+    return False  # not handled, so the scrolled window gets it
+
+
 class _Choice:
     """A drop-down bound to one setting."""
 
@@ -148,6 +159,8 @@ class SettingsWindow:
         self.window.show_all()
 
     def _add_widget(self, widget):
+        if isinstance(widget, (Gtk.ComboBox, Gtk.Range)):
+            widget.connect("scroll-event", _wheel_scrolls_form)
         self._grid.attach(widget, 0, self._row, 2, 1)
         self._row += 1
 

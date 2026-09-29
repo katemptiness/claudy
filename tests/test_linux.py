@@ -15,8 +15,8 @@ try:
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
-    from claudy.backends.linux import events
-    from gi.repository import Gdk, GLib
+    from claudy.backends.linux import events, settings_ui
+    from gi.repository import Gdk, GLib, Gtk
     HAVE_GTK = Gdk.Display.get_default() is not None
 except (ImportError, ValueError):
     HAVE_GTK = False
@@ -108,6 +108,38 @@ class SystemEventTests(unittest.TestCase):
             handler._check_new_apps()
         controller.on_app_launched.assert_called_once_with(
             "code", app_reactions.LINUX_APPS["code"], "VS Code")
+
+
+@needs_gtk
+class SettingsFormTests(unittest.TestCase):
+
+    @staticmethod
+    def wheel(widget):
+        """Turn the mouse wheel over `widget`; True if it took the turn."""
+        event = Gdk.Event.new(Gdk.EventType.SCROLL)
+        event.scroll.direction = Gdk.ScrollDirection.DOWN
+        pointer = Gdk.Display.get_default().get_default_seat().get_pointer()
+        event.set_device(pointer)
+        event.set_source_device(pointer)
+        return widget.emit("scroll-event", event)
+
+    def test_the_wheel_scrolls_the_form_not_its_controls(self):
+        form = settings_ui.SettingsWindow.__new__(settings_ui.SettingsWindow)
+        form._grid, form._row = Gtk.Grid(), 0
+        combo = Gtk.ComboBoxText()
+        for text in ("a", "b", "c"):
+            combo.append_text(text)
+        combo.set_active(0)
+        scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        scale.set_value(50)
+        form._add_widget(combo)
+        form._add_widget(scale)
+
+        # Not taken, so it goes on up to the scrolled window
+        self.assertFalse(self.wheel(combo))
+        self.assertFalse(self.wheel(scale))
+        self.assertEqual(combo.get_active(), 0)
+        self.assertEqual(scale.get_value(), 50)
 
 
 if __name__ == "__main__":

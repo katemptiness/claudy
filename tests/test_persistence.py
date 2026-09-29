@@ -1,10 +1,15 @@
 """Tests for Settings and Memory persistence."""
 
 import json
+import logging
+import logging.handlers
 import os
+import sys
+import threading
 import unittest
 from unittest import mock
 
+from claudy import log
 from claudy.content import ui_text
 from claudy.core import memory, settings
 from tests import support
@@ -296,6 +301,96 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(self.mem.record_app_launch("firefox"), 1)
         self.assertEqual(self.mem.record_app_launch("firefox"), 2)
         self.assertEqual(self.mem.get_app_launches_today("firefox"), 2)
+
+
+def failing_frame(message="tick failed", value=1):
+    """A log record like the frame loop's, raised from the same line."""
+    try:
+        raise ValueError(value)
+    except ValueError:
+        return logging.LogRecord("claudy", logging.ERROR, __file__, 0,
+                                 message, (), sys.exc_info())
+
+
+class ErrorLogTests(unittest.TestCase):
+
+    def test_a_repeating_error_is_written_once_then_counted(self):
+        """A bug hit on every frame logs sixty tracebacks a second; the
+        log keeps the first and then says how often it came back."""
+        now = [0.0]
+        repeats = log.RepeatFilter(interval_s=600, clock=lambda: now[0])
+        self.assertTrue(repeats.filter(failing_frame()))
+        for frame in range(1, 600):
+            now[0] = frame / 60
+            # the exception text may change from frame to frame
+            self.assertFalse(repeats.filter(failing_frame(value=frame)))
+        now[0] = 600.0
+        summary = failing_frame()
+        self.assertTrue(repeats.filter(summary))
+        self.assertIsNone(summary.exc_info)
+        self.assertEqual(summary.getMessage(),
+                         "tick failed (again, 600 more times in the last "
+                         "10 min)")
+        # A different failure is news, and goes in straight away
+        self.assertTrue(repeats.filter(failing_frame("menu action failed")))
+
+    def test_an_error_that_does_not_repeat_keeps_its_traceback(self):
+        now = [0.0]
+        repeats = log.RepeatFilter(interval_s=600, clock=lambda: now[0])
+        self.assertTrue(repeats.filter(failing_frame()))
+        now[0] = 3600.0
+        again = failing_frame()
+        self.assertTrue(repeats.filter(again))
+        self.assertIsNotNone(again.exc_info)
+
+    def test_the_log_file_is_capped(self):
+        handler = log.log.handlers[0]
+        self.assertIsInstance(handler, logging.handlers.RotatingFileHandler)
+        self.assertEqual(handler.maxBytes, log.LOG_MAX_BYTES)
+        self.assertTrue(any(isinstance(f, log.RepeatFilter)
+                            for f in handler.filters))
+
+    def test_uncaught_exceptions_are_logged_and_still_printed(self):
+        printed = mock.Mock()
+        with mock.patch.object(sys, "excepthook", printed):
+            log.install_excepthook()
+            try:
+                raise RuntimeError("no window")
+            except RuntimeError:
+                exc_info = sys.exc_info()
+            with self.assertLogs("claudy", level="ERROR") as logged:
+                sys.excepthook(*exc_info)
+        printed.assert_called_once_with(*exc_info)
+        self.assertIn("RuntimeError: no window", logged.output[0])
+
+    def test_installing_twice_logs_once(self):
+        with mock.patch.object(sys, "excepthook", mock.Mock()):
+            log.install_excepthook()
+            log.install_excepthook()
+            with self.assertLogs("claudy", level="ERROR") as logged:
+                sys.excepthook(RuntimeError, RuntimeError("once"), None)
+        self.assertEqual(len(logged.output), 1)
+
+    def test_ctrl_c_is_not_an_error(self):
+        printed = mock.Mock()
+        with mock.patch.object(sys, "excepthook", printed), \
+                mock.patch.object(log.log, "error") as error:
+            log.install_excepthook()
+            sys.excepthook(KeyboardInterrupt, KeyboardInterrupt(), None)
+        error.assert_not_called()
+        printed.assert_called_once()
+
+    def test_uncaught_exceptions_in_threads_are_logged(self):
+        printed = mock.Mock()
+        with mock.patch.object(threading, "excepthook", printed), \
+                mock.patch.object(sys, "excepthook", sys.excepthook):
+            log.install_excepthook()
+            with self.assertLogs("claudy", level="ERROR") as logged:
+                worker = threading.Thread(target=lambda: 1 / 0, name="poll")
+                worker.start()
+                worker.join()
+        printed.assert_called_once()
+        self.assertIn("thread poll", logged.output[0])
 
 
 if __name__ == "__main__":

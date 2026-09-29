@@ -48,6 +48,8 @@ rm -rf build dist
 
 if [ "${1:-}" != "--no-launch" ]; then
     echo "==> Launching"
-    open -a Claudy
+    # By path: `open -a Claudy` asks Launch Services by name, and any stray
+    # Claudy.app it knows (same bundle id, same version) could win
+    open "$TARGET"
 fi
 echo "Done: $TARGET"

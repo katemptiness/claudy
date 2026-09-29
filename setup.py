@@ -8,17 +8,22 @@ The app will be created in dist/Claudy.app
 """
 
 import os
+import sys
 
 from setuptools import setup
 
 APP = ['app.py']
 
-# Find libffi for bundling (needed by ctypes/PyObjC)
-_conda = os.path.expanduser('~/anaconda3/lib')
+# Find libffi for bundling (needed by ctypes/PyObjC). A conda-style Python
+# keeps its own copy in lib/ next to the interpreter doing the build; a venv
+# made from one has no lib/ of its own, hence base_prefix as well. Pythons
+# that use the system libffi have none there, and bundle nothing.
 FRAMEWORKS = []
-_libffi = os.path.join(_conda, 'libffi.8.dylib')
-if os.path.exists(_libffi):
-    FRAMEWORKS.append(_libffi)
+for _prefix in (sys.prefix, sys.base_prefix):
+    _libffi = os.path.join(_prefix, 'lib', 'libffi.8.dylib')
+    if os.path.exists(_libffi):
+        FRAMEWORKS.append(_libffi)
+        break
 
 OPTIONS = {
     'argv_emulation': False,

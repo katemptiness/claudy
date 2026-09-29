@@ -17,6 +17,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-_TMP_HOME = tempfile.mkdtemp(prefix="claudy-tests-")
+TEST_HOME_PREFIX = "claudy-tests-"
+_TMP_HOME = tempfile.mkdtemp(prefix=TEST_HOME_PREFIX)
 atexit.register(shutil.rmtree, _TMP_HOME, ignore_errors=True)
 os.environ["CLAUDY_HOME"] = _TMP_HOME

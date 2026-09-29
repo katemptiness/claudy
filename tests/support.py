@@ -6,22 +6,42 @@ from unittest import mock
 
 from claudy.core import memory, settings
 from claudy.core.controller import Platform
+from tests import TEST_HOME_PREFIX
 
 SCREEN_WIDTH = 1440
+
+
+def _require_temp_home():
+    """Refuse to run against the user's real ~/.claudy.
+
+    tests/__init__.py points CLAUDY_HOME at a throwaway directory, but only
+    when the suite is imported as the `tests` package before any Claudy
+    module. Run another way (`unittest discover tests`, a test file run on
+    its own, a script that execs the tests), the data files resolve to the
+    real home, and the reset below would delete the user's memory.
+    """
+    home = os.path.dirname(memory.MEMORY_FILE)
+    if not os.path.basename(home).startswith(TEST_HOME_PREFIX):
+        raise RuntimeError(
+            f"tests would touch {home}; run them from the project root with "
+            "`python3 -m unittest discover -s tests -t .`")
 
 
 def reset_singletons():
     """Start each test from fresh Settings/Memory with default values.
 
-    The memory file goes too. A couple of things there outlive a session on
-    purpose (the first launch date, the star Claudy named), and the whole
-    suite shares one CLAUDY_HOME, so one test's star would otherwise turn up
-    in the sky of the next.
+    The data files go too. A couple of things in memory outlive a session
+    on purpose (the first launch date, the star Claudy named), saved
+    settings are read back at the next start, and the whole suite shares one
+    CLAUDY_HOME, so one test's star or setting would otherwise turn up in
+    the next.
     """
-    try:
-        os.remove(memory.MEMORY_FILE)
-    except OSError:
-        pass
+    _require_temp_home()
+    for path in (memory.MEMORY_FILE, settings.SETTINGS_FILE):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
     settings.Settings._instance = None
     memory.Memory._instance = None
     settings.Settings.shared().language = "ru"

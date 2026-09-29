@@ -327,6 +327,13 @@ def failing_frame(message="tick failed", value=1):
 
 class ErrorLogTests(unittest.TestCase):
 
+    def setUp(self):
+        # install_excepthook() swaps both hooks for the whole process. Put
+        # them back, or every later test would run with them installed,
+        # stacked once more by each test here that installs them.
+        self.addCleanup(setattr, sys, "excepthook", sys.excepthook)
+        self.addCleanup(setattr, threading, "excepthook", threading.excepthook)
+
     def test_a_repeating_error_is_written_once_then_counted(self):
         """A bug hit on every frame logs sixty tracebacks a second; the
         log keeps the first and then says how often it came back."""
@@ -395,8 +402,7 @@ class ErrorLogTests(unittest.TestCase):
 
     def test_uncaught_exceptions_in_threads_are_logged(self):
         printed = mock.Mock()
-        with mock.patch.object(threading, "excepthook", printed), \
-                mock.patch.object(sys, "excepthook", sys.excepthook):
+        with mock.patch.object(threading, "excepthook", printed):
             log.install_excepthook()
             with self.assertLogs("claudy", level="ERROR") as logged:
                 worker = threading.Thread(target=lambda: 1 / 0, name="poll")

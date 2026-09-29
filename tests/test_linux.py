@@ -9,6 +9,8 @@ The GTK tests are skipped where GTK 3 or a display isn't available.
 import unittest
 from unittest import mock
 
+from claudy.content import app_reactions
+
 try:
     import gi
     gi.require_version("Gtk", "3.0")
@@ -20,6 +22,38 @@ except (ImportError, ValueError):
     HAVE_GTK = False
 
 needs_gtk = unittest.skipUnless(HAVE_GTK, "needs GTK 3 and a display")
+
+
+class ProcessMatchingTests(unittest.TestCase):
+    """Which running process is which app (no GTK needed)."""
+
+    def setUp(self):
+        self.match = app_reactions.match_linux_process
+
+    def test_electron_crash_handler_is_not_chrome(self):
+        # Every Electron app runs one, Claude's desktop app among them
+        self.assertIsNone(self.match("chrome_crashpad"))
+        self.assertEqual(self.match("chrome"), "chrome")
+        self.assertEqual(self.match("claude-desktop"), "claude")
+
+    def test_helper_processes_still_match_their_app(self):
+        self.assertEqual(self.match("vivaldi-bin"), "vivaldi")
+        self.assertEqual(self.match("chromium-browse"), "chromium")
+        self.assertEqual(self.match("telegram-deskto"), "telegram")
+        self.assertEqual(self.match("ptyxis-agent"), "ptyxis")
+
+    def test_libreoffice_is_found_by_the_process_that_stays(self):
+        self.assertEqual(self.match("soffice.bin"), "soffice")
+        self.assertIsNone(self.match("oosplash"))
+
+    def test_name_cut_off_by_ps_matches_the_longer_key(self):
+        self.assertEqual(self.match("gnome-text-edit"), "gnome-text-editor")
+
+    def test_every_linux_app_has_a_name_to_be_counted_by(self):
+        for key, app_info in app_reactions.LINUX_APPS.items():
+            with self.subTest(app=key):
+                self.assertTrue(app_info.name)
+                self.assertEqual(self.match(key), key)
 
 
 @needs_gtk
@@ -65,6 +99,15 @@ class SystemEventTests(unittest.TestCase):
         with mock.patch.object(events, "log") as log:
             self.prepare_for_sleep(handler, True)
         log.exception.assert_called_once()
+
+    def test_a_launch_is_counted_under_the_apps_own_name(self):
+        controller = mock.Mock()
+        handler = self.make_handler(controller)
+        with mock.patch.object(events.SystemEventHandler, "_scan_apps",
+                               return_value={"code"}):
+            handler._check_new_apps()
+        controller.on_app_launched.assert_called_once_with(
+            "code", app_reactions.LINUX_APPS["code"], "VS Code")
 
 
 if __name__ == "__main__":

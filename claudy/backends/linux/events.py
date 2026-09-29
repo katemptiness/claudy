@@ -81,8 +81,9 @@ class SystemEventHandler:
             if now - self._last_reaction.get(key, 0) < APP_COOLDOWN_S:
                 continue
             self._last_reaction[key] = now
+            app = LINUX_APPS[key]
             try:
-                self.controller.on_app_launched(key, LINUX_APPS[key], key)
+                self.controller.on_app_launched(key, app, app.name)
             except Exception:
                 log.exception("failed to react to %s", key)
         self._running_apps = running

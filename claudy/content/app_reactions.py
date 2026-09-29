@@ -55,6 +55,9 @@ CATEGORY_ACTIVITY = {
 class App:
     category: str
     extra_phrases: list = field(default_factory=list)
+    # What Claudy calls the app when he counts how often it was opened
+    # today. Only Linux needs one: macOS names every app itself.
+    name: str = ""
 
     @property
     def phrases(self):
@@ -94,44 +97,60 @@ MACOS_APPS = {
     "net.ia.iaWriter": App("writing", ["минимализм! нравится"]),
 }
 
-# Linux apps by process-name fragment (matched as a substring of the
-# lowercase process name; the first match in this order wins).
+# Linux apps by process name (see match_linux_process)
 LINUX_APPS = {
-    "firefox": App("browser", ["Firefox! олдскул"]),
-    "chrome": App("browser", ["Chrome съел всю память!"]),
-    "chromium": App("browser", ["Chrome съел всю память!"]),
-    "vivaldi": App("browser", ["опять мемы?"]),
-    "gnome-terminal": App("terminal"),
-    "alacritty": App("terminal"),
-    "kitty": App("terminal", ["о, Kitty! красиво"]),
-    "tilix": App("terminal"),
-    "terminator": App("terminal"),
-    "warp-terminal": App("terminal", ["о, Warp! красиво"]),
-    "xterm": App("terminal"),
-    "sublime_text": App("editor", ["Sublime!"]),
-    "pycharm": App("editor", ["PyCharm!"]),
-    "webstorm": App("editor"),
-    "clion": App("editor"),
-    "codium": App("editor", ["VS Code!", "а юнит-тесты?"]),
-    "code": App("editor", ["VS Code!", "а юнит-тесты?"]),
-    "spotify": App("music"),
-    "rhythmbox": App("music"),
-    "lollypop": App("music"),
-    "gnome-music": App("music"),
-    "telegram": App("messenger", ["Telegram!"]),
-    "nautilus": App("files"),
-    "thunar": App("files"),
-    "claude": App("claude"),
-    "gedit": App("writing"),
-    "libreoffice": App("writing"),
-    "eog": App("photos"),
+    "firefox": App("browser", ["Firefox! олдскул"], name="Firefox"),
+    "chrome": App("browser", ["Chrome съел всю память!"], name="Chrome"),
+    "chromium": App("browser", ["Chrome съел всю память!"], name="Chromium"),
+    "vivaldi": App("browser", ["опять мемы?"], name="Vivaldi"),
+    "gnome-terminal": App("terminal", name="GNOME Terminal"),
+    "kgx": App("terminal", name="GNOME Console"),
+    "ptyxis": App("terminal", name="Ptyxis"),
+    "alacritty": App("terminal", name="Alacritty"),
+    "kitty": App("terminal", ["о, Kitty! красиво"], name="Kitty"),
+    "tilix": App("terminal", name="Tilix"),
+    "terminator": App("terminal", name="Terminator"),
+    "warp-terminal": App("terminal", ["о, Warp! красиво"], name="Warp"),
+    "xterm": App("terminal", name="XTerm"),
+    "sublime_text": App("editor", ["Sublime!"], name="Sublime Text"),
+    "pycharm": App("editor", ["PyCharm!"], name="PyCharm"),
+    "webstorm": App("editor", name="WebStorm"),
+    "clion": App("editor", name="CLion"),
+    "codium": App("editor", ["VS Code!", "а юнит-тесты?"], name="VSCodium"),
+    "code": App("editor", ["VS Code!", "а юнит-тесты?"], name="VS Code"),
+    "spotify": App("music", name="Spotify"),
+    "rhythmbox": App("music", name="Rhythmbox"),
+    "lollypop": App("music", name="Lollypop"),
+    "gnome-music": App("music", name="GNOME Music"),
+    "telegram": App("messenger", ["Telegram!"], name="Telegram"),
+    "nautilus": App("files", name="Nautilus"),
+    "thunar": App("files", name="Thunar"),
+    "claude": App("claude", name="Claude"),
+    "gedit": App("writing", name="gedit"),
+    "gnome-text-editor": App("writing", name="GNOME Text Editor"),
+    # LibreOffice runs as soffice.bin; "libreoffice" only starts it
+    "soffice": App("writing", name="LibreOffice"),
+    "eog": App("photos", name="Eye of GNOME"),
+    "loupe": App("photos", name="Loupe"),
 }
+
+# ps shows only the first 15 characters of a process name
+PROCESS_NAME_MAX = 15
 
 
 def match_linux_process(proc_name):
-    """Return the LINUX_APPS key matching a process name, or None."""
-    proc_name = proc_name.lower()
+    """Return the LINUX_APPS key matching a process name, or None.
+
+    A key matches the whole name, or its first part before a "-" or ".":
+    "gnome-terminal-server", "vivaldi-bin" and "soffice.bin" are those apps,
+    but "chrome_crashpad", which every Electron app runs (Claude's desktop
+    app among them), is not Chrome. A name cut off at PROCESS_NAME_MAX also
+    matches the longer key it begins ("gnome-text-edit").
+    """
+    name = proc_name.lower()
     for key in LINUX_APPS:
-        if key in proc_name:
+        if name == key or name.startswith((key + "-", key + ".")):
+            return key
+        if len(name) == PROCESS_NAME_MAX and key.startswith(name):
             return key
     return None

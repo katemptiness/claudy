@@ -21,6 +21,8 @@ class BubbleWindow:
         self._alpha = 0.0
         self._measure = CairoCanvas(measuring_context(), images)
         self._size = None
+        self._spot = None    # where the window was last moved to
+        self._drawn = None   # the speech state it was last drawn for
 
         self.window = make_overlay_window(click_through=True)
         self.window.set_accept_focus(False)
@@ -34,11 +36,15 @@ class BubbleWindow:
         """Show, move and redraw the bubble to match `speech`.
 
         (anchor_x, anchor_y) is the screen point just above Claudy that the
-        tail points at.
+        tail points at. Like Claudy's own windows, the bubble is moved and
+        redrawn only when that changes something: this runs every frame.
         """
         if not speech.visible:
             if self.window.get_visible():
                 self.window.hide()
+            # Placed afresh when it comes back: GTK may show a hidden
+            # window where it was first put, not where it was last moved
+            self._spot = self._drawn = None
             return
         layout = self._scene.bubble_layout(self._measure)
         size = (layout.width, layout.height)
@@ -46,12 +52,18 @@ class BubbleWindow:
             self._size = size
             self.window.resize(*size)
             self._area.set_size_request(*size)
-        self.window.move(int(anchor_x - layout.width / 2),
-                         int(anchor_y + BUBBLE_OVERLAP - layout.height))
+        spot = (int(anchor_x - layout.width / 2),
+                int(anchor_y + BUBBLE_OVERLAP - layout.height))
+        if spot != self._spot:
+            self._spot = spot
+            self.window.move(*spot)
         self._alpha = speech.alpha
         if not self.window.get_visible():
             self.window.show_all()
-        self._area.queue_draw()
+        state = (speech.text, speech.shown_text, speech.alpha)
+        if state != self._drawn:
+            self._drawn = state
+            self._area.queue_draw()
 
     def _on_draw(self, widget, cr):
         clear(cr)

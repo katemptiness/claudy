@@ -146,6 +146,7 @@ class CrabApp:
         self._monitor_x, self._monitor_width, self._base_y = get_screen_geometry()
 
         self._click_timer = None
+        self._spots = {}  # window -> where it was last moved to
 
         # No Dock-tilesize query on Linux; use the default icon pitch.
         self.controller = Controller(
@@ -204,14 +205,28 @@ class CrabApp:
         self._place_star()
         self.window.present()
 
+    def _move(self, window, x, y):
+        """Move a window, unless it is already there.
+
+        Windows are placed every frame, GTK hands each move straight to the
+        X server, and Claudy holds still most of the time.
+        """
+        if self._spots.get(window) != (x, y):
+            self._spots[window] = (x, y)
+            window.move(x, y)
+
     def _place_star(self):
         """Hang the named star in its spot, or hide it in daylight."""
         star = self.controller.star
         if star is None:
             if self.star_window.get_visible():
                 self.star_window.hide()
+            # Placed afresh at nightfall: GTK may show a hidden window
+            # where it was first put, not where it was last moved
+            self._spots.pop(self.star_window, None)
             return
-        self.star_window.move(
+        self._move(
+            self.star_window,
             int(self._monitor_x + self._monitor_width / 2
                 + star_offset_x(star["name"]) - STAR_WINDOW / 2),
             self._win_y() + WINDOW_HEIGHT - self._settings.star_height
@@ -237,9 +252,9 @@ class CrabApp:
         the ground. The bubble's tail points at the crab window's top."""
         win_x = int(self._abs_x(view["x"]) - WINDOW_WIDTH / 2)
         win_y = self._win_y(view["y_offset"])
-        self.window.move(win_x, win_y)
-        self.ground_window.move(
-            win_x, self._win_y() + WINDOW_HEIGHT - OVERLAY_HEIGHT)
+        self._move(self.window, win_x, win_y)
+        self._move(self.ground_window,
+                   win_x, self._win_y() + WINDOW_HEIGHT - OVERLAY_HEIGHT)
         self.bubble.sync(self.controller.speech, self._abs_x(view["x"]), win_y)
 
     # ---- Drawing ----

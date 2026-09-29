@@ -8,16 +8,19 @@ The GTK tests are skipped where GTK 3 or a display isn't available.
 
 import ctypes
 import ctypes.util
+import types
 import unittest
 from unittest import mock
 
 from claudy.content import app_reactions
+from claudy.core.speech import Speech
+from claudy.render.scene import BUBBLE_OVERLAP
 
 try:
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
-    from claudy.backends.linux import bubble, events, settings_ui, windows
+    from claudy.backends.linux import app, bubble, events, settings_ui, windows
     from gi.repository import Gdk, GLib, Gtk
     import cairo
     HAVE_GTK = Gdk.Display.get_default() is not None
@@ -193,6 +196,100 @@ class OverlayWindowTests(unittest.TestCase):
     def test_the_speech_bubble_takes_no_clicks(self):
         speech_bubble = bubble.BubbleWindow(scene=None, images=None)
         self.assertEqual(self.input_rects(speech_bubble.window), [])
+
+
+class _BubbleScene:
+    def bubble_layout(self, canvas):
+        return types.SimpleNamespace(width=120, height=60)
+
+
+@needs_gtk
+class BubbleTests(unittest.TestCase):
+    """The bubble moves and redraws only when something changed."""
+
+    def setUp(self):
+        self.bubble = bubble.BubbleWindow(_BubbleScene(), images=None)
+        self.bubble.window.destroy()
+        self.window = self.bubble.window = mock.Mock()
+        self.area = self.bubble._area = mock.Mock()
+        self.visible = False
+        self.window.get_visible.side_effect = lambda: self.visible
+        self.window.show_all.side_effect = lambda: setattr(self, "visible", True)
+        self.window.hide.side_effect = lambda: setattr(self, "visible", False)
+        self.speech = Speech()
+        self.speech.say("привет")
+        self.speech.update(1000)   # typed out and faded in
+
+    def test_standing_still_costs_nothing(self):
+        for _ in range(3):
+            self.bubble.sync(self.speech, 500, 800)
+        self.window.move.assert_called_once_with(
+            440, 800 + BUBBLE_OVERLAP - 60)
+        self.area.queue_draw.assert_called_once_with()
+
+        self.bubble.sync(self.speech, 510, 800)   # Claudy took a step
+        self.assertEqual(self.window.move.call_count, 2)
+        self.assertEqual(self.area.queue_draw.call_count, 1)
+
+        self.speech.hide()
+        self.speech.update(100)                   # fading out
+        self.bubble.sync(self.speech, 510, 800)
+        self.assertEqual(self.window.move.call_count, 2)
+        self.assertEqual(self.area.queue_draw.call_count, 2)
+
+    def test_placed_afresh_after_hiding(self):
+        self.bubble.sync(self.speech, 500, 800)
+        self.bubble.sync(Speech(), 500, 800)      # nothing to say
+        self.window.hide.assert_called_once_with()
+        self.bubble.sync(self.speech, 500, 800)
+        self.assertEqual(self.window.move.call_count, 2)
+        self.assertEqual(self.area.queue_draw.call_count, 2)
+
+
+@needs_gtk
+class CrabAppTests(unittest.TestCase):
+    """CrabApp's own logic, on mock windows (building it would show them)."""
+
+    def setUp(self):
+        crab = self.crab = app.CrabApp.__new__(app.CrabApp)
+        crab._settings = types.SimpleNamespace(vertical_offset=0,
+                                               star_height=300)
+        crab._monitor_x, crab._monitor_width, crab._base_y = 0, 1440, 900
+        crab._spots = {}
+        crab._click_timer = None
+        crab.window = mock.Mock()
+        crab.ground_window = mock.Mock()
+        crab.star_window = mock.Mock()
+        crab.star_window.get_visible.return_value = False
+        crab.bubble = mock.Mock()
+        crab.controller = mock.Mock()
+        crab.controller.character = types.SimpleNamespace(screen_width=1440)
+
+    def test_windows_move_only_when_claudy_does(self):
+        view = {"x": 700, "y_offset": 0}
+        self.crab._move_windows(view)
+        self.crab._move_windows(view)
+        self.crab.window.move.assert_called_once()
+        self.crab.ground_window.move.assert_called_once()
+        self.crab._move_windows({"x": 702, "y_offset": 0})
+        self.assertEqual(self.crab.window.move.call_count, 2)
+        self.assertEqual(self.crab.ground_window.move.call_count, 2)
+
+    def test_the_star_is_placed_afresh_each_night(self):
+        star = self.crab.star_window
+        self.crab.controller.star = {"name": "Вега"}
+        self.crab._place_star()
+        star.get_visible.return_value = True
+        self.crab._place_star()
+        star.move.assert_called_once()
+
+        self.crab.controller.star = None           # daylight
+        self.crab._place_star()
+        star.hide.assert_called_once_with()
+        star.get_visible.return_value = False
+        self.crab.controller.star = {"name": "Вега"}
+        self.crab._place_star()
+        self.assertEqual(star.move.call_count, 2)
 
 
 @needs_gtk

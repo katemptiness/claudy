@@ -137,6 +137,12 @@ LINUX_APPS = {
 # ps shows only the first 15 characters of a process name
 PROCESS_NAME_MAX = 15
 
+# Names the rules below would take for an app they aren't. Chromium's setuid
+# sandbox is shipped with every Electron app (Claude's desktop app among
+# them) and stays running beside it wherever the app can't sandbox itself
+# otherwise, as where Ubuntu restricts user namespaces; it isn't Chrome.
+NOT_APPS = frozenset({"chrome-sandbox"})
+
 
 def match_linux_process(proc_name):
     """Return the LINUX_APPS key matching a process name, or None.
@@ -148,6 +154,8 @@ def match_linux_process(proc_name):
     matches the longer key it begins ("gnome-text-edit").
     """
     name = proc_name.lower()
+    if name in NOT_APPS:
+        return None
     for key in LINUX_APPS:
         if name == key or name.startswith((key + "-", key + ".")):
             return key

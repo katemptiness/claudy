@@ -43,6 +43,8 @@ class ProcessMatchingTests(unittest.TestCase):
     def test_electron_crash_handler_is_not_chrome(self):
         # Every Electron app runs one, Claude's desktop app among them
         self.assertIsNone(self.match("chrome_crashpad"))
+        # ...and, where it can't sandbox itself otherwise, Chromium's sandbox
+        self.assertIsNone(self.match("chrome-sandbox"))
         self.assertEqual(self.match("chrome"), "chrome")
         self.assertEqual(self.match("claude-desktop"), "claude")
 

@@ -31,9 +31,14 @@ class SystemEventHandler:
         GLib.timeout_add_seconds(POLL_SECONDS, self._check_new_apps)
 
     def _subscribe_sleep_wake(self):
+        # The connection is kept for as long as Claudy runs: GLib holds the
+        # shared system bus only weakly, so a local would be closed on return,
+        # taking the subscription with it, and sleep and wake would never
+        # reach Claudy
+        self._system_bus = None
         try:
-            bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-            bus.signal_subscribe(
+            self._system_bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+            self._system_bus.signal_subscribe(
                 "org.freedesktop.login1",
                 "org.freedesktop.login1.Manager",
                 "PrepareForSleep",
@@ -47,11 +52,14 @@ class SystemEventHandler:
             log.info("logind unavailable; sleep/wake events disabled")
 
     def _on_prepare_for_sleep(self, conn, sender, path, iface, signal, params, data):
-        going_to_sleep = params.unpack()[0]
-        if going_to_sleep:
-            self.controller.on_system_sleep()
-        else:
-            self.controller.on_system_wake()
+        try:
+            going_to_sleep = params.unpack()[0]
+            if going_to_sleep:
+                self.controller.on_system_sleep()
+            else:
+                self.controller.on_system_wake()
+        except Exception:
+            log.exception("failed to react to sleep or wake")
 
     @staticmethod
     def _scan_apps():

@@ -256,11 +256,13 @@ class MacApp:
     def __init__(self):
         self.settings = Settings.shared()
 
-        # All geometry comes from the screen Claudy starts on, read once:
-        # mainScreen() follows keyboard focus, so asking again later could
-        # measure a different display. The controller works in x relative to
-        # that screen (0..screen_width); screen_x converts.
-        screen = AppKit.NSScreen.mainScreen()
+        # All geometry comes from the primary display, the one with the menu
+        # bar, where the Dock lives unless the user moves it, read once; Linux
+        # uses its primary monitor the same way. mainScreen() would be the
+        # display with keyboard focus, so Claudy's home would depend on which
+        # window happened to be focused when he started. The controller works
+        # in x relative to that screen (0..screen_width); screen_x converts.
+        screen = AppKit.NSScreen.screens()[0]
         self.screen_x = screen.frame().origin.x
         self.screen_width = screen.frame().size.width
         # dock_base_y is the Dock-top baseline; dock_y adds the user's

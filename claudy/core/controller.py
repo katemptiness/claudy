@@ -40,6 +40,9 @@ TEST_GIFT_EMOJIS = tuple(GIFT_ART)
 DREAM_GAP_MS = (150000, 300000)
 DREAM_FADE_MS = 700
 DREAM_HOLD_MS = 2600
+# When something else happens (he wakes, or says something) the dream goes
+# faster: a cloud lingering behind a speech bubble frames it like a badge
+DREAM_LET_GO_MS = 250
 
 
 class Platform:
@@ -109,6 +112,7 @@ class Controller:
         self._last_speech_ms = -CHATTER_GAP_MS
         self._dream = None
         self._dream_age_ms = 0.0
+        self._dream_out_ms = DREAM_FADE_MS      # how long its fade-out takes
         self._dream_due_ms = random.uniform(*DREAM_GAP_MS)
 
         self.character.wake_up()
@@ -140,22 +144,35 @@ class Controller:
 
     def _update_dream(self, dt):
         """Let a picture surface while Claudy is asleep, then let it go."""
+        quiet_sleep = (self.character.state == "sleeping"
+                       and not self.speech.visible)
         if self._dream is not None:
+            if not quiet_sleep:
+                self._let_dream_go()
             self._dream_age_ms += dt
-            if self.character.state != "sleeping":
-                # Waking up doesn't cut a dream off mid-air, it lets it go
-                self._dream_age_ms = max(self._dream_age_ms,
-                                         DREAM_FADE_MS + DREAM_HOLD_MS)
-            if self._dream_age_ms >= 2 * DREAM_FADE_MS + DREAM_HOLD_MS:
+            if self._dream_age_ms >= (DREAM_FADE_MS + DREAM_HOLD_MS
+                                      + self._dream_out_ms):
                 self._dream = None
             return
-        if self.character.state != "sleeping":
-            return          # the wait only runs while he is actually asleep
+        if not quiet_sleep:
+            return          # the wait only runs while he is quietly asleep
         self._dream_due_ms -= dt
         if self._dream_due_ms <= 0:
             self._dream = self._pick_dream()
             self._dream_age_ms = 0.0
+            self._dream_out_ms = DREAM_FADE_MS
             self._dream_due_ms = random.uniform(*DREAM_GAP_MS)
+
+    def _let_dream_go(self):
+        """Fade the dream out quickly, from wherever it is: waking up doesn't
+        cut it off mid-air, and a dream still fading in doesn't flash to full
+        opacity on its way out."""
+        if self._dream_out_ms == DREAM_LET_GO_MS:
+            return
+        alpha = self.dream[1]
+        self._dream_out_ms = DREAM_LET_GO_MS
+        self._dream_age_ms = (DREAM_FADE_MS + DREAM_HOLD_MS
+                              + (1 - alpha) * DREAM_LET_GO_MS)
 
     def _pick_dream(self):
         """Something Claudy actually did lately, or None if nothing has
@@ -178,7 +195,7 @@ class Controller:
         elif ending <= 0:
             alpha = 1.0
         else:
-            alpha = max(0.0, 1 - ending / fade)
+            alpha = max(0.0, 1 - ending / self._dream_out_ms)
         return self._dream, alpha
 
     @property
@@ -209,6 +226,8 @@ class Controller:
         if kind == "message":
             self._say(data, chatter=not self.character.is_busy)
         elif kind == "particle":
+            if data == "zzz" and self._dream is not None:
+                return      # the dream shows he's asleep; zzz would cross it
             height = self.view["y_offset"]
             self.particles.add(data, WINDOW_WIDTH / 2, PARTICLE_HEAD_Y + height,
                                PARTICLE_FEET_Y + height, self.view["facing_right"])

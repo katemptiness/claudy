@@ -207,18 +207,31 @@ class DreamTests(ControllerTestCase):
         self.advance(sum(controller.DREAM_GAP_MS))
         self.assertIsNone(self.ctl.dream)
 
+    def dream_alphas(self, until=None):
+        """Opacity of the current dream every 50 ms until it is gone (or
+        until `until(elapsed_ms)` says to stop)."""
+        alphas, elapsed = [], 0
+        while self.ctl.dream and not (until and until(elapsed)):
+            alphas.append(self.ctl.dream[1])
+            self.ctl.tick(50)
+            elapsed += 50
+        return alphas
+
     def test_a_dream_fades_in_holds_and_goes(self):
         self.ctl.character.force_activity("reading")
         self.advance(200)
         self.sleep_until_dream()
-        self.assertIsNotNone(self.ctl.dream)
-        alphas = []
-        while self.ctl.dream:
-            alphas.append(self.ctl.dream[1])
-            self.ctl.tick(50)
+        with support.fixed_period("deep_sleep"):
+            alphas = self.dream_alphas()
         self.assertLess(alphas[0], 0.5, "should fade in, not appear")
-        self.assertAlmostEqual(max(alphas), 1.0, delta=0.05)
         self.assertLess(alphas[-1], 0.5, "should fade out, not vanish")
+        held = [a for a in alphas if a == 1.0]
+        self.assertAlmostEqual(len(held) * 50, controller.DREAM_HOLD_MS,
+                               delta=100)
+        rising = alphas[:alphas.index(1.0)]
+        self.assertEqual(rising, sorted(rising))
+        self.assertEqual(alphas[alphas.index(1.0):],
+                         sorted(alphas[alphas.index(1.0):], reverse=True))
 
     def test_waking_up_lets_the_dream_go(self):
         self.ctl.character.force_activity("reading")
@@ -226,8 +239,40 @@ class DreamTests(ControllerTestCase):
         self.sleep_until_dream()
         self.assertIsNotNone(self.ctl.dream)
         self.ctl.character.force_activity("playing")
-        self.advance(2 * controller.DREAM_FADE_MS + controller.DREAM_HOLD_MS)
+        self.advance(controller.DREAM_LET_GO_MS + 100)
         self.assertIsNone(self.ctl.dream)
+
+    def test_waking_mid_fade_in_never_flashes_the_dream(self):
+        self.ctl.character.force_activity("reading")
+        self.advance(200)
+        self.sleep_until_dream()
+        with support.fixed_period("deep_sleep"):
+            self.dream_alphas(until=lambda ms: ms >= 200)
+            before = self.ctl.dream[1]
+            self.assertLess(before, 0.5)
+            self.ctl.on_click()
+            after = self.dream_alphas()
+        self.assertTrue(after)
+        self.assertLessEqual(max(after), before + 0.1)
+        self.assertEqual(after, sorted(after, reverse=True))
+
+    def test_a_dream_gives_way_to_speech(self):
+        self.ctl.character.force_activity("reading")
+        self.advance(200)
+        self.sleep_until_dream()
+        self.ctl._say("мм?")
+        self.advance(controller.DREAM_LET_GO_MS + 100)
+        self.assertIsNone(self.ctl.dream)
+
+    def test_no_zzz_cross_a_dream(self):
+        self.ctl.character.force_activity("reading")
+        self.advance(200)
+        self.sleep_until_dream()
+        before = set(self.ctl.particles.get_active())
+        self.ctl._handle_event("particle", "zzz")
+        self.ctl._handle_event("particle", "heart")
+        new = set(self.ctl.particles.get_active()) - before
+        self.assertEqual({p.image for p in new}, {"heart"})
 
 
 class SpeechTests(ControllerTestCase):

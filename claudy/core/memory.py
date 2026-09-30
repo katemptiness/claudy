@@ -4,7 +4,10 @@ import os
 from datetime import date
 
 from claudy.config import DATA_DIR
-from claudy.content.gift_stories import random_story_id
+from claudy.content.gift_stories import (
+    painting_story_from_position, random_story_id,
+)
+from claudy.core.activities import PAINTING_GIFT_EMOJI
 from claudy.core.settings import read_json, write_json_atomic
 from claudy.log import log
 
@@ -21,8 +24,8 @@ MILESTONE_DAYS = (10, 25, 50, 100, 200, 365, 500, 1000)
 def _saved_star(saved):
     """The star named in an earlier session, checked, or None.
 
-    It is the one thing in the file meant to last for good, so a hand edit
-    that broke it must not crash every night frame that places it, nor block
+    It is meant to last for good, like the gallery, so a hand edit that
+    broke it must not crash every night frame that places it, nor block
     naming a real one.
     """
     star = saved.get("star")
@@ -53,20 +56,37 @@ def _star_from_gifts(gifts):
     return None
 
 
+def _is_int(value):
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def _saved_gallery(saved):
     """The paintings hung in earlier sessions, with any entry a hand edit
     broke left out: the gallery window lays out what is here, and one bad
-    entry shouldn't cost the user the rest."""
+    entry shouldn't cost the user the rest.
+
+    The gallery's first build saved a story as `story_id`, a position that
+    adding a story could move; it is renumbered once, into `story`.
+    """
     gallery = saved.get("gallery")
     if not isinstance(gallery, list):
         return []
-    return [{"picture": entry["picture"], "date": entry["date"],
-             "story_id": entry["story_id"]}
-            for entry in gallery
-            if isinstance(entry, dict)
-            and isinstance(entry.get("picture"), str)
-            and isinstance(entry.get("date"), str)
-            and isinstance(entry.get("story_id"), int)]
+    entries = []
+    for entry in gallery:
+        if not (isinstance(entry, dict)
+                and isinstance(entry.get("picture"), str)
+                and isinstance(entry.get("date"), str)):
+            continue
+        # Anything else in the entry is kept, as the file's unknown keys are
+        kept = dict(entry)
+        if not _is_int(entry.get("story")):
+            position = kept.pop("story_id", None)
+            if not _is_int(position):
+                continue
+            kept["story"] = painting_story_from_position(
+                PAINTING_GIFT_EMOJI.get(entry["picture"]), position)
+        entries.append(kept)
+    return entries
 
 
 def _fresh_day(today_str):
@@ -95,15 +115,24 @@ class Memory:
             cls._instance = cls()
         return cls._instance
 
+    # What this build reads and writes; the rest of the file is left as it is
+    _KEYS = ("first_launch", "total_days", "today", "gifts", "activities",
+             "star", "gallery")
+
     def __init__(self):
         today_str = date.today().isoformat()
         # An unreadable file is set aside rather than overwritten by the
-        # save below: the star in it can only be recovered by hand
+        # save below: the star and the gallery in it can only be recovered
+        # by hand
         saved = read_json(MEMORY_FILE)
         first_launch = saved.get("first_launch")
         if not (isinstance(first_launch, str) and first_launch):
             first_launch = today_str
-        self._data = {
+        # Keys this build doesn't know are kept: a newer build may have put
+        # them there, and every save rewrites the whole file
+        self._data = {key: value for key, value in saved.items()
+                      if key not in self._KEYS}
+        self._data.update({
             "first_launch": first_launch,
             "total_days": 1,
             "today": _fresh_day(today_str),
@@ -111,7 +140,7 @@ class Memory:
             "activities": [],
             "star": _saved_star(saved),
             "gallery": _saved_gallery(saved),
-        }
+        })
         self.save()
 
     def save(self):
@@ -270,15 +299,16 @@ class Memory:
 
     # --- The gallery ---
 
-    def hang_painting(self, picture, story_id):
-        """Hang a painting the user took in the gallery, for good.
+    def hang_painting(self, picture, story):
+        """Hang a painting the user took in the gallery, for good, with the
+        id of the story it came with.
 
         The gift itself stays in the session's list too, where it counts
         toward the day's gifts like any other.
         """
         self._data["gallery"].append({"picture": picture,
                                       "date": date.today().isoformat(),
-                                      "story_id": story_id})
+                                      "story": story})
         self.save()
 
     def get_gallery(self):

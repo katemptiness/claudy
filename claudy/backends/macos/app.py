@@ -143,6 +143,9 @@ class MacPlatform(Platform):
     def open_gifts(self):
         self._gifts_window.show()
 
+    def gallery_changed(self):
+        self._gifts_window.gallery.refresh()
+
     def show_about(self):
         alert = AppKit.NSAlert.alloc().init()
         alert.setMessageText_("Claudy")

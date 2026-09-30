@@ -10,9 +10,8 @@ from claudy.core.activities import PAINTING_GIFT_EMOJI
 from tests import support
 
 
-def entry(picture, day, story_id=0):
-    return {"picture": picture, "date": f"2026-09-{day:02d}",
-            "story_id": story_id}
+def entry(picture, day, story=0):
+    return {"picture": picture, "date": f"2026-09-{day:02d}", "story": story}
 
 
 class GalleryTests(unittest.TestCase):
@@ -56,8 +55,9 @@ class GalleryTests(unittest.TestCase):
                 self.assertEqual(PAINTED[shown.item], picture)
 
     def test_a_story_that_needs_a_name_is_told_with_it(self):
-        named = [i for i, s in enumerate(gift_stories._get_stories(
-            "painting", PAINTING_GIFT_EMOJI["boat"])) if "{name}" in s["ru"]]
+        emoji = PAINTING_GIFT_EMOJI["boat"]
+        named = [i for i in gift_stories.story_ids("painting", emoji)
+                 if "{name}" in gift_stories._story("painting", i, emoji)["ru"]]
         shown, = gallery.paintings([entry("boat", 20, named[0])], name="Катя")
         self.assertIn("Катя", shown.copies[0].story)
 

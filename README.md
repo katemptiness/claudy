@@ -32,7 +32,7 @@ A tiny pixel-art crab companion that lives on your Dock. It reads books, catches
 - Counts the days you've been together while it keeps running, and occasionally mentions it
 - Sometimes quotes claude.ai headlines ("golden hour thinking", "ready when you are, Kate")
 - Says things in cute speech bubbles — in Russian or English (configurable)
-- All rendered as pixel art: 82 hand-drawn sprites, 16 rows tall and 16 to 32 columns wide, scaled up 5x
+- All rendered as pixel art: 111 hand-drawn sprites, 16 rows tall and 16 to 32 columns wide, scaled up 5x
 
 ## Installation
 
@@ -253,7 +253,7 @@ claudy/
     app_reactions.py          # What Claudy says when you open an app
     gift_stories.py           # 199 bilingual gift backstories (40 per type,
                               #   39 for paintings)
-    sprites/                  # 82 pixel-art sprites as text grids, particle
+    sprites/                  # 111 pixel-art sprites as text grids, particle
                               #   art, and the gifts, toy, star, dream cloud and dreams
 
   render/                     # Platform-independent drawing

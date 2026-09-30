@@ -55,13 +55,20 @@ class GalleryWindow(AppKit.NSObject):
         return self
 
     def show(self):
-        if self.window and self.window.isVisible():
-            # Bring it forward with focus, not just to the top of an app
-            # that isn't active
-            self.window.makeKeyAndOrderFront_(None)
-            AppKit.NSApp.activateIgnoringOtherApps_(True)
-            return
+        """Open the gallery, or bring it forward, freshly hung."""
+        self._hang_paintings()
+        # Forward with focus, not just to the top of an app that isn't active
+        self.window.makeKeyAndOrderFront_(None)
+        AppKit.NSApp.activateIgnoringOtherApps_(True)
 
+    def refresh(self):
+        """Rehang the gallery if it is open: a painting was just taken."""
+        if self.window and self.window.isVisible():
+            self._hang_paintings()
+
+    def _hang_paintings(self):
+        """Lay the gallery out afresh from memory, in a window of its own
+        that keeps its place on screen as it grows."""
         entries = Memory.shared().get_gallery()
         self._paintings = gallery.paintings(
             entries, name=Settings.shared().user_name or "")
@@ -71,15 +78,24 @@ class GalleryWindow(AppKit.NSObject):
         story_top = grid_top + rows * CELL_H + 6
         h = story_top + STORY_H + MARGIN if self._paintings else 150
 
-        self.window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-            ((200, 200), (W, h)),
-            AppKit.NSWindowStyleMaskTitled | AppKit.NSWindowStyleMaskClosable,
-            AppKit.NSBackingStoreBuffered,
-            False,
-        )
-        self.window.setReleasedWhenClosed_(False)
-        self.window.setTitle_(label("gallery_title"))
-        self.window.center()
+        if self.window is None:
+            self.window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+                ((200, 200), (W, h)),
+                AppKit.NSWindowStyleMaskTitled
+                | AppKit.NSWindowStyleMaskClosable,
+                AppKit.NSBackingStoreBuffered,
+                False,
+            )
+            self.window.setReleasedWhenClosed_(False)
+            self.window.setTitle_(label("gallery_title"))
+            self.window.center()
+        else:
+            # Same top edge, new height
+            old = self.window.frame()
+            new = self.window.frameRectForContentRect_(((0, 0), (W, h)))
+            top = old.origin.y + old.size.height
+            self.window.setFrame_display_(
+                ((old.origin.x, top - new.size.height), new.size), True)
 
         content = _FlippedView.alloc().initWithFrame_(((0, 0), (W, h)))
         content.addSubview_(_make_label(
@@ -102,8 +118,6 @@ class GalleryWindow(AppKit.NSObject):
             self._select_painting(0)
 
         self.window.setContentView_(content)
-        self.window.makeKeyAndOrderFront_(None)
-        AppKit.NSApp.activateIgnoringOtherApps_(True)
 
     def _add_grid(self, content, top):
         # Behind the picked painting, like a spotlight on the wall
@@ -156,15 +170,17 @@ class GalleryWindow(AppKit.NSObject):
         scroll.setHasVerticalScroller_(True)
         scroll.setAutohidesScrollers_(True)
         scroll.setDrawsBackground_(False)
-        self._story = AppKit.NSTextView.alloc().initWithFrame_(
-            ((0, 0), frame[1]))
-        # The usual setup for text that grows down inside a scroll view
-        self._story.setMinSize_((0, 0))
-        self._story.setMaxSize_((frame[1][0], 1e7))
+        # The usual setup for text that grows down inside a scroll view,
+        # sized to what the scroll view shows: with scroll bars always on,
+        # the bar takes its share of the width
+        size = scroll.contentSize()
+        self._story = AppKit.NSTextView.alloc().initWithFrame_(((0, 0), size))
+        self._story.setMinSize_((0, size.height))
+        self._story.setMaxSize_((1e7, 1e7))
         self._story.setVerticallyResizable_(True)
         self._story.setHorizontallyResizable_(False)
         self._story.setAutoresizingMask_(AppKit.NSViewWidthSizable)
-        self._story.textContainer().setContainerSize_((frame[1][0], 1e7))
+        self._story.textContainer().setContainerSize_((size.width, 1e7))
         self._story.textContainer().setWidthTracksTextView_(True)
         self._story.setEditable_(False)
         self._story.setDrawsBackground_(False)

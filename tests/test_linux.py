@@ -453,9 +453,9 @@ class GalleryWindowTests(unittest.TestCase):
         support.reset_singletons()
         self.window = gallery_ui.GalleryWindow()
         self.window._paintings = gallery.paintings([
-            {"picture": "boat", "date": "2026-09-29", "story_id": 0},
-            {"picture": "stars", "date": "2026-09-30", "story_id": 1},
-            {"picture": "boat", "date": "2026-09-30", "story_id": 2},
+            {"picture": "boat", "date": "2026-09-29", "story": 0},
+            {"picture": "stars", "date": "2026-09-30", "story": 1},
+            {"picture": "boat", "date": "2026-09-30", "story": 2},
         ])
         self.window._build_grid()
         self.window._build_story()

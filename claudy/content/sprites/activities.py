@@ -640,9 +640,7 @@ CANVAS_ROW, CANVAS_COL = 3, 25
 CANVAS_SIZE = 5
 
 # Each picture is painted in three stages: (brush position, paint, canvas).
-# The last stage's canvas is the finished picture. A canvas can't use `o`:
-# that is the brush tip, which painting() recolors with the paint, so flame
-# orange would come out in whatever the brush holds (a test keeps it out).
+# The last stage's canvas is the finished picture.
 PICTURES = {
     "landscape": (
         ("up", "u", "uuuuu uuuuu ccccc ccccc ccccc"),
@@ -718,12 +716,20 @@ SITTER = sprite("""
 
 def painting(base, canvas, paint="c"):
     """A painter pose with `canvas` (5 rows, space-separated) on the easel
-    and `paint` on the brush."""
+    and `paint` on the brush.
+
+    The brush tip touches the canvas's near edge, so the picture goes on
+    first and the tip on top of it, in the paint it carries.
+    """
+    tip = SYMBOLS["o"]
+    tips = [(r, c) for r, row in enumerate(base)
+            for c, v in enumerate(row) if v == tip]
     rows = [list(row) for row in base]
     for r, line in enumerate(canvas.split()):
         rows[CANVAS_ROW + r][CANVAS_COL:CANVAS_COL + CANVAS_SIZE] = sprite(line)[0]
-    tip, color = SYMBOLS["o"], SYMBOLS[paint]
-    return [[color if v == tip else v for v in row] for row in rows]
+    for r, c in tips:
+        rows[r][c] = SYMBOLS[paint]
+    return rows
 
 
 def painting_sprites():

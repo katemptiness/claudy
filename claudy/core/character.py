@@ -874,6 +874,10 @@ class Character:
             self._gift_offer = {"type": "shell", "emoji": "🐚"}
 
     def _special_pick_painting(self):
+        # He paints facing right, whichever way he last walked: the picture
+        # on the easel faces us, and a mirrored easel would mirror it too,
+        # so the gift lifted off it would come out the other way round
+        self.facing_right = True
         # Pictures the user hasn't been given yet come up more often
         hung = {entry["picture"] for entry in Memory.shared().get_gallery()}
         pictures = list(PAINTINGS)

@@ -308,17 +308,18 @@ class MemoryTests(unittest.TestCase):
         self.mem.hang_painting("boat", 0)
         memory.Memory._instance = None
         fresh = memory.Memory.shared()
-        self.assertEqual([(e["picture"], e["story_id"])
+        self.assertEqual([(e["picture"], e["story"])
                           for e in fresh.get_gallery()],
                          [("stars", 2), ("boat", 0)])
 
     def test_a_broken_gallery_entry_is_left_out_on_load(self):
         """One hand edit gone wrong mustn't cost the rest of the gallery."""
-        good = {"picture": "boat", "date": "2026-09-30", "story_id": 1}
+        good = {"picture": "boat", "date": "2026-09-30", "story": 1}
         write_file(memory.MEMORY_FILE, {"gallery": [
-            good, "boat", {"picture": 5, "date": "x", "story_id": 1},
+            good, "boat", {"picture": 5, "date": "x", "story": 1},
             {"picture": "boat", "date": "2026-09-30"},
-            {"picture": "boat", "date": "2026-09-30", "story_id": "1"}]})
+            {"picture": "boat", "date": "2026-09-30", "story": "1"},
+            {"picture": "boat", "date": "2026-09-30", "story": True}]})
         memory.Memory._instance = None
         self.assertEqual(memory.Memory.shared().get_gallery(), [good])
         for broken in ("boat", {"boat": 1}, None):
@@ -326,6 +327,56 @@ class MemoryTests(unittest.TestCase):
                 write_file(memory.MEMORY_FILE, {"gallery": broken})
                 memory.Memory._instance = None
                 self.assertEqual(memory.Memory.shared().get_gallery(), [])
+
+    def test_the_first_builds_story_positions_are_renumbered_once(self):
+        """The gallery's first build saved a story as its position among the
+        picture's own stories and then the shared ones; the same story must
+        still be told, however the lists grow afterwards."""
+        from claudy.content import gift_stories
+        from claudy.core.activities import PAINTING_GIFT_EMOJI
+        emoji = PAINTING_GIFT_EMOJI["stars"]
+        stories = gift_stories._get_stories("painting", emoji)
+        own = len(gift_stories.PAINTING_STORIES[emoji])
+        for position in (1, own + 1):
+            with self.subTest(position=position):
+                write_file(memory.MEMORY_FILE, {"gallery": [
+                    {"picture": "stars", "date": "2026-09-30",
+                     "story_id": position}]})
+                memory.Memory._instance = None
+                story = memory.Memory.shared().get_gallery()[0]["story"]
+                self.assertEqual(
+                    gift_stories._story("painting", story, emoji),
+                    stories[position])
+                # ...and written back in today's numbering
+                memory.Memory._instance = None
+                self.assertEqual(
+                    memory.Memory.shared().get_gallery()[0]["story"], story)
+
+    def test_what_a_gallery_entry_holds_beyond_this_build_is_kept(self):
+        write_file(memory.MEMORY_FILE, {"gallery": [
+            {"picture": "boat", "date": "2026-09-30", "story": 2,
+             "frame": "gold"},
+            {"picture": "stars", "date": "2026-09-30", "story_id": 1,
+             "frame": "oak"}]})
+        memory.Memory._instance = None
+        self.assertEqual(memory.Memory.shared().get_gallery(), [
+            {"picture": "boat", "date": "2026-09-30", "story": 2,
+             "frame": "gold"},
+            {"picture": "stars", "date": "2026-09-30", "story": 1,
+             "frame": "oak"}])
+
+    def test_what_this_build_doesnt_know_is_kept(self):
+        """A newer build's data mustn't vanish when this one saves."""
+        write_file(memory.MEMORY_FILE, {"sketchbook": [1, 2], "gifts": [1]})
+        memory.Memory._instance = None
+        mem = memory.Memory.shared()
+        mem.record_click()
+        memory.Memory._instance = None
+        memory.Memory.shared()
+        with open(memory.MEMORY_FILE, encoding="utf-8") as f:
+            saved = json.load(f)
+        self.assertEqual(saved["sketchbook"], [1, 2])
+        self.assertEqual(saved["gifts"], [])       # still a fresh session
 
     def test_the_gifts_window_can_leave_the_paintings_out(self):
         for gift in (("fish", "🐟"), ("painting", "⛵")):

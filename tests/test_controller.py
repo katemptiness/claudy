@@ -131,9 +131,18 @@ class GiftTests(ControllerTestCase):
         self.ctl._offer_gift({"type": "painting", "emoji": "\u26F5"})
         story_id = Memory.shared().get_pending_gift()["story_id"]
         self.ctl.on_click()
-        self.assertEqual([(e["picture"], e["story_id"])
+        self.assertEqual([(e["picture"], e["story"])
                           for e in Memory.shared().get_gallery()],
                          [("boat", story_id)])
+
+    def test_an_open_gallery_hears_of_a_painting_hung(self):
+        with mock.patch.object(self.platform, "gallery_changed") as changed:
+            self.offer_gift()
+            self.ctl.on_click()
+            changed.assert_not_called()
+            self.ctl._offer_gift({"type": "painting", "emoji": "\u26F5"})
+            self.ctl.on_click()
+            changed.assert_called_once_with()
 
     def test_a_painting_left_to_fade_is_not_hung(self):
         self.ctl._offer_gift({"type": "painting", "emoji": "\u26F5"})

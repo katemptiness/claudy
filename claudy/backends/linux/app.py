@@ -179,6 +179,9 @@ class LinuxPlatform(Platform):
     def open_gifts(self):
         self._gifts_window.show()
 
+    def gallery_changed(self):
+        self._gifts_window.gallery.refresh()
+
     def show_about(self):
         dialog = Gtk.AboutDialog()
         dialog.set_program_name("Claudy")

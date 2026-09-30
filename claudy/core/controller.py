@@ -73,6 +73,9 @@ class Platform:
     def quit(self):
         raise NotImplementedError
 
+    def gallery_changed(self):
+        """A painting was just hung; an open gallery window should show it."""
+
 
 @dataclass
 class MenuItem:
@@ -328,6 +331,7 @@ class Controller:
             # Taken, it goes up in the gallery, where it stays for good
             self.memory.hang_painting(PAINTED[GIFT_ART[gift["emoji"]]],
                                       gift["story_id"])
+            self.platform.gallery_changed()
         self._clear_gift()
         self._say(pick(phrases.PAINTING_COLLECT_PHRASES
                        if gift["type"] == "painting"

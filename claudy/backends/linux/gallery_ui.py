@@ -45,21 +45,33 @@ class GalleryWindow:
         self._paintings = []
         self.buttons = []
         self.story = None
+        self._grid = None           # kept, so the buttons keep their handlers
+        self._story_scroll = None
 
     def show(self):
-        if self.window and self.window.get_visible():
-            self.window.present()
-            return
+        """Open the gallery, or bring it forward, freshly hung."""
+        if self.window is None:
+            self.window = Gtk.Window(title=label("gallery_title"))
+            self.window.set_default_size(480, -1)
+            self.window.set_resizable(False)
+            self.window.set_position(Gtk.WindowPosition.CENTER)
+            self.window.connect("delete-event", self._on_close)
+        self._hang_paintings()
+        self.window.present()
 
+    def refresh(self):
+        """Rehang the gallery if it is open: a painting was just taken."""
+        if self.window and self.window.get_visible():
+            self._hang_paintings()
+
+    def _hang_paintings(self):
+        """Lay the gallery out afresh from memory."""
         entries = Memory.shared().get_gallery()
         self._paintings = gallery.paintings(
             entries, name=Settings.shared().user_name or "")
-
-        self.window = Gtk.Window(title=label("gallery_title"))
-        self.window.set_default_size(480, -1)
-        self.window.set_resizable(False)
-        self.window.set_position(Gtk.WindowPosition.CENTER)
-        self.window.connect("delete-event", self._on_close)
+        old = self.window.get_child()
+        if old is not None:
+            self.window.remove(old)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         header = Gtk.Label()
@@ -125,6 +137,7 @@ class GalleryWindow:
             cell.pack_start(caption, False, False, 0)
 
             grid.attach(cell, i % COLUMNS, i // COLUMNS, 1, 1)
+        self._grid = grid
         return grid
 
     def _build_story(self):
@@ -142,6 +155,7 @@ class GalleryWindow:
         self.story.set_margin_top(10)
         self.story.set_margin_bottom(10)
         scroll.add(self.story)
+        self._story_scroll = scroll
         return scroll
 
     def _select(self, index):
@@ -157,6 +171,8 @@ class GalleryWindow:
                 f"{GLib.markup_escape_text(copy.date)}</span></small>\n"
                 f"{GLib.markup_escape_text(copy.story)}")
         self.story.set_markup("\n\n".join(parts))
+        # Each story is read from its start
+        self._story_scroll.get_vadjustment().set_value(0)
 
     def _on_close(self, window, event):
         self.window = None

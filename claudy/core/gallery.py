@@ -47,7 +47,7 @@ def paintings(entries, name=""):
         picture = entry["picture"]
         if picture not in _ITEMS:
             continue
-        story = get_story("painting", entry["story_id"], name=name,
+        story = get_story("painting", entry["story"], name=name,
                           emoji=PAINTING_GIFT_EMOJI[picture])
         copies = by_picture.setdefault(picture, [])
         copies.append((entry["date"], order, Copy(format_date(entry["date"]),

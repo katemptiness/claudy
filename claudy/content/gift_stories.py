@@ -1112,10 +1112,10 @@ PAINTING_STORIES = {
                   "a whole hour. had to remember it.",
         },
         {
-            "ru": "оранжевой краски у меня нет, поэтому закат персиковый. "
-                  "по-моему, так даже нежнее.",
-            "en": "i don't have orange paint, so the sunset is peach. i think "
-                  "it's gentler this way.",
+            "ru": "вся оранжевая краска ушла на автопортрет, поэтому закат "
+                  "персиковый. по-моему, так даже нежнее.",
+            "en": "all my orange went into my self-portrait, so the sunset is "
+                  "peach. i think it's gentler this way.",
         },
         {
             "ru": "солнце садилось прямо в море. я боялся, что оно зашипит, "
@@ -1253,8 +1253,16 @@ _STORIES = {
 }
 
 
+# A painting's story stays with it in the gallery for good, so its id must
+# keep naming the same story as stories are added. A picture's own stories
+# are numbered from 0 and the shared ones from SHARED_STORY: a story added to
+# one list never renumbers the other. Add stories at the end of a list, never
+# in the middle, and don't take any out.
+SHARED_STORY = 1000
+
+
 def _get_stories(gift_type, emoji=None):
-    """Return the story list for a gift (fish stories for test gifts).
+    """Every story a gift may tell (fish stories for test gifts).
 
     Most gifts are told about by their type alone; a painting also by its
     emoji, which says what is on it.
@@ -1264,10 +1272,58 @@ def _get_stories(gift_type, emoji=None):
     return _STORIES.get(gift_type, FISH_STORIES)
 
 
+def _pool(gift_type, story_id, emoji=None):
+    """(the stories a story id picks from, its index into them)."""
+    if gift_type != "painting":
+        return _STORIES.get(gift_type, FISH_STORIES), story_id
+    own = PAINTING_STORIES.get(emoji, [])
+    if story_id >= SHARED_STORY:
+        return PAINTING_STORIES_ANY, story_id - SHARED_STORY
+    return (own or PAINTING_STORIES_ANY), story_id
+
+
+def story_ids(gift_type, emoji=None):
+    """Every id that names a story of the gift, one per story."""
+    if gift_type != "painting":
+        return list(range(len(_STORIES.get(gift_type, FISH_STORIES))))
+    own = len(PAINTING_STORIES.get(emoji, []))
+    return (list(range(own))
+            + [SHARED_STORY + i for i in range(len(PAINTING_STORIES_ANY))])
+
+
 def random_story_id(gift_type, emoji=None):
-    """Return a random story index for the given gift."""
-    stories = _get_stories(gift_type, emoji)
-    return random.randint(0, len(stories) - 1)
+    """Return a random story id for the given gift."""
+    return random.choice(story_ids(gift_type, emoji))
+
+
+def painting_story_from_position(emoji, position):
+    """Today's id of a painting story the gallery's first build saved as a
+    position in the picture's own stories followed by the shared ones."""
+    own = len(PAINTING_STORIES.get(emoji, []))
+    position %= own + len(PAINTING_STORIES_ANY)
+    return position if position < own else SHARED_STORY + position - own
+
+
+def _story(gift_type, story_id, emoji=None):
+    """The story a story id names, before any swap for a missing name."""
+    stories, index = _pool(gift_type, story_id, emoji)
+    return stories[index % len(stories)]
+
+
+def _nameless_instead(gift_type, story_id, emoji=None):
+    """The story told instead of one that needs a name the user hasn't given:
+    the nearest one before it in its list that needs none, else the first
+    such after it, else the first such of all the gift's stories. Stories are
+    only added at the end of a list, so the choice never moves."""
+    stories, index = _pool(gift_type, story_id, emoji)
+    index %= len(stories)
+    around = list(range(index - 1, -1, -1)) + list(range(index + 1,
+                                                          len(stories)))
+    for i in around:
+        if not _names_the_user(stories[i]):
+            return stories[i]
+    return next(s for s in _get_stories(gift_type, emoji)
+                if not _names_the_user(s))
 
 
 def _names_the_user(story):
@@ -1284,10 +1340,8 @@ def get_story(gift_type, story_id, name="", emoji=None):
     story, and it happens here, when the story is shown, because the user
     can set or clear the name at any time.
     """
-    stories = _get_stories(gift_type, emoji)
-    story = stories[story_id % len(stories)]
+    story = _story(gift_type, story_id, emoji)
     if not name and _names_the_user(story):
-        nameless = [s for s in stories if not _names_the_user(s)]
-        story = nameless[story_id % len(nameless)]
+        story = _nameless_instead(gift_type, story_id, emoji)
     text = story.get(get_language(), story["en"])
     return text.replace("{name}", name).strip()

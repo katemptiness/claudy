@@ -6,6 +6,7 @@ from unittest import mock
 
 from claudy.content import phrases
 from claudy.content.sprites import SPRITES
+from claudy.content.sprites.grid import SYMBOLS
 from claudy.core import activities
 from claudy.core.animations import Bounce, Juggle
 from claudy.core.character import Character
@@ -276,18 +277,22 @@ class PaintingTests(CharacterTestCase):
         return done[len("paint_"):-len("_done")]
 
     def test_the_painting_just_finished_may_be_left_as_a_gift(self):
+        """Every picture may be given away, the portrait painted from life
+        included, and always as the picture that was painted."""
         support.attach()
-        for seed in range(8):
-            support.seeded(seed)
-            with mock.patch("claudy.core.character.random.random",
-                            return_value=0.0):
+        for picture in activities.PAINTINGS:
+            # Claudy's own pick, only told which picture comes up
+            with self.subTest(painting=picture), mock.patch(
+                    "claudy.core.character.random.random", return_value=0.0), \
+                    mock.patch("claudy.core.character.random.choices",
+                               return_value=[picture]):
                 self.char.force_activity("painting")
-                picture = self._painted_picture()
+                self.assertEqual(self._painted_picture(), picture)
                 _, events = support.run_until_idle(self.char)
-            gifts = [data for kind, data in events if kind == "gift"]
-            self.assertEqual(gifts, [{
-                "type": "painting",
-                "emoji": activities.PAINTING_GIFT_EMOJI[picture]}])
+                gifts = [data for kind, data in events if kind == "gift"]
+                self.assertEqual(gifts, [{
+                    "type": "painting",
+                    "emoji": activities.PAINTING_GIFT_EMOJI[picture]}])
 
     def test_a_painting_is_kept_until_claudy_and_the_user_are_friends(self):
         with mock.patch("claudy.core.character.random.random",
@@ -352,7 +357,7 @@ class PaintingTests(CharacterTestCase):
         self.assertTrue(hopped)
 
     def test_only_the_portrait_is_painted_from_life(self):
-        for picture in ("landscape", "flower", "heart"):
+        for picture in [p for p in activities.PAINTINGS if p != "friend"]:
             with self.subTest(painting=picture):
                 self.char.force_activity("painting")
                 self.char.phases[1:-1] = activities.PAINTINGS[picture]
@@ -393,15 +398,59 @@ class PaintingTests(CharacterTestCase):
         self.assertAlmostEqual(new, expected, delta=expected * 0.3)
 
     def test_the_picture_grows_stage_by_stage(self):
+        from claudy.content.sprites.activities import (
+            CANVAS_COL, CANVAS_ROW, PAINT_DOWN, PAINT_MID, PAINT_UP,
+        )
+        # Where the brush touches the canvas, it shows its paint instead
+        tip = SYMBOLS["o"]
+        touched = {(r, c) for pose in (PAINT_UP, PAINT_MID, PAINT_DOWN)
+                   for r, row in enumerate(pose) for c, v in enumerate(row)
+                   if v == tip}
+        for picture in activities.PAINTINGS:
+            with self.subTest(painting=picture):
+                self.char.force_activity("painting")
+                self.char.phases[1:-1] = activities.PAINTINGS[picture]
+                canvases = []
+                for phase in self.char.phases[1:-1]:
+                    if not phase.frames[0].startswith(f"paint_{picture}_"):
+                        continue        # the portrait's call and goodbye
+                    grid = SPRITES[phase.frames[0]]
+                    canvases.append(
+                        [[None if (r, c) in touched else grid[r][c]
+                          for c in range(CANVAS_COL, CANVAS_COL + 5)]
+                         for r in range(CANVAS_ROW, CANVAS_ROW + 5)])
+                blank = [[None if (r, c) in touched else SYMBOLS["c"]
+                          for c in range(CANVAS_COL, CANVAS_COL + 5)]
+                         for r in range(CANVAS_ROW, CANVAS_ROW + 5)]
+                self.assertNotEqual(canvases[0], blank)
+                # admiring the last stage
+                self.assertEqual(canvases[2], canvases[3])
+                self.assertEqual(len({str(c) for c in canvases[:4]}), 3)
+
+    def test_the_brush_shows_the_paint_it_carries(self):
+        """Its tip touches the canvas, and used to vanish under it."""
+        from claudy.content.sprites.activities import (
+            PAINT_DOWN, PAINT_MID, PAINT_UP, PICTURES,
+        )
+        tip = SYMBOLS["o"]
+        for picture, stages in PICTURES.items():
+            for n, (brush, paint, _) in enumerate(stages, 1):
+                for frame, pose in (("a", PAINT_UP if brush == "up"
+                                     else PAINT_DOWN), ("b", PAINT_MID)):
+                    grid = SPRITES[f"paint_{picture}_{n}_{frame}"]
+                    spots = [(r, c) for r, row in enumerate(pose)
+                             for c, v in enumerate(row) if v == tip]
+                    with self.subTest(painting=picture, stage=n, frame=frame):
+                        self.assertTrue(spots)
+                        for r, c in spots:
+                            self.assertEqual(grid[r][c], SYMBOLS[paint])
+
+    def test_claudy_paints_facing_right(self):
+        """A mirrored easel would mirror the picture, and the gift lifted off
+        it would come out the other way round."""
+        self.char.facing_right = False
         self.char.force_activity("painting")
-        canvases = []
-        for phase in self.char.phases[1:-1]:
-            grid = SPRITES[phase.frames[0]]
-            canvases.append([row[25:30] for row in grid[3:8]])
-        blank = [[5] * 5] * 5
-        self.assertNotEqual(canvases[0], blank)
-        self.assertEqual(canvases[2], canvases[3])   # admiring the last stage
-        self.assertEqual(len({str(c) for c in canvases}), 3)
+        self.assertTrue(self.char.facing_right)
 
 
 class MotionTests(CharacterTestCase):

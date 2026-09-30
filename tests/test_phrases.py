@@ -145,8 +145,7 @@ class GiftStoryTests(unittest.TestCase):
 
     def stories(self):
         for gift_type, emoji in self.GIFTS:
-            count = len(gift_stories._get_stories(gift_type, emoji))
-            for story_id in range(count):
+            for story_id in gift_stories.story_ids(gift_type, emoji):
                 yield gift_type, emoji, story_id
 
     def test_both_languages_agree_on_naming_the_user(self):
@@ -193,7 +192,7 @@ class GiftStoryTests(unittest.TestCase):
 
     def test_stories_that_need_no_name_stay_as_they_are(self):
         for gift_type, emoji, story_id in self.stories():
-            story = gift_stories._get_stories(gift_type, emoji)[story_id]
+            story = gift_stories._story(gift_type, story_id, emoji)
             if "{name}" not in story["ru"]:
                 self.assertEqual(
                     gift_stories.get_story(gift_type, story_id, emoji=emoji),
@@ -202,11 +201,45 @@ class GiftStoryTests(unittest.TestCase):
 
     def test_with_a_name_the_story_uses_it(self):
         named = [(t, e, i) for t, e, i in self.stories()
-                 if "{name}" in gift_stories._get_stories(t, e)[i]["ru"]]
+                 if "{name}" in gift_stories._story(t, i, e)["ru"]]
         self.assertTrue(named)
         for gift_type, emoji, story_id in named:
             self.assertIn("Катя", gift_stories.get_story(
                 gift_type, story_id, name="Катя", emoji=emoji))
+
+    def test_each_story_has_one_id(self):
+        for gift_type, emoji in self.GIFTS:
+            with self.subTest(gift=gift_type, emoji=emoji):
+                ids = gift_stories.story_ids(gift_type, emoji)
+                told = [gift_stories._story(gift_type, i, emoji)["ru"]
+                        for i in ids]
+                self.assertEqual(sorted(told), sorted(
+                    s["ru"] for s in gift_stories._get_stories(gift_type,
+                                                               emoji)))
+                self.assertIn(gift_stories.random_story_id(gift_type, emoji),
+                              ids)
+
+    def test_a_new_story_doesnt_change_the_ones_already_given(self):
+        """A painting keeps its story in the gallery for good, so adding a
+        story to either list must leave every given id telling the same,
+        with the user's name or without it."""
+        extra = {"ru": "новая", "en": "new"}
+        for emoji in activities.PAINTING_GIFT_EMOJI.values():
+            ids = gift_stories.story_ids("painting", emoji)
+            before = {(i, name): gift_stories.get_story("painting", i, name,
+                                                        emoji=emoji)
+                      for i in ids for name in ("", "Катя")}
+            for grown in ({"PAINTING_STORIES": {
+                              **gift_stories.PAINTING_STORIES,
+                              emoji: gift_stories.PAINTING_STORIES[emoji]
+                              + [extra]}},
+                          {"PAINTING_STORIES_ANY":
+                              gift_stories.PAINTING_STORIES_ANY + [extra]}):
+                with self.subTest(emoji=emoji, grown=list(grown)), \
+                        mock.patch.multiple(gift_stories, **grown):
+                    for (i, name), text in before.items():
+                        self.assertEqual(gift_stories.get_story(
+                            "painting", i, name, emoji=emoji), text)
 
     def test_story_ids_out_of_range_wrap_around(self):
         self.assertTrue(gift_stories.get_story("fish", 1000))

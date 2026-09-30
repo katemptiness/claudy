@@ -301,6 +301,13 @@ class CrabAppTests(unittest.TestCase):
         self.assertEqual(self.crab.window.move.call_count, 2)
         self.assertEqual(self.crab.ground_window.move.call_count, 2)
 
+    def test_the_star_comes_out_behind_claudy(self):
+        """Hung low, it is in reach of his claws and props."""
+        self.crab.controller.star = {"name": "Вега"}
+        self.crab._place_star()
+        self.crab.star_window.get_window().restack.assert_called_once_with(
+            self.crab.window.get_window(), False)
+
     def test_the_star_is_placed_afresh_each_night(self):
         star = self.crab.star_window
         self.crab.controller.star = {"name": "Вега"}

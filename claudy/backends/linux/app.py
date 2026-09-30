@@ -301,6 +301,11 @@ class CrabApp:
             - STAR_WINDOW)
         if not self.star_window.get_visible():
             self.star_window.show_all()
+            # Behind Claudy: hung low, it is in reach of his raised claws
+            # and props, and he should cover it, not it him
+            star, crab = self.star_window.get_window(), self.window.get_window()
+            if star is not None and crab is not None:
+                star.restack(crab, False)
 
     def _abs_x(self, x):
         """Convert controller X to absolute screen X."""

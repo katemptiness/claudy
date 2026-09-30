@@ -458,12 +458,19 @@ class StarTests(SceneTestCase):
                 redraws += self.scene.star_changed()
             self.assertAlmostEqual(redraws, cycles * len(STAR_TWINKLE), delta=1)
 
-    def test_the_lowest_the_star_can_hang_clears_the_speech_bubble(self):
-        """Tried at 100 px above the Dock: the bubble covered the star."""
-        self.ctl.speech.say("тут длинная фраза, которой хватит на две строчки")
-        layout = self.scene.bubble_layout(RecordingCanvas())
-        self.assertGreater(len(layout.lines), 1, "wanted a two-line bubble")
-        self.assertGreaterEqual(STAR_HEIGHT_MIN, WINDOW_HEIGHT + layout.height)
+    def test_the_lowest_the_star_can_hang_is_just_above_claudys_head(self):
+        """The user wanted it lower than his speech bubble, as low as almost
+        touching Claudy, but no lower: standing at rest, he mustn't touch it.
+        (A raised claw, a hop or a prop may; he is kept in front of it.)"""
+        claudy = art.build(art.sprite_key("idle"))
+        top_row = min(r for r, row in enumerate(claudy.rows) if any(row))
+        head = WINDOW_HEIGHT - (SPRITE_Y + top_row * claudy.scale)
+        star = art.build(art.item_key(STAR_TWINKLE[0][0]))
+        # The star is centered in its window; its lowest pixel, over the Dock
+        bottom = (STAR_HEIGHT_MIN + STAR_WINDOW
+                  - (STAR_WINDOW - star.height) // 2 - star.height)
+        self.assertGreater(bottom, head)
+        self.assertLessEqual(bottom - head, 2 * PIXEL_SCALE)
 
     def test_a_name_always_gets_the_same_spot_in_the_sky(self):
         self.assertEqual(star_offset_x("Kate"), star_offset_x("Kate"))

@@ -297,7 +297,7 @@ Right-click → Settings to configure:
 | Schedule mode | Night Owl / Early Bird | Night Owl |
 | Claudy's height | Slider, -50 to +50 px above the Dock (moves Claudy live while you drag) | 0 |
 | Dock icons | Slider, 1 to 50 — how many icons your Dock has, so Claudy paces across it instead of the whole screen | 13 |
-| Star height | Slider, 150 to 400 px above the Dock — where your named star hangs (it floats over your windows, so you choose) | 160 |
+| Star height | Slider, 50 to 400 px above the Dock — where your named star hangs (it floats over your windows, so you choose) | 160 |
 | Language | Русский / English | English |
 | Your name | Text field | — |
 | Speech frequency | Often (10s) / Normal (1 min) / Rarely / Very rarely / Almost never | Normal |

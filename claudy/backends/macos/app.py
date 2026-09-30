@@ -387,7 +387,10 @@ class MacApp:
              + star_offset_x(star["name"]) - STAR_WINDOW / 2,
              self.dock_y + self.settings.star_height))
         if not self.star_window.isVisible():
-            self.star_window.orderFront_(None)
+            # Behind Claudy: hung low, it is in reach of his raised claws
+            # and props, and he should cover it, not it him
+            self.star_window.orderWindow_relativeTo_(
+                AppKit.NSWindowBelow, self.window.windowNumber())
 
     # ---- Pointer ----
 

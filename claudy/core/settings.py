@@ -23,10 +23,12 @@ VERTICAL_OFFSET_MIN = -50
 VERTICAL_OFFSET_MAX = 50
 
 # How high the named star hangs above the Dock line, in pixels (to the bottom
-# of its little window). The floor keeps it clear of the speech bubble, which
-# sits right above Claudy's head; above that it is a matter of taste and of
-# which windows the user keeps open, so it is a slider.
-STAR_HEIGHT_MIN = 150
+# of its little window). It floats over whatever windows are open, so where
+# it is least in the way is the user's call. At the floor it hangs just clear
+# of Claudy's head at rest. That is below his speech bubble, which may then
+# cover it for a moment when he talks right under it, and within reach of a
+# raised claw, a hop or a prop; the backends keep Claudy in front of it.
+STAR_HEIGHT_MIN = 50
 STAR_HEIGHT_MAX = 400
 
 # How many icons are in the Dock — used to estimate its width so Claudy paces

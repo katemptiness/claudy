@@ -640,7 +640,9 @@ CANVAS_ROW, CANVAS_COL = 3, 25
 CANVAS_SIZE = 5
 
 # Each picture is painted in three stages: (brush position, paint, canvas).
-# The last stage's canvas is the finished picture.
+# The last stage's canvas is the finished picture. A canvas can't use `o`:
+# that is the brush tip, which painting() recolors with the paint, so flame
+# orange would come out in whatever the brush holds (a test keeps it out).
 PICTURES = {
     "landscape": (
         ("up", "u", "uuuuu uuuuu ccccc ccccc ccccc"),
@@ -661,6 +663,32 @@ PICTURES = {
         ("up", "u", "ccccc cuuuc cuuuc cuuuc ccccc"),
         ("down", "u", "ccccc cuuuc uuuuu cuuuc cucuc"),
         ("up", "e", "ccccc cuuuc ueueu cuuuc cucuc"),
+    ),
+    # Dusk over the sea: the sun sets into a peach horizon, a glint below
+    "sunset": (
+        ("up", "k", "ppppp kkkkk bbbbb ccccc ccccc"),
+        ("up", "y", "ppppp kkykk byyyb ccccc ccccc"),
+        ("down", "u", "ppppp kkykk byyyb uubuu uuubu"),
+    ),
+    # A night sky of gold and white stars over the sea
+    "stars": (
+        ("up", "d", "ddddd ddddd ddddd ddddd ccccc"),
+        ("up", "y", "ddddy ydddd ddydd ddddy ccccc"),
+        ("down", "u", "dcddy yddcd ddydd cdddy uuuuu"),
+    ),
+    # A little boat with a scarlet sail
+    "boat": (
+        ("down", "u", "ccccc ccccc ccccc ccccc uuuuu"),
+        ("down", "w", "ccccc ccccc ccccc cwwwc uuuuu"),
+        ("up", "r", "ccrcc ccrrc ccrrr cwwwc uuuuu"),
+    ),
+    # Claudy himself, in his orange as paint (`*`, not his body), eyes above
+    # his claws as in his own sprite, and the beret last: a dome and a brim
+    # wider than his head, so it reads as a hat
+    "self": (
+        ("down", "*", "ccccc ccccc c***c ***** c*c*c"),
+        ("up", "e", "ccccc ccccc ce*ec ***** c*c*c"),
+        ("up", "p", "ccppc cpppp ce*ec ***** c*c*c"),
     ),
 }
 

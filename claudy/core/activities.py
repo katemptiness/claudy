@@ -75,6 +75,10 @@ PAINTINGS = {
     "flower": _painting("flower", "цветочек!"),
     "heart": _painting("heart", "сердечко!"),
     "friend": _portrait(),
+    "sunset": _painting("sunset", "закат!"),
+    "stars": _painting("stars", "звёздное небо!"),
+    "boat": _painting("boat", "кораблик!"),
+    "self": _painting("self", "автопортрет!"),
 }
 
 # The friend fidgets while he poses: every so often he turns to look at us
@@ -94,6 +98,10 @@ PAINTING_GIFT_EMOJI = {
     "flower": "\U0001F337",           # 🌷
     "heart": "\u2764\uFE0F",           # ❤️
     "friend": "\U0001F980",           # 🦀
+    "sunset": "\U0001F305",           # 🌅
+    "stars": "\U0001F30C",            # 🌌
+    "boat": "\u26F5",                 # ⛵
+    "self": "\U0001F3A8",             # 🎨
 }
 
 # Many activities open with still poses (getting the book, the laptop, the

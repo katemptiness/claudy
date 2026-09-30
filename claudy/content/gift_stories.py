@@ -1104,6 +1104,109 @@ PAINTING_STORIES = {
                   "his really are like that!",
         },
     ],
+    "\U0001F305": [   # 🌅 the sunset
+        {
+            "ru": "закат длился минут десять, а рисовал я его целый час. "
+                  "пришлось запоминать.",
+            "en": "the sunset lasted about ten minutes, and i painted it for "
+                  "a whole hour. had to remember it.",
+        },
+        {
+            "ru": "оранжевой краски у меня нет, поэтому закат персиковый. "
+                  "по-моему, так даже нежнее.",
+            "en": "i don't have orange paint, so the sunset is peach. i think "
+                  "it's gentler this way.",
+        },
+        {
+            "ru": "солнце садилось прямо в море. я боялся, что оно зашипит, "
+                  "но нет.",
+            "en": "the sun was setting right into the sea. i was afraid it "
+                  "would hiss, but no.",
+        },
+        {
+            "ru": "рисовал и думал, что {name}, может быть, тоже сейчас "
+                  "смотрит на закат. теперь он у нас один на двоих.",
+            "en": "painted it thinking {name} might be watching a sunset "
+                  "right now too. now we have one to share.",
+        },
+    ],
+    "\U0001F30C": [   # 🌌 the starry sky
+        {
+            "ru": "считал звёзды, пока рисовал. сбился на седьмой и начал "
+                  "заново. дважды.",
+            "en": "counted the stars while painting. lost count at seven and "
+                  "started over. twice.",
+        },
+        {
+            "ru": "одна из этих звёзд — может быть, та самая. но я не скажу "
+                  "какая :3",
+            "en": "one of these stars might be the one. but i won't say "
+                  "which :3",
+        },
+        {
+            "ru": "ночью краску плохо видно, так что часть звёзд я рисовал "
+                  "на ощупь.",
+            "en": "paint is hard to see at night, so some of the stars i "
+                  "painted by feel.",
+        },
+        {
+            "ru": "золотые звёзды — те, что ближе. белые — те, что дальше. "
+                  "так мне объяснил телескоп.",
+            "en": "the gold stars are the closer ones. the white ones are "
+                  "farther. that's what the telescope told me.",
+        },
+    ],
+    "\u26F5": [   # ⛵ the boat
+        {
+            "ru": "у этого кораблика алые паруса. я читал, что такие "
+                  "приплывают к тем, кто очень ждёт.",
+            "en": "this little boat has scarlet sails. i read that they come "
+                  "to those who wait with all their heart.",
+        },
+        {
+            "ru": "кораблик маленький, но если {name} захочет куда-нибудь "
+                  "уплыть — место найдётся.",
+            "en": "the boat is small, but if {name} wants to sail somewhere, "
+                  "there's room.",
+        },
+        {
+            "ru": "я бы и сам поплыл, но крабы обычно ходят по дну. так "
+                  "надёжнее.",
+            "en": "i'd sail myself, but crabs usually walk along the bottom. "
+                  "it's more reliable.",
+        },
+        {
+            "ru": "ветер был попутный, поэтому парус получился надутый. "
+                  "честно-честно.",
+            "en": "the wind was fair, so the sail came out full. honest.",
+        },
+    ],
+    "\U0001F3A8": [   # 🎨 the self-portrait
+        {
+            "ru": "это я! в берете. все настоящие художники носят берет, "
+                  "я проверял.",
+            "en": "that's me! in a beret. all real artists wear a beret, "
+                  "i checked.",
+        },
+        {
+            "ru": "рисовал себя по отражению в луже. лужа всё время "
+                  "дрожала, так что если что не так — это она.",
+            "en": "painted myself from my reflection in a puddle. the puddle "
+                  "kept rippling, so if anything's off, blame the puddle.",
+        },
+        {
+            "ru": "друг сказал, что в берете я выгляжу солидно. я сразу "
+                  "нарисовал, пока он не передумал.",
+            "en": "my friend said i look distinguished in a beret. i painted "
+                  "it right away, before he changed his mind.",
+        },
+        {
+            "ru": "автопортрет — это когда рисуешь себя и стараешься быть "
+                  "честным. я старался. берет чуть-чуть приукрасил.",
+            "en": "a self-portrait is when you paint yourself and try to be "
+                  "honest. i tried. the beret is a little flattering.",
+        },
+    ],
 }
 
 PAINTING_STORIES_ANY = [

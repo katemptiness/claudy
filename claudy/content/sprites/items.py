@@ -244,6 +244,10 @@ GIFT_ART = {
     "\U0001F337": "painting_flower",           # 🌷
     "\u2764\uFE0F": "painting_heart",           # ❤️
     "\U0001F980": "painting_friend",           # 🦀
+    "\U0001F305": "painting_sunset",           # 🌅
+    "\U0001F30C": "painting_stars",            # 🌌
+    "\u26F5": "painting_boat",                 # ⛵
+    "\U0001F3A8": "painting_self",             # 🎨
 }
 
 # What Claudy sleeps with after being given a toy

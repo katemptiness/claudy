@@ -84,6 +84,9 @@ PALETTE = {
     16: hex_rgba("#4A4A5C"),     # dark metal
     17: hex_rgba("#C9CCD8"),     # light metal
     18: hex_rgba("#BE684D"),     # body side face (3/4 view)
+    # Claudy's orange as paint, for his self-portrait: the body's color
+    # without being body, so it gets no shading and isn't part of him
+    19: hex_rgba("#D77757"),
 }
 
 # Tones the shading pass (render/art.py) adds to the body and eyes

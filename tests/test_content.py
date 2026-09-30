@@ -181,6 +181,16 @@ class ItemArtTests(unittest.TestCase):
                 self.assertIn(emoji, GIFT_ART)
                 self.assertIn(GIFT_ART[emoji], ITEM_ART.keys() | PAINTED.keys())
 
+    def test_no_canvas_uses_the_brush_tip_color(self):
+        """`o` is the brush tip, recolored with the paint: flame orange on a
+        canvas would come out in the brush's color instead."""
+        from claudy.content.sprites.activities import PICTURES
+        for picture, stages in PICTURES.items():
+            for n, (_, paint, canvas) in enumerate(stages, 1):
+                with self.subTest(painting=picture, stage=n):
+                    self.assertNotIn("o", canvas)
+                    self.assertNotEqual(paint, "o")
+
     def test_a_painting_given_away_is_the_one_on_the_easel(self):
         """Each painting has an emoji to be given under, and the picture
         left on the Dock for it is the one lifted off that painting."""

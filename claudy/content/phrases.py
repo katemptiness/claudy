@@ -301,6 +301,12 @@ _EN = {
     "это тебе!": "this is for you!",
     "нашёл и подумал о тебе": "found it and thought of you",
 
+    # Pictures finished at the easel
+    "закат!": "a sunset!",
+    "звёздное небо!": "a starry sky!",
+    "кораблик!": "a little boat!",
+    "автопортрет!": "a self-portrait!",
+
     # The friend posing for his portrait
     "позову друга позировать!": "i'll ask my friend to pose!",
     "встань вот тут :3": "stand right there :3",

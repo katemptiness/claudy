@@ -261,7 +261,7 @@ class PaintingTests(CharacterTestCase):
 
     def test_paints_a_different_picture_now_and_then(self):
         pictures = set()
-        for _ in range(20):
+        for _ in range(80):
             frames = self._painted_frames()
             done = [f for f in frames if f.endswith("_done")]
             self.assertEqual(len(done), 1)

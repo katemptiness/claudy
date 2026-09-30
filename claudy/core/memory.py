@@ -53,6 +53,22 @@ def _star_from_gifts(gifts):
     return None
 
 
+def _saved_gallery(saved):
+    """The paintings hung in earlier sessions, with any entry a hand edit
+    broke left out: the gallery window lays out what is here, and one bad
+    entry shouldn't cost the user the rest."""
+    gallery = saved.get("gallery")
+    if not isinstance(gallery, list):
+        return []
+    return [{"picture": entry["picture"], "date": entry["date"],
+             "story_id": entry["story_id"]}
+            for entry in gallery
+            if isinstance(entry, dict)
+            and isinstance(entry.get("picture"), str)
+            and isinstance(entry.get("date"), str)
+            and isinstance(entry.get("story_id"), int)]
+
+
 def _fresh_day(today_str):
     return {
         "date": today_str,
@@ -66,9 +82,9 @@ class Memory:
     """Persistent relationship memory. Use Memory.shared().
 
     Each launch starts a fresh session: clicks, app launches, the days
-    counter and gifts reset. Only two things survive: the very first launch
-    date, and the star Claudy named after the user — that one hangs in the
-    sky for good, so it has to outlive a rebuild.
+    counter and gifts reset. Only three things survive: the very first
+    launch date; the star Claudy named after the user, which hangs in the sky
+    for good; and the gallery of paintings he has given, which only grows.
     """
 
     _instance = None
@@ -94,6 +110,7 @@ class Memory:
             "gifts": [],
             "activities": [],
             "star": _saved_star(saved),
+            "gallery": _saved_gallery(saved),
         }
         self.save()
 
@@ -245,6 +262,25 @@ class Memory:
         """The named star, or None if Claudy hasn't named one yet."""
         return self._data.get("star")
 
-    def get_collected_gifts(self):
-        """Return all collected gifts, newest first."""
-        return [g for g in reversed(self._data["gifts"]) if g["collected"]]
+    def get_collected_gifts(self, paintings=True):
+        """Return all collected gifts, newest first; without the paintings
+        if asked, which the gifts window leaves to the gallery."""
+        return [g for g in reversed(self._data["gifts"]) if g["collected"]
+                and (paintings or g["type"] != "painting")]
+
+    # --- The gallery ---
+
+    def hang_painting(self, picture, story_id):
+        """Hang a painting the user took in the gallery, for good.
+
+        The gift itself stays in the session's list too, where it counts
+        toward the day's gifts like any other.
+        """
+        self._data["gallery"].append({"picture": picture,
+                                      "date": date.today().isoformat(),
+                                      "story_id": story_id})
+        self.save()
+
+    def get_gallery(self):
+        """Every painting hung so far, oldest first, repeats included."""
+        return [dict(entry) for entry in self._data["gallery"]]

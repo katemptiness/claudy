@@ -349,5 +349,8 @@ MAGIC_GIFT_CHANCE = 0.2
 FISH_GIFT_CHANCE = 0.3
 SHELL_GIFT_CHANCE = 0.1
 PAINTING_GIFT_CHANCE = 0.25
+# Pictures not yet in the user's gallery come up this many times as often
+# when Claudy picks what to paint, so the gallery fills before it repeats
+NEW_PICTURE_WEIGHT = 3
 STAR_NAMING_CHANCE = 0.1
 SANDCASTLE_SUCCESS_CHANCE = 0.7

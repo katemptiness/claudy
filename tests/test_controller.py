@@ -127,6 +127,36 @@ class GiftTests(ControllerTestCase):
                       {phrases.format_phrase(p)
                        for p in phrases.PAINTING_COLLECT_PHRASES})
 
+    def test_a_painting_taken_is_hung_in_the_gallery(self):
+        self.ctl._offer_gift({"type": "painting", "emoji": "\u26F5"})
+        story_id = Memory.shared().get_pending_gift()["story_id"]
+        self.ctl.on_click()
+        self.assertEqual([(e["picture"], e["story_id"])
+                          for e in Memory.shared().get_gallery()],
+                         [("boat", story_id)])
+
+    def test_a_painting_left_to_fade_is_not_hung(self):
+        self.ctl._offer_gift({"type": "painting", "emoji": "\u26F5"})
+        self.advance(Settings.shared().gift_duration_seconds() * 1000 + 100)
+        self.assertEqual(Memory.shared().get_gallery(), [])
+
+    def test_other_gifts_stay_out_of_the_gallery(self):
+        self.offer_gift()
+        self.ctl.on_click()
+        self.assertEqual(Memory.shared().get_gallery(), [])
+
+    def test_the_test_gift_of_a_painting_is_a_painting(self):
+        """So taking it in developer mode tries the gallery."""
+        Settings.shared().gift_limit = 0        # all eight in one day
+        for emoji in activities.PAINTING_GIFT_EMOJI.values():
+            with self.subTest(emoji=emoji), mock.patch(
+                    "claudy.core.controller.random.choice",
+                    return_value=emoji):
+                self.ctl.test_gift()
+                self.assertEqual(Memory.shared().get_pending_gift()["type"],
+                                 "painting")
+                self.ctl.on_click()
+
     def test_activity_gift_events_reach_the_controller(self):
         support.attach()
         with mock.patch("claudy.core.character.random.random", return_value=0.0):

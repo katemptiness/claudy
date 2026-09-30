@@ -376,6 +376,22 @@ class PaintingTests(CharacterTestCase):
         self.assertTrue(self.char.friend_visible)
         self.assertFalse(self.char.friend_sitting)
 
+    def test_pictures_not_yet_given_come_up_more_often(self):
+        from claudy.core.memory import Memory
+        pictures = list(activities.PAINTINGS)
+        for picture in pictures[1:]:
+            Memory.shared().hang_painting(picture, 0)
+        new = 0
+        for _ in range(400):
+            self.char.force_activity("painting")
+            new += self._painted_picture() == pictures[0]
+        # Evenly it would be one in eight; weighted, NEW_PICTURE_WEIGHT in
+        # (NEW_PICTURE_WEIGHT + the seven already hung)
+        weight = activities.NEW_PICTURE_WEIGHT
+        expected = 400 * weight / (weight + len(pictures) - 1)
+        self.assertGreater(new, 400 / len(pictures) * 1.5)
+        self.assertAlmostEqual(new, expected, delta=expected * 0.3)
+
     def test_the_picture_grows_stage_by_stage(self):
         self.char.force_activity("painting")
         canvases = []

@@ -35,6 +35,7 @@ from claudy.backends.linux.canvas import (
     CairoCanvas, clear, make_image, new_image_cache,
 )
 from claudy.backends.linux.events import SystemEventHandler
+from claudy.backends.linux.gallery_ui import GalleryWindow
 from claudy.backends.linux.gifts_ui import GiftsWindow
 from claudy.backends.linux.settings_ui import SettingsWindow
 from claudy.backends.linux.windows import (
@@ -158,6 +159,7 @@ class LinuxPlatform(Platform):
     def __init__(self):
         self._settings_window = SettingsWindow()
         self._gifts_window = GiftsWindow()
+        self._gifts_window.gallery = GalleryWindow()
 
     def open_claude(self):
         open_claude()

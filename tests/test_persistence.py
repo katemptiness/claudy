@@ -302,6 +302,40 @@ class MemoryTests(unittest.TestCase):
                 with open(memory.MEMORY_FILE, encoding="utf-8") as f:
                     self.assertIsNone(json.load(f)["star"])
 
+    def test_the_gallery_outlives_the_session(self):
+        """Paintings stay hung, unlike the rest of the day's gifts."""
+        self.mem.hang_painting("stars", 2)
+        self.mem.hang_painting("boat", 0)
+        memory.Memory._instance = None
+        fresh = memory.Memory.shared()
+        self.assertEqual([(e["picture"], e["story_id"])
+                          for e in fresh.get_gallery()],
+                         [("stars", 2), ("boat", 0)])
+
+    def test_a_broken_gallery_entry_is_left_out_on_load(self):
+        """One hand edit gone wrong mustn't cost the rest of the gallery."""
+        good = {"picture": "boat", "date": "2026-09-30", "story_id": 1}
+        write_file(memory.MEMORY_FILE, {"gallery": [
+            good, "boat", {"picture": 5, "date": "x", "story_id": 1},
+            {"picture": "boat", "date": "2026-09-30"},
+            {"picture": "boat", "date": "2026-09-30", "story_id": "1"}]})
+        memory.Memory._instance = None
+        self.assertEqual(memory.Memory.shared().get_gallery(), [good])
+        for broken in ("boat", {"boat": 1}, None):
+            with self.subTest(gallery=broken):
+                write_file(memory.MEMORY_FILE, {"gallery": broken})
+                memory.Memory._instance = None
+                self.assertEqual(memory.Memory.shared().get_gallery(), [])
+
+    def test_the_gifts_window_can_leave_the_paintings_out(self):
+        for gift in (("fish", "🐟"), ("painting", "⛵")):
+            self.mem.add_gift(*gift)
+            self.mem.collect_gift()
+        self.assertEqual(len(self.mem.get_collected_gifts()), 2)
+        self.assertEqual([g["type"] for g in
+                          self.mem.get_collected_gifts(paintings=False)],
+                         ["fish"])
+
     def test_each_launch_starts_a_fresh_session(self):
         self.mem.record_click()
         self.mem.add_gift("fish", "🐟")

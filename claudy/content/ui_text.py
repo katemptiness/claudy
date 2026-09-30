@@ -1,4 +1,4 @@
-"""Bilingual text for Claudy's UI chrome: menus, settings, gifts window.
+"""Bilingual text for Claudy's UI chrome: menus, settings, gifts, gallery.
 
 Claudy's own speech lives in phrases.py; this module holds the labels of the
 windows and menus around it. Entries are (English, Russian) pairs.
@@ -47,6 +47,27 @@ _LABELS = {
     "gifts_title": ("Gifts", "Подарки"),
     "no_gifts": ("No gifts yet. I'll find something soon!",
                  "Пока нет подарков. Скоро найду что-нибудь!"),
+    "gallery_button": ("Gallery", "Галерея"),
+
+    # Gallery window
+    "gallery_title": ("Gallery", "Галерея"),
+    "no_paintings": ("No paintings yet. The ones Claudy gives you will "
+                     "hang here.",
+                     "Картин пока нет. Те, что подарит Claudy, будут "
+                     "висеть здесь."),
+}
+
+# What Claudy calls his paintings, in the gallery. Each winks at a painting
+# or a book the user might know.
+_PAINTING_TITLES = {
+    "landscape": ("The View from My Dock", "Вид с моего дока"),
+    "flower": ("A Flower That Won't Wilt", "Цветок, который не завянет"),
+    "heart": ("A Little Heart", "Сердечко"),
+    "friend": ("My Friend, from Life", "Портрет друга, с натуры"),
+    "sunset": ("Peach Sunset", "Персиковый закат"),
+    "stars": ("The Starry Night", "Звёздная ночь"),
+    "boat": ("Scarlet Sails", "Алые паруса"),
+    "self": ("Self-Portrait in a Beret", "Автопортрет в берете"),
 }
 
 # User-to-Claudy gifts offered in the context menu: (type, EN, RU)
@@ -141,6 +162,18 @@ def about_text(toolkit):
 def gift_type_name(gift_type):
     en, ru = _GIFT_TYPE_NAMES.get(gift_type, ("Gift", "Подарок"))
     return en if _is_en() else ru
+
+
+def painting_title(picture):
+    en, ru = _PAINTING_TITLES[picture]
+    return en if _is_en() else ru
+
+
+def gallery_header(count):
+    """'3 paintings' / '3 картины'."""
+    if _is_en():
+        return f"{count} painting{'s' if count != 1 else ''}"
+    return f"{count} {plural_ru(count, 'картина', 'картины', 'картин')}"
 
 
 def gifts_header(count):

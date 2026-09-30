@@ -17,8 +17,8 @@ from claudy.config import (
 )
 from claudy.content import phrases, ui_text
 from claudy.content.phrases import pick
-from claudy.content.sprites.items import DREAM_ART, GIFT_ART
-from claudy.core.activities import ACTIVITIES
+from claudy.content.sprites.items import DREAM_ART, GIFT_ART, PAINTED
+from claudy.core.activities import ACTIVITIES, PAINTING_GIFT_EMOJI
 from claudy.core.character import Character
 from claudy.core.memory import Memory
 from claudy.core.particles import ParticleSystem
@@ -324,6 +324,10 @@ class Controller:
         gift = self.memory.collect_gift()
         if not gift:
             return
+        if gift["type"] == "painting":
+            # Taken, it goes up in the gallery, where it stays for good
+            self.memory.hang_painting(PAINTED[GIFT_ART[gift["emoji"]]],
+                                      gift["story_id"])
         self._clear_gift()
         self._say(pick(phrases.PAINTING_COLLECT_PHRASES
                        if gift["type"] == "painting"
@@ -403,7 +407,11 @@ class Controller:
         self.character.force_activity(name)
 
     def test_gift(self):
-        self._offer_gift({"type": "test", "emoji": random.choice(TEST_GIFT_EMOJIS)})
+        emoji = random.choice(TEST_GIFT_EMOJIS)
+        # A painting is offered as one, so that taking it tries the gallery
+        painting = emoji in PAINTING_GIFT_EMOJI.values()
+        self._offer_gift({"type": "painting" if painting else "test",
+                          "emoji": emoji})
 
     def menu(self):
         """The context menu, rebuilt each time it opens."""

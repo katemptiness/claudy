@@ -28,7 +28,8 @@ from claudy.core import schedule
 from claudy.core.activities import (
     ACTIVITIES, CATCHES, FISH_GIFT_CHANCE, FRIEND_ACTIVITY_POOL,
     FRIEND_ANIMATIONS, FRIEND_FRAME_MS, FRIEND_GOODBYE, MAGIC_GIFT_CHANCE,
-    MAGIC_RESULTS, PAINTING_GIFT_CHANCE, PAINTING_GIFT_EMOJI, PAINTINGS,
+    MAGIC_RESULTS, NEW_PICTURE_WEIGHT, PAINTING_GIFT_CHANCE,
+    PAINTING_GIFT_EMOJI, PAINTINGS,
     REACTION_HEART_INTERVAL_MS, REACTIONS, RECENT_ACTIVITY_BLOCK,
     SANDCASTLE_SUCCESS_CHANCE, SHELL_GIFT_CHANCE, SITTER_FIDGET_GAP_MS,
     SITTER_FIDGET_MS, SITTER_FIDGETS, SITTER_HOP_CHANCE, SITTER_NAG_CHANCE,
@@ -873,8 +874,13 @@ class Character:
             self._gift_offer = {"type": "shell", "emoji": "🐚"}
 
     def _special_pick_painting(self):
+        # Pictures the user hasn't been given yet come up more often
+        hung = {entry["picture"] for entry in Memory.shared().get_gallery()}
+        pictures = list(PAINTINGS)
+        weights = [1 if picture in hung else NEW_PICTURE_WEIGHT
+                   for picture in pictures]
+        self._painting = random.choices(pictures, weights)[0]
         # Between the easel going up and the final idle
-        self._painting = random.choice(list(PAINTINGS))
         self.phases[1:-1] = PAINTINGS[self._painting]
 
     def _special_sitter_arrives(self):

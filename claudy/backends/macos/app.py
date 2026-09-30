@@ -16,6 +16,7 @@ import objc
 from claudy.backends.macos.bubble import BubbleWindow
 from claudy.backends.macos.canvas import new_image_cache
 from claudy.backends.macos.events import SystemEventObserver
+from claudy.backends.macos.gallery_ui import GalleryWindow
 from claudy.backends.macos.gifts_ui import GiftsWindow
 from claudy.backends.macos.settings_ui import SettingsWindow
 from claudy.backends.macos.views import (
@@ -123,6 +124,7 @@ class MacPlatform(Platform):
     def __init__(self):
         self._settings_window = SettingsWindow.alloc().init()
         self._gifts_window = GiftsWindow.alloc().init()
+        self._gifts_window.gallery = GalleryWindow.alloc().init()
 
     def open_claude(self):
         open_claude()

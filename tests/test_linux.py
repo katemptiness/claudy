@@ -29,7 +29,9 @@ try:
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
-    from claudy.backends.linux import app, bubble, events, settings_ui, windows
+    from claudy.backends.linux import (
+        app, bubble, events, gallery_ui, settings_ui, windows,
+    )
     from gi.repository import Gdk, GLib, Gtk
     import cairo
     HAVE_GTK = Gdk.Display.get_default() is not None
@@ -439,6 +441,60 @@ class GtkStartTests(unittest.TestCase):
 
     def test_a_backend_the_user_chose_is_kept(self):
         self.assertEqual(self.start(backend="x11")[0][3], "x11")
+
+
+@needs_gtk
+class GalleryWindowTests(unittest.TestCase):
+    """The gallery's grid and story, built without showing the window."""
+
+    def setUp(self):
+        from claudy.core import gallery
+        from tests import support
+        support.reset_singletons()
+        self.window = gallery_ui.GalleryWindow()
+        self.window._paintings = gallery.paintings([
+            {"picture": "boat", "date": "2026-09-29", "story_id": 0},
+            {"picture": "stars", "date": "2026-09-30", "story_id": 1},
+            {"picture": "boat", "date": "2026-09-30", "story_id": 2},
+        ])
+        self.window._build_grid()
+        self.window._build_story()
+
+    def test_each_painting_hangs_once_and_tells_its_story(self):
+        self.assertEqual(len(self.window.buttons), 2)     # boat twice: once
+        self.window._select(0)
+        boat = self.window._paintings[0]
+        self.assertIn(boat.title, self.window.story.get_text())
+        for copy in boat.copies:
+            self.assertIn(copy.story, self.window.story.get_text())
+
+    def test_clicking_a_painting_picks_it(self):
+        self.window._select(0)
+        self.window.buttons[1].clicked()
+        stars = self.window._paintings[1]
+        self.assertIn(stars.title, self.window.story.get_text())
+        self.assertEqual([b.get_relief() for b in self.window.buttons],
+                         [Gtk.ReliefStyle.NONE, Gtk.ReliefStyle.NORMAL])
+
+    def test_a_painting_is_drawn_pixel_for_pixel(self):
+        from claudy.render import art
+        surface = gallery_ui._painting_surface("painting_boat")
+        self.assertEqual((surface.get_width(), surface.get_height()),
+                         (gallery_ui.FRAME, gallery_ui.FRAME))
+        target = cairo.ImageSurface(cairo.FORMAT_ARGB32, gallery_ui.FRAME,
+                                    gallery_ui.FRAME)
+        gallery_ui._draw_painting(None, cairo.Context(target), surface)
+        target.flush()
+        rows = art.build(art.item_key("painting_boat")).rows
+        step = gallery_ui.FRAME // len(rows)
+        data = target.get_data()
+        for r in range(len(rows)):
+            for c in range(len(rows[0])):
+                # the middle of each art pixel, in Cairo's BGRA
+                i = ((r * step + step // 2) * target.get_stride()
+                     + (c * step + step // 2) * 4)
+                red = rows[r][c][0]
+                self.assertAlmostEqual(data[i + 2] / 255, red, delta=0.01)
 
 
 @needs_gtk

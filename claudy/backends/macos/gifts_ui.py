@@ -19,6 +19,7 @@ class GiftsWindow(AppKit.NSObject):
         if self is None:
             return None
         self.window = None
+        self.gallery = None  # GalleryWindow, set right after creation
         return self
 
     def show(self):
@@ -29,7 +30,8 @@ class GiftsWindow(AppKit.NSObject):
             AppKit.NSApp.activateIgnoringOtherApps_(True)
             return
 
-        gifts = Memory.shared().get_collected_gifts()
+        # Paintings hang in the gallery instead, behind the button up top
+        gifts = Memory.shared().get_collected_gifts(paintings=False)
         user_name = Settings.shared().user_name or ""
 
         w = 360
@@ -64,6 +66,14 @@ class GiftsWindow(AppKit.NSObject):
         header = _make_label(gifts_header(len(gifts)), 16, y, w - 32,
                              bold=True, size=16)
         doc.addSubview_(header)
+        gallery = AppKit.NSButton.alloc().initWithFrame_(
+            ((w - 16 - 110, y - 4), (110, 28)))
+        gallery.setTitle_(label("gallery_button"))
+        gallery.setBezelStyle_(AppKit.NSBezelStyleRounded)
+        gallery.setAutoresizingMask_(AppKit.NSViewMinXMargin)
+        gallery.setTarget_(self)
+        gallery.setAction_("openGallery:")
+        doc.addSubview_(gallery)
         y += 32
 
         # Separator line
@@ -93,6 +103,9 @@ class GiftsWindow(AppKit.NSObject):
         self.window.setContentView_(scroll)
         self.window.makeKeyAndOrderFront_(None)
         AppKit.NSApp.activateIgnoringOtherApps_(True)
+
+    def openGallery_(self, sender):
+        self.gallery.show()
 
     def _add_gift_row(self, parent, gift, user_name, y, w):
         """Add a gift row to the document view. Returns new y position."""

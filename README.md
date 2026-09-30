@@ -131,7 +131,11 @@ Each gift counts as 2 clicks toward attachment. Cooldown between gifts is config
 
 #### Gift Collection
 
-Right-click → **Gifts** to view what Claudy gave you since it started. Each gift comes with a unique backstory — a cute little tale from Claudy about how the gift was found, caught, conjured or painted. 199 bilingual stories in total: 40 per gift type, and 39 for paintings, where each picture has a few about what is on it and they share six about painting itself. A story is picked when the gift is offered. A painting shows up as what is on it, captioned *Painting*: 🏞️ 🌷 ❤️ 🦀 🌅 🌌 ⛵ 🎨.
+Right-click → **Gifts** to view what Claudy gave you since it started, paintings aside (they have a gallery of their own, below). Each gift comes with a unique backstory — a cute little tale from Claudy about how the gift was found, caught, conjured or painted. 199 bilingual stories in total: 40 per gift type, and 39 for paintings, where each picture has a few about what is on it and they share six about painting itself. A story is picked when the gift is offered. A painting is offered as what is on it: 🏞️ 🌷 ❤️ 🦀 🌅 🌌 ⛵ 🎨.
+
+#### Gallery
+
+The **Gallery** button in the gifts window opens the paintings Claudy has given you: each one in its frame, pixel for pixel as it stood on the easel, under the title Claudy gave it ("The Starry Night", "Scarlet Sails", "Self-Portrait in a Beret"...). Click one to read its story. A painting given twice hangs once, marked ×2, and each copy keeps its own date and story. Unlike the rest of the gifts, the gallery is kept for good, and only what Claudy painted for you hangs there: no empty frames to fill. Pictures that aren't in your gallery yet come up more often when Claudy picks what to paint.
 
 ### At night
 
@@ -154,7 +158,7 @@ Once — and only once — Claudy's telescope finds a star worth naming after yo
 (after dark, and only once it's attached to you). The star shows up in this
 session's gift collection, and it stays in the sky for good: a small pixel star hanging above the Dock, in
 a fixed spot of its own, twinkling. It shows between 19:00 and 6:00 and is
-invisible by day, and it is the one thing Claudy remembers across relaunches.
+invisible by day, and like the gallery it outlives every relaunch.
 How high it hangs is a setting.
 
 ### Memory
@@ -166,7 +170,7 @@ Claudy keeps its memory in `~/.claudy/memory.json`. Almost all of it lasts only 
 - **App launches** — "Spotify for the 3rd time today :)"
 - **Gifts** — what Claudy gave you this session
 
-The one exception is **your star**: the star Claudy named after you outlives every relaunch.
+The exceptions are **your star**, which Claudy named after you, and **the gallery** of paintings it gave you: both outlive every relaunch.
 
 ## Schedule & Activities
 
@@ -239,7 +243,9 @@ claudy/
     schedule.py               # Owl/lark time-of-day weights; when it's dark enough for the star
     settings.py               # Settings persistence (JSON)
     memory.py                 # Per-session memory (clicks, days, gifts, app launches,
-                              #   the activity log for dreams) and the named star
+                              #   the activity log for dreams), the named star and
+                              #   the gallery
+    gallery.py                # The gallery window's contents, for both backends
 
   content/                    # Words and pictures
     phrases.py                # Bilingual phrases (RU/EN)
@@ -258,10 +264,12 @@ claudy/
   backends/
     macos/                    # PyObjC / AppKit / Quartz
       app.py                  # Windows, input, frame loop
-      canvas.py, views.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
+      canvas.py, views.py, bubble.py, events.py, settings_ui.py, gifts_ui.py,
+      gallery_ui.py
     linux/                    # GTK3 / PyGObject / Cairo
       app.py                  # Windows, input, frame loop
-      windows.py, canvas.py, bubble.py, events.py, settings_ui.py, gifts_ui.py
+      windows.py, canvas.py, bubble.py, events.py, settings_ui.py, gifts_ui.py,
+      gallery_ui.py
 
 assets/                       # App icon (claudy.icns)
 tools/                        # make_icon.py, build_app.sh

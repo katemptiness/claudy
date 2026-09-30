@@ -17,13 +17,15 @@ class GiftsWindow:
 
     def __init__(self):
         self.window = None
+        self.gallery = None  # GalleryWindow, set right after creation
 
     def show(self):
         if self.window and self.window.get_visible():
             self.window.present()
             return
 
-        gifts = Memory.shared().get_collected_gifts()
+        # Paintings hang in the gallery instead, behind the button up top
+        gifts = Memory.shared().get_collected_gifts(paintings=False)
         user_name = Settings.shared().user_name or ""
 
         self.window = Gtk.Window(title=label("gifts_title"))
@@ -34,14 +36,22 @@ class GiftsWindow:
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 
-        # Header with gift count
+        # Header with gift count, and the way to the gallery
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                             spacing=8)
+        header_row.set_margin_start(16)
+        header_row.set_margin_end(16)
+        header_row.set_margin_top(12)
+        header_row.set_margin_bottom(8)
         header = Gtk.Label()
         header.set_markup(f"<big><b>{gifts_header(len(gifts))}</b></big>")
         header.set_xalign(0)
-        header.set_margin_start(16)
-        header.set_margin_top(16)
-        header.set_margin_bottom(8)
-        vbox.pack_start(header, False, False, 0)
+        header_row.pack_start(header, True, True, 0)
+        self.gallery_button = Gtk.Button(label=label("gallery_button"))
+        self.gallery_button.connect("clicked",
+                                    lambda _b: self.gallery.show())
+        header_row.pack_end(self.gallery_button, False, False, 0)
+        vbox.pack_start(header_row, False, False, 0)
 
         # Separator
         vbox.pack_start(Gtk.Separator(), False, False, 0)
